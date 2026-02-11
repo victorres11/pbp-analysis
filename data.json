@@ -1,0 +1,1412 @@
+{
+  "teams": {
+    "georgia": {
+      "name": "Georgia",
+      "abbr": "UGA",
+      "conference": "SEC",
+      "color": "#ef4444",
+      "aggregates": {
+        "games": 13,
+        "record": "12-1",
+        "ppg": 40.0,
+        "opp_ppg": 14.3,
+        "explosives_per_game": 9.1,
+        "turnover_margin": -4,
+        "penalties_per_game": 5.5,
+        "red_zone_trips": 47,
+        "red_zone_tds": 38,
+        "red_zone_fgs": 19,
+        "red_zone_td_pct": 80.9
+      },
+      "games": [
+        {
+          "game_number": 1,
+          "opponent": "Marshall",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-08-30",
+          "points_for": 43,
+          "points_against": 3,
+          "total_plays": 62,
+          "explosives": 5,
+          "explosive_details": [
+            {
+              "yards": 22,
+              "type": "run",
+              "description": "Rush for 22 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 24,
+              "type": "run",
+              "description": "Rush for 24 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 66,
+              "type": "pass",
+              "description": "Pass for 66 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 51,
+              "type": "pass",
+              "description": "Pass for 51 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 33,
+              "type": "pass",
+              "description": "Pass for 33 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 0,
+          "penalties": 5,
+          "red_zone_trips": 3,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 2,
+          "opponent": "Austin Peay",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-09-06",
+          "points_for": 50,
+          "points_against": 3,
+          "total_plays": 56,
+          "explosives": 7,
+          "explosive_details": [
+            {
+              "yards": 25,
+              "type": "pass",
+              "description": "Pass for 25 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 45,
+              "type": "run",
+              "description": "Rush for 45 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 24,
+              "type": "pass",
+              "description": "Pass for 24 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 58,
+              "type": "pass",
+              "description": "Pass for 58 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 26,
+              "type": "pass",
+              "description": "Pass for 26 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 65,
+              "type": "pass",
+              "description": "Pass for 65 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 32,
+              "type": "run",
+              "description": "Rush for 32 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 0,
+          "penalties": 3,
+          "red_zone_trips": 2,
+          "red_zone_tds": 5,
+          "red_zone_fgs": 0
+        },
+        {
+          "game_number": 3,
+          "opponent": "Charlotte",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-09-13",
+          "points_for": 52,
+          "points_against": 3,
+          "total_plays": 74,
+          "explosives": 6,
+          "explosive_details": [
+            {
+              "yards": 41,
+              "type": "run",
+              "description": "Rush for 41 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 36,
+              "type": "pass",
+              "description": "Pass for 36 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 67,
+              "type": "run",
+              "description": "Rush for 67 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 31,
+              "type": "pass",
+              "description": "Pass for 31 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 80,
+              "type": "pass",
+              "description": "Pass for 80 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 20,
+              "type": "run",
+              "description": "Rush for 20 yards",
+              "quarter": "2"
+            }
+          ],
+          "turnovers_lost": 1,
+          "turnovers_gained": 0,
+          "penalties": 7,
+          "red_zone_trips": 2,
+          "red_zone_tds": 5,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 4,
+          "opponent": "Alabama",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-09-20",
+          "points_for": 41,
+          "points_against": 12,
+          "total_plays": 63,
+          "explosives": 12,
+          "explosive_details": [
+            {
+              "yards": 39,
+              "type": "run",
+              "description": "Rush for 39 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 65,
+              "type": "pass",
+              "description": "Pass for 65 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 79,
+              "type": "pass",
+              "description": "Pass for 79 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 30,
+              "type": "pass",
+              "description": "Pass for 30 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 60,
+              "type": "run",
+              "description": "Rush for 60 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 56,
+              "type": "pass",
+              "description": "Pass for 56 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 64,
+              "type": "run",
+              "description": "Rush for 64 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 72,
+              "type": "pass",
+              "description": "Pass for 72 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 2,
+          "penalties": 8,
+          "red_zone_trips": 6,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 5,
+          "opponent": "Auburn",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-09-27",
+          "points_for": 41,
+          "points_against": 13,
+          "total_plays": 66,
+          "explosives": 11,
+          "explosive_details": [
+            {
+              "yards": 33,
+              "type": "run",
+              "description": "Rush for 33 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 57,
+              "type": "pass",
+              "description": "Pass for 57 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 61,
+              "type": "run",
+              "description": "Rush for 61 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 57,
+              "type": "pass",
+              "description": "Pass for 57 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 40,
+              "type": "pass",
+              "description": "Pass for 40 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 60,
+              "type": "pass",
+              "description": "Pass for 60 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 76,
+              "type": "pass",
+              "description": "Pass for 76 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 31,
+              "type": "pass",
+              "description": "Pass for 31 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 2,
+          "penalties": 5,
+          "red_zone_trips": 3,
+          "red_zone_tds": 3,
+          "red_zone_fgs": 0
+        },
+        {
+          "game_number": 6,
+          "opponent": "Mississippi St",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-10-11",
+          "points_for": 41,
+          "points_against": 25,
+          "total_plays": 65,
+          "explosives": 12,
+          "explosive_details": [
+            {
+              "yards": 66,
+              "type": "pass",
+              "description": "Pass for 66 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 39,
+              "type": "run",
+              "description": "Rush for 39 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 52,
+              "type": "pass",
+              "description": "Pass for 52 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 73,
+              "type": "pass",
+              "description": "Pass for 73 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 63,
+              "type": "pass",
+              "description": "Pass for 63 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 34,
+              "type": "pass",
+              "description": "Pass for 34 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 66,
+              "type": "pass",
+              "description": "Pass for 66 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 30,
+              "type": "run",
+              "description": "Rush for 30 yards",
+              "quarter": "3"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 2,
+          "penalties": 6,
+          "red_zone_trips": 4,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 7,
+          "opponent": "Florida",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-10-18",
+          "points_for": 17,
+          "points_against": 30,
+          "total_plays": 61,
+          "explosives": 11,
+          "explosive_details": [
+            {
+              "yards": 22,
+              "type": "run",
+              "description": "Rush for 22 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 78,
+              "type": "pass",
+              "description": "Pass for 78 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 79,
+              "type": "pass",
+              "description": "Pass for 79 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 67,
+              "type": "pass",
+              "description": "Pass for 67 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 46,
+              "type": "pass",
+              "description": "Pass for 46 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 46,
+              "type": "pass",
+              "description": "Pass for 46 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 20,
+              "type": "run",
+              "description": "Rush for 20 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 25,
+              "type": "pass",
+              "description": "Pass for 25 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 0,
+          "penalties": 3,
+          "red_zone_trips": 2,
+          "red_zone_tds": 5,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 8,
+          "opponent": "Texas",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-10-25",
+          "points_for": 44,
+          "points_against": 10,
+          "total_plays": 61,
+          "explosives": 10,
+          "explosive_details": [
+            {
+              "yards": 64,
+              "type": "pass",
+              "description": "Pass for 64 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 65,
+              "type": "run",
+              "description": "Rush for 65 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 46,
+              "type": "run",
+              "description": "Rush for 46 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 70,
+              "type": "pass",
+              "description": "Pass for 70 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 75,
+              "type": "run",
+              "description": "Rush for 75 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 69,
+              "type": "pass",
+              "description": "Pass for 69 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 55,
+              "type": "pass",
+              "description": "Pass for 55 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 52,
+              "type": "pass",
+              "description": "Pass for 52 yards",
+              "quarter": "1"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 1,
+          "penalties": 6,
+          "red_zone_trips": 3,
+          "red_zone_tds": 4,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 9,
+          "opponent": "Ole Miss",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-11-01",
+          "points_for": 34,
+          "points_against": 10,
+          "total_plays": 58,
+          "explosives": 10,
+          "explosive_details": [
+            {
+              "yards": 66,
+              "type": "pass",
+              "description": "Pass for 66 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 24,
+              "type": "pass",
+              "description": "Pass for 24 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 77,
+              "type": "pass",
+              "description": "Pass for 77 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 45,
+              "type": "run",
+              "description": "Rush for 45 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 36,
+              "type": "run",
+              "description": "Rush for 36 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 40,
+              "type": "pass",
+              "description": "Pass for 40 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 43,
+              "type": "run",
+              "description": "Rush for 43 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 43,
+              "type": "pass",
+              "description": "Pass for 43 yards",
+              "quarter": "2"
+            }
+          ],
+          "turnovers_lost": 1,
+          "turnovers_gained": 0,
+          "penalties": 3,
+          "red_zone_trips": 2,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 10,
+          "opponent": "Tennessee",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-11-08",
+          "points_for": 29,
+          "points_against": 17,
+          "total_plays": 55,
+          "explosives": 12,
+          "explosive_details": [
+            {
+              "yards": 52,
+              "type": "run",
+              "description": "Rush for 52 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 80,
+              "type": "pass",
+              "description": "Pass for 80 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 72,
+              "type": "pass",
+              "description": "Pass for 72 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 63,
+              "type": "pass",
+              "description": "Pass for 63 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 47,
+              "type": "run",
+              "description": "Rush for 47 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 22,
+              "type": "pass",
+              "description": "Pass for 22 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 58,
+              "type": "pass",
+              "description": "Pass for 58 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 78,
+              "type": "pass",
+              "description": "Pass for 78 yards",
+              "quarter": "1"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 0,
+          "penalties": 7,
+          "red_zone_trips": 6,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 11,
+          "opponent": "Kentucky",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-11-15",
+          "points_for": 40,
+          "points_against": 28,
+          "total_plays": 57,
+          "explosives": 9,
+          "explosive_details": [
+            {
+              "yards": 59,
+              "type": "run",
+              "description": "Rush for 59 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 24,
+              "type": "pass",
+              "description": "Pass for 24 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 24,
+              "type": "run",
+              "description": "Rush for 24 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 52,
+              "type": "run",
+              "description": "Rush for 52 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 30,
+              "type": "pass",
+              "description": "Pass for 30 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 24,
+              "type": "run",
+              "description": "Rush for 24 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 26,
+              "type": "run",
+              "description": "Rush for 26 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 68,
+              "type": "pass",
+              "description": "Pass for 68 yards",
+              "quarter": "1"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 1,
+          "penalties": 7,
+          "red_zone_trips": 6,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 12,
+          "opponent": "Georgia Tech",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-11-29",
+          "points_for": 51,
+          "points_against": 7,
+          "total_plays": 56,
+          "explosives": 5,
+          "explosive_details": [
+            {
+              "yards": 50,
+              "type": "run",
+              "description": "Rush for 50 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 56,
+              "type": "run",
+              "description": "Rush for 56 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 45,
+              "type": "pass",
+              "description": "Pass for 45 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 49,
+              "type": "run",
+              "description": "Rush for 49 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 71,
+              "type": "run",
+              "description": "Rush for 71 yards",
+              "quarter": "3"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 1,
+          "penalties": 7,
+          "red_zone_trips": 6,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 13,
+          "opponent": "Alabama",
+          "conference": "SEC",
+          "is_power4": true,
+          "date": "2025-12-06",
+          "points_for": 37,
+          "points_against": 25,
+          "total_plays": 55,
+          "explosives": 8,
+          "explosive_details": [
+            {
+              "yards": 55,
+              "type": "pass",
+              "description": "Pass for 55 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 37,
+              "type": "pass",
+              "description": "Pass for 37 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 62,
+              "type": "pass",
+              "description": "Pass for 62 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 78,
+              "type": "pass",
+              "description": "Pass for 78 yards",
+              "quarter": "4"
+            },
+            {
+              "yards": 50,
+              "type": "run",
+              "description": "Rush for 50 yards",
+              "quarter": "2"
+            },
+            {
+              "yards": 23,
+              "type": "pass",
+              "description": "Pass for 23 yards",
+              "quarter": "1"
+            },
+            {
+              "yards": 41,
+              "type": "run",
+              "description": "Rush for 41 yards",
+              "quarter": "3"
+            },
+            {
+              "yards": 20,
+              "type": "pass",
+              "description": "Pass for 20 yards",
+              "quarter": "4"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 1,
+          "penalties": 4,
+          "red_zone_trips": 2,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 0
+        }
+      ]
+    },
+    "asu": {
+      "name": "Arizona State",
+      "abbr": "ASU",
+      "conference": "Big 12",
+      "color": "#f97316",
+      "aggregates": {
+        "games": 13,
+        "record": "5-7",
+        "ppg": 37.7,
+        "opp_ppg": 46.8,
+        "explosives_per_game": 3.9,
+        "turnover_margin": -4,
+        "penalties_per_game": 4.8,
+        "red_zone_trips": 43,
+        "red_zone_tds": 37,
+        "red_zone_fgs": 12,
+        "red_zone_td_pct": 86.0
+      },
+      "games": [
+        {
+          "game_number": 1,
+          "opponent": "NAU",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-08-30",
+          "points_for": 77,
+          "points_against": 28,
+          "total_plays": 57,
+          "explosives": 11,
+          "explosive_details": [
+            {
+              "yards": 22,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #1 K.Brown caught at NAU44, for 22 yard",
+              "quarter": "12"
+            },
+            {
+              "yards": 22,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at ASU26, for 22 yard",
+              "quarter": "08"
+            },
+            {
+              "yards": 34,
+              "type": "run",
+              "description": "No Huddle-Shotgun #1 K.Brown rush right for 34 yards gain to the NAU19 (#8 C.Moses), out of bounds, ",
+              "quarter": "05"
+            },
+            {
+              "yards": 19,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush middle for 19 yards gain to the NAU04 (#3 A.Ma'afu), 1ST DOWN. NAU",
+              "quarter": "05"
+            },
+            {
+              "yards": 20,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #7 C.Metayer caught at NAU43, for 20 ya",
+              "quarter": "00"
+            },
+            {
+              "yards": 52,
+              "type": "run",
+              "description": "No Huddle-Shotgun #10 S.Leavitt rush middle for 52 yards gain to the NAU00 TOUCHDOWN, clock 12:24, 1",
+              "quarter": "12"
+            },
+            {
+              "yards": 75,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #3 R.Brown caught at ASU20, for 75 yard",
+              "quarter": "08"
+            },
+            {
+              "yards": 15,
+              "type": "run",
+              "description": "No Huddle-Shotgun #10 S.Leavitt rush left for 15 yards gain to the ASU20 (#11 J.Wesley), out of boun",
+              "quarter": "06"
+            },
+            {
+              "yards": 18,
+              "type": "run",
+              "description": "No Huddle-Shotgun #10 S.Leavitt rush right for 18 yards gain to the NAU00 TOUCHDOWN, clock 00:11, 1S",
+              "quarter": "00"
+            },
+            {
+              "yards": 16,
+              "type": "run",
+              "description": "No Huddle-Shotgun #1 K.Brown rush left for 16 yards gain to the ASU46 (#4 M.Beresford), 1ST DOWN.",
+              "quarter": "06"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 1,
+          "penalties": 8,
+          "red_zone_trips": 3,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 2,
+          "opponent": "MSU",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-09-06",
+          "points_for": 28,
+          "points_against": 42,
+          "total_plays": 70,
+          "explosives": 5,
+          "explosive_details": [
+            {
+              "yards": 21,
+              "type": "run",
+              "description": "No Huddle-Shotgun #6 K.Udoh rush left for 21 yards gain to the ASU28 (#2 I.Smith), 1ST DOWN.",
+              "quarter": "00"
+            },
+            {
+              "yards": 23,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at MSU49, for 23 yard",
+              "quarter": "00"
+            },
+            {
+              "yards": 15,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush middle for 15 yards gain to the ASU46 (#21 H.Washington; #40 N.Mit",
+              "quarter": "14"
+            },
+            {
+              "yards": 21,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short left to #0 J.Tyson caught at MSU28, for 21 yards",
+              "quarter": "02"
+            },
+            {
+              "yards": 26,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush middle for 26 yards gain to the MSU03 (#4 D.Brumfield), 1ST DOWN.",
+              "quarter": "02"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 0,
+          "penalties": 4,
+          "red_zone_trips": 4,
+          "red_zone_tds": 4,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 3,
+          "opponent": "TXST",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-09-13",
+          "points_for": 56,
+          "points_against": 28,
+          "total_plays": 43,
+          "explosives": 3,
+          "explosive_details": [
+            {
+              "yards": 23,
+              "type": "run",
+              "description": "Shotgun #3 R.Brown rush left for 23 yards gain to the ASU43 (#7 R.Nolan), out of bounds, 1ST DOWN.",
+              "quarter": "13"
+            },
+            {
+              "yards": 36,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #0 J.Tyson caught at TXST37, for 36 yard",
+              "quarter": "08"
+            },
+            {
+              "yards": 30,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short left to #0 J.Tyson caught at TXST15, for 30 yard",
+              "quarter": "12"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 2,
+          "penalties": 2,
+          "red_zone_trips": 4,
+          "red_zone_tds": 3,
+          "red_zone_fgs": 0
+        },
+        {
+          "game_number": 4,
+          "opponent": "BAYLOR",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-09-20",
+          "points_for": 28,
+          "points_against": 42,
+          "total_plays": 30,
+          "explosives": 1,
+          "explosive_details": [
+            {
+              "yards": 61,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep middle to #83 D.Eusebio caught at BAYLOR48, for 6",
+              "quarter": "08"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 0,
+          "penalties": 11,
+          "red_zone_trips": 5,
+          "red_zone_tds": 3,
+          "red_zone_fgs": 0
+        },
+        {
+          "game_number": 5,
+          "opponent": "TCU",
+          "conference": "Big 12",
+          "is_power4": true,
+          "date": "2025-09-26",
+          "points_for": 49,
+          "points_against": 42,
+          "total_plays": 21,
+          "explosives": 1,
+          "explosive_details": [
+            {
+              "yards": 28,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush middle for 28 yards gain to the TCU36 (#2 J.Johnson), 1ST DOWN.",
+              "quarter": "01"
+            }
+          ],
+          "turnovers_lost": 1,
+          "turnovers_gained": 1,
+          "penalties": 2,
+          "red_zone_trips": 4,
+          "red_zone_tds": 1,
+          "red_zone_fgs": 0
+        },
+        {
+          "game_number": 6,
+          "opponent": "Utes",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-10-11",
+          "points_for": 14,
+          "points_against": 84,
+          "total_plays": 39,
+          "explosives": 0,
+          "explosive_details": [],
+          "turnovers_lost": 1,
+          "turnovers_gained": 1,
+          "penalties": 5,
+          "red_zone_trips": 3,
+          "red_zone_tds": 3,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 7,
+          "opponent": "TTU",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-10-18",
+          "points_for": 28,
+          "points_against": 42,
+          "total_plays": 68,
+          "explosives": 6,
+          "explosive_details": [
+            {
+              "yards": 17,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 17 yards gain to the ASU32 (#20 D.Balfour), 1ST DOWN.",
+              "quarter": "05"
+            },
+            {
+              "yards": 49,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #16 J.Hamilton caught at TTU25, for 49 ya",
+              "quarter": "04"
+            },
+            {
+              "yards": 45,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #16 J.Hamilton caught at TTU07, for 45 y",
+              "quarter": "03"
+            },
+            {
+              "yards": 23,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #7 C.Metayer caught at TTU33, for 23 yard",
+              "quarter": "04"
+            },
+            {
+              "yards": 22,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 22 yards gain to the ASU38 (#5 C.Wisniewski), 1ST DOWN.",
+              "quarter": "10"
+            },
+            {
+              "yards": 33,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at TTU39, for 33 yard",
+              "quarter": "01"
+            }
+          ],
+          "turnovers_lost": 1,
+          "turnovers_gained": 1,
+          "penalties": 4,
+          "red_zone_trips": 2,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 8,
+          "opponent": "UH",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-10-25",
+          "points_for": 21,
+          "points_against": 84,
+          "total_plays": 30,
+          "explosives": 4,
+          "explosive_details": [
+            {
+              "yards": 25,
+              "type": "pass",
+              "description": "Shotgun #10 S.Leavitt pass complete short right to #12 M.McClain caught at ASU42, for 25 yards to th",
+              "quarter": "10"
+            },
+            {
+              "yards": 33,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #12 M.McClain caught at UH 49, for 33 ya",
+              "quarter": "01"
+            },
+            {
+              "yards": 36,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #12 M.McClain caught at UH 44, for 36 yar",
+              "quarter": "12"
+            },
+            {
+              "yards": 23,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 23 yards gain to the UH 40 (#6 J.Allen), 1ST DOWN. 29 (#",
+              "quarter": "06"
+            }
+          ],
+          "turnovers_lost": 0,
+          "turnovers_gained": 0,
+          "penalties": 6,
+          "red_zone_trips": 3,
+          "red_zone_tds": 4,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 9,
+          "opponent": "ISU",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-11-01",
+          "points_for": 42,
+          "points_against": 28,
+          "total_plays": 58,
+          "explosives": 7,
+          "explosive_details": [
+            {
+              "yards": 16,
+              "type": "run",
+              "description": "No Huddle-Shotgun #2 J.Sims rush right for 16 yards gain to the ASU25 (#26 C.Bacon), 1ST DOWN.",
+              "quarter": "14"
+            },
+            {
+              "yards": 21,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #12 M.McClain caught at ISU33, for 21 yards ",
+              "quarter": "03"
+            },
+            {
+              "yards": 28,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete short right to #12 M.McClain caught at ASU32, for 28 yards",
+              "quarter": "12"
+            },
+            {
+              "yards": 38,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #18 J.Moss caught at ISU23, for 38 yards to ",
+              "quarter": "11"
+            },
+            {
+              "yards": 88,
+              "type": "run",
+              "description": "No Huddle-Shotgun #2 J.Sims rush middle for 88 yards gain to the ISU00 TOUCHDOWN, clock 07:47, 1ST D",
+              "quarter": "07"
+            },
+            {
+              "yards": 26,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 26 yards gain to the ASU49 (#7 T.Bell), out of bounds, 1",
+              "quarter": "06"
+            },
+            {
+              "yards": 15,
+              "type": "run",
+              "description": "No Huddle-Shotgun #2 J.Sims rush right for 15 yards gain to the ISU25, out of bounds at ISU25, 1ST D",
+              "quarter": "11"
+            }
+          ],
+          "turnovers_lost": 3,
+          "turnovers_gained": 1,
+          "penalties": 7,
+          "red_zone_trips": 3,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 10,
+          "opponent": "WVU",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-11-15",
+          "points_for": 42,
+          "points_against": 42,
+          "total_plays": 61,
+          "explosives": 4,
+          "explosive_details": [
+            {
+              "yards": 24,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete deep left to #12 M.McClain caught at ASU46, for 24 yards t",
+              "quarter": "14"
+            },
+            {
+              "yards": 21,
+              "type": "run",
+              "description": "No Huddle-Shotgun #2 J.Sims rush left for 21 yards gain to the WVU33 (#13 D.Carter Jr.), out of boun",
+              "quarter": "13"
+            },
+            {
+              "yards": 25,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete short middle to #18 J.Moss caught at WVU12, for 25 yards t",
+              "quarter": "12"
+            },
+            {
+              "yards": 33,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete short middle to #3 R.Brown caught at WVU26, for 33 yards t",
+              "quarter": "01"
+            }
+          ],
+          "turnovers_lost": 2,
+          "turnovers_gained": 2,
+          "penalties": 4,
+          "red_zone_trips": 3,
+          "red_zone_tds": 2,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 11,
+          "opponent": "COLO",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-11-22",
+          "points_for": 35,
+          "points_against": 14,
+          "total_plays": 67,
+          "explosives": 7,
+          "explosive_details": [
+            {
+              "yards": 42,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #0 J.Tyson caught at COLO31, for 42 yards to",
+              "quarter": "10"
+            },
+            {
+              "yards": 25,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete short right to #12 M.McClain caught at ASU41, for 25 yards",
+              "quarter": "14"
+            },
+            {
+              "yards": 33,
+              "type": "pass",
+              "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #3 R.Brown caught at COLO10, for 33 yards to",
+              "quarter": "03"
+            },
+            {
+              "yards": 59,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 59 yards gain to the COLO21 (#3 T.Parks), out of bounds,",
+              "quarter": "00"
+            },
+            {
+              "yards": 20,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush right for 20 yards gain to the ASU46 fumbled by #3 R.Brown at ASU4",
+              "quarter": "00"
+            },
+            {
+              "yards": 88,
+              "type": "run",
+              "description": "No Huddle-Shotgun #3 R.Brown rush middle for 88 yards gain to the COLO00 TOUCHDOWN, clock 13:31, 1ST",
+              "quarter": "13"
+            },
+            {
+              "yards": 25,
+              "type": "run",
+              "description": "No Huddle-Shotgun #6 K.Udoh rush middle for 25 yards gain to the COLO10 (#3 T.Parks), 1ST DOWN. DOWN",
+              "quarter": "10"
+            }
+          ],
+          "turnovers_lost": 4,
+          "turnovers_gained": 1,
+          "penalties": 9,
+          "red_zone_trips": 4,
+          "red_zone_tds": 4,
+          "red_zone_fgs": 1
+        },
+        {
+          "game_number": 12,
+          "opponent": "UA",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-11-28",
+          "points_for": 0,
+          "points_against": 49,
+          "total_plays": 0,
+          "explosives": 0,
+          "explosive_details": [],
+          "turnovers_lost": 0,
+          "turnovers_gained": 5,
+          "penalties": 0,
+          "red_zone_trips": 2,
+          "red_zone_tds": 4,
+          "red_zone_fgs": 2
+        },
+        {
+          "game_number": 13,
+          "opponent": "DUKE",
+          "conference": "Non-Conference",
+          "is_power4": false,
+          "date": "2025-12-31",
+          "points_for": 70,
+          "points_against": 84,
+          "total_plays": 13,
+          "explosives": 2,
+          "explosive_details": [
+            {
+              "yards": 17,
+              "type": "run",
+              "description": "No Huddle-Shotgun #22 J.Brown Jr. rush left for 17 yards gain to the ASU45 (#26 M.Jones; #21 L.Calla",
+              "quarter": "06"
+            },
+            {
+              "yards": 44,
+              "type": "run",
+              "description": "Shotgun #22 J.Brown Jr. rush right for 44 yards gain to the DUKE31 (#12 T.Freeman), out of bounds, 1",
+              "quarter": "15"
+            }
+          ],
+          "turnovers_lost": 1,
+          "turnovers_gained": 0,
+          "penalties": 1,
+          "red_zone_trips": 3,
+          "red_zone_tds": 3,
+          "red_zone_fgs": 1
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "generated": "2026-02-11",
+    "version": "1.0"
+  }
+}

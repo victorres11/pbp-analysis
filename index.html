@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBP Matchup Analysis — Georgia vs Arizona State</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; background: #09090b; color: #fafafa; }
+        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+        .stat-card { transition: all 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4); }
+        .nav-pill { transition: all 0.15s ease; }
+        .nav-pill:hover { background: rgba(255,255,255,0.08); }
+        .nav-pill.active { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+        .filter-chip { transition: all 0.15s ease; cursor: pointer; }
+        .filter-chip:hover { background: rgba(255,255,255,0.08); }
+        .filter-chip.active { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.4); }
+        .table-row:hover { background: rgba(255,255,255,0.03); }
+        .team-a { color: #ef4444; }
+        .team-b { color: #f97316; }
+        .team-a-bg { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.2); }
+        .team-b-bg { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.2); }
+        .team-a-bar { background: #ef4444; }
+        .team-b-bar { background: #f97316; }
+        .section-enter { animation: sectionEnter 0.4s ease-out; }
+        @keyframes sectionEnter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .schedule-row:hover { background: rgba(255,255,255,0.04); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .vs-badge { background: linear-gradient(135deg, #ef4444, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .collapsible-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .collapsible-body.open { max-height: 320px; overflow-y: auto; }
+        .chevron { transition: transform 0.3s ease; }
+        .chevron.open { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Top Bar -->
+<nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold text-xs">PBP</div>
+            <span class="text-sm font-semibold text-zinc-200">Matchup Analysis</span>
+            <span class="text-xs text-zinc-500 ml-1">v2.0</span>
+        </div>
+        <div class="flex items-center gap-2" id="filterBar">
+            <span class="text-xs text-zinc-500 mr-1">Filter:</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Team Header -->
+<div class="pt-20 pb-4 max-w-7xl mx-auto px-6">
+    <div class="flex items-center justify-center gap-6">
+        <div class="text-right">
+            <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
+            <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
+        </div>
+        <div class="text-4xl font-black vs-badge">VS</div>
+        <div class="text-left">
+            <h1 class="text-3xl font-extrabold team-b" id="teamBName">Arizona State</h1>
+            <p class="text-sm text-zinc-400" id="teamBRecord">5-7 · Big 12</p>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="sticky top-14 z-40 border-b border-white/5 bg-[#09090b]/90 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto py-2" id="tabNav"></div>
+</div>
+
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-6 py-6" id="mainContent"></main>
+
+<script>
+let DATA = null;
+let currentTab = 'overview';
+let currentFilter = 'all';
+
+const TABS = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'middle8', label: 'Middle 8', icon: '⏱️' },
+    { id: 'explosives', label: 'Explosive Plays', icon: '💥' },
+    { id: 'redzone', label: 'Red Zone', icon: '🔴' },
+    { id: 'penalties', label: 'Penalties', icon: '🚩' },
+    { id: '4thdown', label: '4th Down', icon: '🎯' },
+    { id: 'turnovers', label: 'Turnovers', icon: '🔄' },
+    { id: 'specialteams', label: 'Special Teams', icon: '🏈' },
+    { id: 'receiving', label: 'Receiving', icon: '🎯' },
+    { id: 'allplays', label: 'All Plays', icon: '📋' },
+];
+
+const FILTERS = [
+    { id: 'all', label: 'All Games' },
+    { id: 'conf', label: 'Conference' },
+    { id: 'nonconf', label: 'Non-Conference' },
+    { id: 'power4', label: 'Power 4' },
+    { id: 'last3', label: 'Last 3' },
+];
+
+function filterGames(games) {
+    switch(currentFilter) {
+        case 'conf': return games.filter(g => g.conference);
+        case 'nonconf': return games.filter(g => !g.conference);
+        case 'power4': return games.filter(g => g.is_power4);
+        case 'last3': return games.slice(-3);
+        default: return games;
+    }
+}
+
+function agg(games) {
+    const n = games.length || 1;
+    const pf = games.reduce((s,g) => s + g.points_for, 0);
+    const pa = games.reduce((s,g) => s + g.points_against, 0);
+    const wins = games.filter(g => g.points_for > g.points_against).length;
+    const losses = n - wins;
+    const expl = games.reduce((s,g) => s + g.explosives, 0);
+    const pen = games.reduce((s,g) => s + g.penalties, 0);
+    const tof = games.reduce((s,g) => s + g.turnovers_gained, 0);
+    const tol = games.reduce((s,g) => s + g.turnovers_lost, 0);
+    const rzt = games.reduce((s,g) => s + g.red_zone_trips, 0);
+    const rztd = games.reduce((s,g) => s + g.red_zone_tds, 0);
+    const rzfg = games.reduce((s,g) => s + g.red_zone_fgs, 0);
+    return {
+        games: n, wins, losses, record: `${wins}-${losses}`,
+        pf, pa, ppg: (pf/n).toFixed(1), oppg: (pa/n).toFixed(1),
+        expl, explpg: (expl/n).toFixed(1),
+        pen, penpg: (pen/n).toFixed(1),
+        tof, tol, tom: tof - tol,
+        rzt, rztd, rzfg,
+        rzpct: rzt ? ((rztd+rzfg)/rzt*100).toFixed(1) : '0',
+        rztdpct: rzt ? (rztd/rzt*100).toFixed(1) : '0',
+    };
+}
+
+function compBar(label, valA, valB, unit='') {
+    const max = Math.max(valA, valB, 1);
+    const pctA = (valA/max*100).toFixed(0);
+    const pctB = (valB/max*100).toFixed(0);
+    return `
+    <div class="glass rounded-xl p-4 mb-3">
+        <div class="text-xs text-zinc-500 mb-2 text-center">${label}</div>
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-bold team-a w-16 text-right">${valA}${unit}</span>
+            <div class="flex-1 flex gap-1 h-6">
+                <div class="flex-1 flex justify-end"><div class="team-a-bar rounded-l-md h-full" style="width:${pctA}%"></div></div>
+                <div class="flex-1"><div class="team-b-bar rounded-r-md h-full" style="width:${pctB}%"></div></div>
+            </div>
+            <span class="text-sm font-bold team-b w-16">${valB}${unit}</span>
+        </div>
+    </div>`;
+}
+
+function statCard(label, value, sub, teamClass) {
+    return `<div class="stat-card glass rounded-xl p-4 text-center">
+        <div class="text-xs text-zinc-500">${label}</div>
+        <div class="text-2xl font-bold ${teamClass} mt-1">${value}</div>
+        ${sub ? `<div class="text-xs text-zinc-500 mt-1">${sub}</div>` : ''}
+    </div>`;
+}
+
+function scheduleTable(team, games, teamClass) {
+    let rows = games.map((g,i) => {
+        const w = g.points_for > g.points_against;
+        return `<tr class="schedule-row border-b border-white/5">
+            <td class="py-2 px-3 text-xs text-zinc-400">${i+1}</td>
+            <td class="py-2 px-3 text-sm">${g.opponent}</td>
+            <td class="py-2 px-3 text-sm font-bold ${w ? 'text-green-400' : 'text-red-400'}">${w?'W':'L'} ${g.points_for}-${g.points_against}</td>
+            <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
+            <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
+        </tr>`;
+    }).join('');
+    return `<div class="glass rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
+        <table class="w-full"><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+function chartContainer(id, h='300px') {
+    return `<div id="${id}" style="width:100%;height:${h}"></div>`;
+}
+
+function collapsible(title, count, content) {
+    const uid = 'coll_' + Math.random().toString(36).substr(2,9);
+    return `<div class="glass rounded-xl mt-4 overflow-hidden">
+        <button onclick="document.getElementById('${uid}').classList.toggle('open');this.querySelector('.chevron').classList.toggle('open')" class="w-full px-4 py-3 flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-200 transition">
+            <span>${title} — ${count} plays</span>
+            <svg class="chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="${uid}" class="collapsible-body">${content}</div>
+    </div>`;
+}
+
+// ===== TAB RENDERERS =====
+
+function renderOverview() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+
+    let html = `<div class="section-enter">`;
+    // Stat cards
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a')}
+            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a')}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b')}
+            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b')}
+        </div>
+    </div>`;
+
+    // Comparison bars
+    html += compBar('Points Per Game', gs.ppg, as_.ppg);
+    html += compBar('Opp PPG', gs.oppg, as_.oppg);
+    html += compBar('Explosives/Game', gs.explpg, as_.explpg);
+    html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += compBar('RZ TD%', gs.rztdpct, as_.rztdpct, '%');
+
+    // Points by game chart
+    html += `<div class="glass rounded-xl p-4 mt-6">${chartContainer('ppgChart')}</div>`;
+
+    // Schedule tables
+    html += `<div class="grid grid-cols-2 gap-4 mt-6">
+        ${scheduleTable(ga, gf, 'team-a')}
+        ${scheduleTable(aa, af, 'team-b')}
+    </div>`;
+    html += `</div>`;
+    return html;
+}
+
+function initOverviewCharts() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const c = echarts.init(document.getElementById('ppgChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'bar', data: gf.map(g => g.points_for), itemStyle: { color: '#ef4444' } },
+            { name: 'Arizona State', type: 'bar', data: af.map(g => g.points_for), itemStyle: { color: '#f97316' } }
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderExplosives() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a')}
+        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b')}
+    </div>`;
+    html += compBar('Explosives/Game', gs.explpg, as_.explpg);
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('explChart')}</div>`;
+
+    // Explosive details for ASU
+    const allExpl = af.flatMap(g => (g.explosive_details||[]).map(e => ({...e, opponent: g.opponent})));
+    if (allExpl.length) {
+        let tbl = `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">Opp</th><th class="py-2 px-2 text-left text-zinc-500">Desc</th><th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+        </tr></thead><tbody>${allExpl.map(e => `<tr class="border-b border-white/5 table-row"><td class="py-1 px-2">${e.opponent||''}</td><td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,80)}</td><td class="py-1 px-2 text-right font-bold ${e.yards>=20?'text-orange-400':'text-zinc-300'}">${e.yards||''}</td></tr>`).join('')}</tbody></table>`;
+        html += collapsible('Arizona State Explosive Plays', allExpl.length, tbl);
+    }
+    html += `</div>`;
+    return html;
+}
+
+function initExplosivesCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('explChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'line', data: gf.map(g => g.explosives), itemStyle: { color: '#ef4444' }, smooth: true },
+            { name: 'Arizona State', type: 'line', data: af.map(g => g.explosives), itemStyle: { color: '#f97316' }, smooth: true }
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderRedzone() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('RZ Trips', gs.rzt, '', 'team-a')}
+            ${statCard('RZ TDs', gs.rztd, gs.rztdpct+'%', 'team-a')}
+            ${statCard('RZ FGs', gs.rzfg, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('RZ Trips', as_.rzt, '', 'team-b')}
+            ${statCard('RZ TDs', as_.rztd, as_.rztdpct+'%', 'team-b')}
+            ${statCard('RZ FGs', as_.rzfg, '', 'team-b')}
+        </div>
+    </div>`;
+    html += compBar('RZ TD Rate', gs.rztdpct, as_.rztdpct, '%');
+    html += compBar('RZ Score Rate', gs.rzpct, as_.rzpct, '%');
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">${chartContainer('rzChartA','250px')}</div>
+        <div class="glass rounded-xl p-4">${chartContainer('rzChartB','250px')}</div>
+    </div>`;
+    html += `</div>`;
+    return html;
+}
+
+function initRedzoneCharts() {
+    const gs = agg(filterGames(DATA.teams.georgia.games));
+    const as_ = agg(filterGames(DATA.teams.asu.games));
+    const noScore = (s) => Math.max(0, s.rzt - s.rztd - s.rzfg);
+    [['rzChartA', gs, '#ef4444', 'Georgia'], ['rzChartB', as_, '#f97316', 'Arizona State']].forEach(([id, s, col, name]) => {
+        const c = echarts.init(document.getElementById(id), 'dark');
+        c.setOption({
+            backgroundColor: 'transparent',
+            title: { text: name, left: 'center', textStyle: { color: '#a1a1aa', fontSize: 13 } },
+            tooltip: { trigger: 'item' },
+            series: [{ type: 'pie', radius: ['40%','70%'], data: [
+                { value: s.rztd, name: 'TD', itemStyle: { color: '#22c55e' } },
+                { value: s.rzfg, name: 'FG', itemStyle: { color: '#eab308' } },
+                { value: noScore(s), name: 'No Score', itemStyle: { color: '#71717a' } },
+            ], label: { color: '#a1a1aa', fontSize: 11 } }]
+        });
+        window.addEventListener('resize', () => c.resize());
+    });
+}
+
+function renderTurnovers() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gs = agg(gf), as_ = agg(af);
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a')}
+        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b')}
+    </div>`;
+    html += compBar('Turnovers Forced', gs.tof, as_.tof);
+    html += compBar('Turnovers Lost', gs.tol, as_.tol);
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('toChart')}</div>`;
+    html += `</div>`;
+    return html;
+}
+
+function initTurnoverCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('toChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia TO Margin', 'ASU TO Margin'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia TO Margin', type: 'bar', data: gf.map(g => g.turnovers_gained - g.turnovers_lost), itemStyle: { color: '#ef4444' } },
+            { name: 'ASU TO Margin', type: 'bar', data: af.map(g => g.turnovers_gained - g.turnovers_lost), itemStyle: { color: '#f97316' } },
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderPenalties() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gs = agg(gf), as_ = agg(af);
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a')}
+        ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b')}
+    </div>`;
+    html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('penChart')}</div>`;
+    html += `</div>`;
+    return html;
+}
+
+function initPenaltyCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('penChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'line', data: gf.map(g => g.penalties), itemStyle: { color: '#ef4444' }, smooth: true, areaStyle: { color: 'rgba(239,68,68,0.1)' } },
+            { name: 'Arizona State', type: 'line', data: af.map(g => g.penalties), itemStyle: { color: '#f97316' }, smooth: true, areaStyle: { color: 'rgba(249,115,22,0.1)' } },
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderSimpleTab(title, msg) {
+    return `<div class="section-enter"><div class="glass rounded-xl p-8 text-center">
+        <div class="text-2xl mb-2">${title}</div>
+        <div class="text-zinc-500">${msg}</div>
+    </div></div>`;
+}
+
+// ===== RENDER ENGINE =====
+
+const renderers = {
+    overview: { render: renderOverview, init: initOverviewCharts },
+    explosives: { render: renderExplosives, init: initExplosivesCharts },
+    redzone: { render: renderRedzone, init: initRedzoneCharts },
+    turnovers: { render: renderTurnovers, init: initTurnoverCharts },
+    penalties: { render: renderPenalties, init: initPenaltyCharts },
+    middle8: { render: () => renderSimpleTab('⏱️ Middle 8', 'Last 4 min of 1H + first 4 min of 2H analysis — requires play-level clock data (coming soon)') },
+    '4thdown': { render: () => renderSimpleTab('🎯 4th Down Decisions', 'Go-for-it conversion analysis — requires play-level down/distance data (coming soon)') },
+    specialteams: { render: () => renderSimpleTab('🏈 Special Teams', 'Kickoffs, punts, FGs, returns — requires play-type classification (coming soon)') },
+    receiving: { render: () => renderSimpleTab('🎯 Situational Receiving', '3rd down + red zone receiving — requires player-level data (coming soon)') },
+    allplays: { render: () => renderSimpleTab('📋 All Plays Browser', 'Expandable play tree — requires full play-by-play data export (coming soon)') },
+};
+
+function renderTab() {
+    const main = document.getElementById('mainContent');
+    const r = renderers[currentTab];
+    main.innerHTML = r ? r.render() : '';
+    if (r && r.init) setTimeout(r.init, 50);
+}
+
+function buildNav() {
+    const nav = document.getElementById('tabNav');
+    nav.innerHTML = TABS.map(t =>
+        `<button class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent whitespace-nowrap ${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
+    ).join('');
+}
+
+function buildFilters() {
+    const bar = document.getElementById('filterBar');
+    bar.innerHTML = '<span class="text-xs text-zinc-500 mr-1">Filter:</span>' + FILTERS.map(f =>
+        `<button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${f.id===currentFilter?'active':''}" onclick="switchFilter('${f.id}')">${f.label}</button>`
+    ).join('');
+}
+
+function switchTab(id) {
+    currentTab = id;
+    buildNav();
+    renderTab();
+}
+
+function switchFilter(id) {
+    currentFilter = id;
+    buildFilters();
+    renderTab();
+}
+
+// ===== INIT =====
+fetch('data.json').then(r => r.json()).then(d => {
+    DATA = d;
+    const ga = d.teams.georgia, aa = d.teams.asu;
+    document.getElementById('teamAName').textContent = ga.name;
+    document.getElementById('teamARecord').textContent = ga.aggregates.record + ' · ' + ga.conference;
+    document.getElementById('teamBName').textContent = aa.name;
+    document.getElementById('teamBRecord').textContent = aa.aggregates.record + ' · ' + aa.conference;
+    buildNav();
+    buildFilters();
+    renderTab();
+}).catch(e => {
+    document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
+});
+</script>
+</body>
+</html>
