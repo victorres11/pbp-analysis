@@ -312,6 +312,85 @@ def compute_fourth_down_stats(plays, our_abbr):
     return attempts, conversions
 
 
+def parse_penalty_details(plays, our_abbr, opp_abbr):
+    """Extract detailed penalty information from plays."""
+    penalty_details = []
+    
+    # Common penalty patterns
+    penalty_patterns = [
+        (r'HOLDING', 'Holding'),
+        (r'FALSE START', 'False Start'),
+        (r'PASS INTERFERENCE', 'Pass Interference'),
+        (r'OFFSIDE', 'Offside'),
+        (r'ILLEGAL (FORMATION|PROCEDURE|MOTION|SHIFT|BLOCK)', 'Illegal \\1'),
+        (r'ROUGHING THE (PASSER|KICKER)', 'Roughing the \\1'),
+        (r'FACEMASK', 'Facemask'),
+        (r'UNSPORTSMANLIKE', 'Unsportsmanlike Conduct'),
+        (r'TARGETING', 'Targeting'),
+        (r'DELAY OF GAME', 'Delay of Game'),
+        (r'ENCROACHMENT', 'Encroachment'),
+        (r'NEUTRAL ZONE INFRACTION', 'Neutral Zone Infraction'),
+        (r'ILLEGAL HANDS', 'Illegal Hands'),
+        (r'CLIPPING', 'Clipping'),
+        (r'INTENTIONAL GROUNDING', 'Intentional Grounding'),
+    ]
+    
+    for p in plays:
+        desc = p.description or ''
+        desc_upper = desc.upper()
+        
+        if 'PENALTY' not in desc_upper and 'PENALIZED' not in desc_upper:
+            continue
+        
+        # Parse penalty type
+        penalty_type = 'Unknown'
+        for pattern, name in penalty_patterns:
+            if re.search(pattern, desc_upper):
+                penalty_type = re.sub(pattern, name, desc_upper, count=1)
+                # Clean up the penalty type
+                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
+                penalty_type = penalty_type.title()
+                break
+        
+        # Parse yards
+        yards_match = re.search(r'(\d+)\s*YARD', desc_upper)
+        yards = int(yards_match.group(1)) if yards_match else 0
+        
+        # Parse accepted/declined
+        accepted = 'DECLINED' not in desc_upper and 'OFFSETTING' not in desc_upper
+        
+        # Determine penalized team
+        penalized_team = None
+        if p.offense == our_abbr:
+            # Check if it says opponent team name in penalty
+            if opp_abbr and opp_abbr.upper() in desc_upper:
+                penalized_team = opp_abbr
+            else:
+                penalized_team = our_abbr
+        elif p.offense == opp_abbr:
+            if our_abbr and our_abbr.upper() in desc_upper:
+                penalized_team = our_abbr
+            else:
+                penalized_team = opp_abbr
+        
+        # Determine offense or defense
+        # If the penalized team is the offense team, it's an offensive penalty
+        offense_or_defense = 'offense' if penalized_team == p.offense else 'defense'
+        
+        penalty_details.append({
+            'type': penalty_type,
+            'team': penalized_team or '?',
+            'yards': yards,
+            'accepted': accepted,
+            'description': desc,
+            'quarter': p.quarter,
+            'clock': p.clock or '',
+            'offense_or_defense': offense_or_defense,
+        })
+    
+    return penalty_details
+
+
 def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     stats = {
         'kickoff_returns': 0,
@@ -704,6 +783,7 @@ def process_team_games(pdf_dir, team_identifier):
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
+        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -722,6 +802,7 @@ def process_team_games(pdf_dir, team_identifier):
             'turnovers_lost': our_turnovers_lost,
             'turnovers_gained': opp_turnovers_lost,
             'penalties': our_penalties,
+            'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
             'red_zone_tds': rz_tds,
             'red_zone_fgs': rz_fgs,
