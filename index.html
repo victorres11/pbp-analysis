@@ -798,9 +798,18 @@ function switchTab(id) {
     renderTab();
 }
 
+function updateHeader() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    document.getElementById('teamARecord').textContent = gs.record + ' · ' + ga.conference;
+    document.getElementById('teamBRecord').textContent = as_.record + ' · ' + aa.conference;
+}
+
 function switchFilter(id) {
     currentFilter = id;
     buildFilters();
+    updateHeader();
     renderTab();
 }
 
@@ -809,11 +818,10 @@ fetch('data.json').then(r => r.json()).then(d => {
     DATA = d;
     const ga = d.teams.georgia, aa = d.teams.asu;
     document.getElementById('teamAName').textContent = ga.name;
-    document.getElementById('teamARecord').textContent = ga.aggregates.record + ' · ' + ga.conference;
     document.getElementById('teamBName').textContent = aa.name;
-    document.getElementById('teamBRecord').textContent = aa.aggregates.record + ' · ' + aa.conference;
     buildNav();
     buildFilters();
+    updateHeader();
     renderTab();
 }).catch(e => {
     document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
