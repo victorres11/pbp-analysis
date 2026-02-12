@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PBP Matchup Analysis — Georgia vs Arizona State</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -48,7 +49,7 @@
 <nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
     <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold text-xs">PBP</div>
+            <img src="assets/vt-logo-icon.png" alt="VT Sports Solutions" style="height:32px">
             <span class="text-sm font-semibold text-zinc-200">Matchup Analysis</span>
             <span class="text-xs text-zinc-500 ml-1">v2.0</span>
         </div>
@@ -818,5 +819,9 @@ fetch('data.json').then(r => r.json()).then(d => {
     document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
 });
 </script>
+<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
+  <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
+  <img src="assets/vt-logo-text.png" alt="VT Sports Solutions" style="height:20px;">
+</a>
 </body>
 </html>
