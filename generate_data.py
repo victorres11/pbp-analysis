@@ -219,6 +219,51 @@ def compute_middle8_stats(plays, our_abbr, opp_abbr):
     return points_for, points_against, scoring_plays
 
 
+def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
+    """
+    Parse spot field to determine yards-to-goal.
+    
+    Examples:
+    - offense=UGA, spot="ALA15" → 15 yards to goal (opponent's side)
+    - offense=UGA, spot="UGA40" → 60 yards to goal (own side)
+    - spot="50" → 50 yards to goal (midfield)
+    
+    Returns yards-to-goal or None if spot is invalid.
+    """
+    if not spot or not offense_abbr:
+        return None
+    
+    spot = spot.strip().upper()
+    offense_abbr = offense_abbr.upper()
+    opponent_abbr = (opponent_abbr or '').upper()
+    
+    # Handle midfield
+    if spot == '50':
+        return 50
+    
+    # Extract number from spot
+    match = re.search(r'(\d+)', spot)
+    if not match:
+        return None
+    
+    yards_num = int(match.group(1))
+    
+    # If spot contains opponent's abbreviation, the number IS yards-to-goal
+    if opponent_abbr and opponent_abbr in spot:
+        return yards_num
+    
+    # If spot contains offense's abbreviation, yards-to-goal = 100 - number
+    if offense_abbr in spot:
+        return 100 - yards_num
+    
+    # Try to guess: if number is <= 50, assume it's on opponent's side
+    # This is a fallback heuristic for ambiguous cases
+    if yards_num <= 50:
+        return yards_num
+    else:
+        return 100 - yards_num
+
+
 def parse_fourth_distance(down_distance):
     m = re.match(r'^4-(\d+|Goal)', down_distance or '')
     if not m:
@@ -405,21 +450,205 @@ def process_team_games(pdf_dir, team_identifier):
                         'type': 'pass' if is_pass else 'rush'
                     })
         
-        # Red zone trips (drives starting or entering inside 20)
-        rz_trips = 0
-        rz_tds = 0
-        rz_fgs = 0
-        # Simple heuristic: count scoring plays from inside 20
-        for p in g.plays:
-            if p.offense == our_abbr and p.is_scoring:
+        # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
+        # Track trips, TDs, FGs, and failed attempts for each zone
+        green_zone_trips = 0
+        green_zone_tds = 0
+        green_zone_fgs = 0
+        green_zone_failed = 0
+        
+        red_zone_trips = 0
+        red_zone_tds = 0
+        red_zone_fgs = 0
+        red_zone_failed = 0
+        
+        tight_red_zone_trips = 0
+        tight_red_zone_tds = 0
+        tight_red_zone_fgs = 0
+        tight_red_zone_failed = 0
+        
+        red_zone_plays = []
+        
+        # Track drives that enter each zone
+        drives_by_zone = {
+            'green': set(),
+            'red': set(),
+            'tight_red': set()
+        }
+        
+        # Track drive results (need to track per drive)
+        drive_results = {}  # drive_id -> {'zone': str, 'result': 'TD'/'FG'/'FAILED'}
+        
+        current_drive = 0
+        for i, p in enumerate(g.plays):
+            if p.offense != our_abbr:
+                if i > 0 and g.plays[i-1].offense == our_abbr:
+                    current_drive += 1
+                continue
+            
+            ytg = parse_yards_to_goal(p.spot, our_abbr, opp_abbr)
+            if ytg is None:
+                continue
+            
+            # Track which zones this drive entered
+            if ytg <= 30:
+                drives_by_zone['green'].add(current_drive)
+                # Add play to red_zone_plays if it's in any tracked zone
+                play_dict = {
+                    'quarter': p.quarter,
+                    'clock': p.clock or '',
+                    'down_distance': p.down_distance or '',
+                    'yards_to_goal': ytg,
+                    'play_type': 'pass' if 'PASS' in (p.description or '').upper() else 'rush',
+                    'yards': p.yards or 0,
+                    'scoring': p.is_scoring,
+                    'description': p.description or '',
+                    'zone': 'green' if ytg <= 30 else ''
+                }
+                
+                if ytg <= 20:
+                    drives_by_zone['red'].add(current_drive)
+                    play_dict['zone'] = 'red'
+                    
+                    if ytg <= 10:
+                        drives_by_zone['tight_red'].add(current_drive)
+                        play_dict['zone'] = 'tight_red'
+                
+                red_zone_plays.append(play_dict)
+            
+            # Check for scoring on this play to determine drive result
+            if p.is_scoring:
                 desc = (p.description or '').upper()
-                spot = p.spot or ''
-                # Check if in red zone based on spot
-                rz_trips += 1
-                if 'FIELD GOAL' in desc or 'FG' in desc:
-                    rz_fgs += 1
-                else:
-                    rz_tds += 1
+                is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
+                is_td = 'TOUCHDOWN' in desc or 'TD' in desc
+                
+                # Determine which zone this score came from
+                if ytg <= 10:
+                    if is_td:
+                        drive_results[current_drive] = {'zone': 'tight_red', 'result': 'TD'}
+                    elif is_fg:
+                        drive_results[current_drive] = {'zone': 'tight_red', 'result': 'FG'}
+                elif ytg <= 20:
+                    if is_td:
+                        drive_results[current_drive] = {'zone': 'red', 'result': 'TD'}
+                    elif is_fg:
+                        drive_results[current_drive] = {'zone': 'red', 'result': 'FG'}
+                elif ytg <= 30:
+                    if is_td:
+                        drive_results[current_drive] = {'zone': 'green', 'result': 'TD'}
+                    elif is_fg:
+                        drive_results[current_drive] = {'zone': 'green', 'result': 'FG'}
+        
+        # Count trips and outcomes
+        green_zone_trips = len(drives_by_zone['green'])
+        red_zone_trips = len(drives_by_zone['red'])
+        tight_red_zone_trips = len(drives_by_zone['tight_red'])
+        
+        # Count successful outcomes per zone (cumulative: tight_red ⊂ red ⊂ green)
+        for drive_id, result_info in drive_results.items():
+            zone = result_info['zone']
+            result = result_info['result']
+            
+            # If scored from tight red, it counts for all three zones
+            if zone == 'tight_red':
+                if result == 'TD':
+                    tight_red_zone_tds += 1
+                    red_zone_tds += 1
+                    green_zone_tds += 1
+                elif result == 'FG':
+                    tight_red_zone_fgs += 1
+                    red_zone_fgs += 1
+                    green_zone_fgs += 1
+            # If scored from red (but not tight red), counts for red and green
+            elif zone == 'red':
+                if result == 'TD':
+                    red_zone_tds += 1
+                    green_zone_tds += 1
+                elif result == 'FG':
+                    red_zone_fgs += 1
+                    green_zone_fgs += 1
+            # If scored from green (but not red), counts only for green
+            elif zone == 'green':
+                if result == 'TD':
+                    green_zone_tds += 1
+                elif result == 'FG':
+                    green_zone_fgs += 1
+        
+        # Calculate failed attempts (trips - TDs - FGs)
+        green_zone_failed = green_zone_trips - (green_zone_tds + green_zone_fgs)
+        red_zone_failed = red_zone_trips - (red_zone_tds + red_zone_fgs)
+        tight_red_zone_failed = tight_red_zone_trips - (tight_red_zone_tds + tight_red_zone_fgs)
+        
+        # For backward compatibility, keep old rz_ fields as red zone (20 & in)
+        rz_trips = red_zone_trips
+        rz_tds = red_zone_tds
+        rz_fgs = red_zone_fgs
+        
+        # Post-Turnover Drive Tracking
+        post_turnover_drives = []
+        
+        for i, p in enumerate(g.plays):
+            if not p.is_turnover:
+                continue
+            
+            # Identify turnover details
+            desc = (p.description or '').upper()
+            turnover_type = 'INT' if 'INTERC' in desc else 'FUM' if 'FUMBLE' in desc else 'TO'
+            lost_by = p.offense or '?'
+            recovered_by = opp_abbr if lost_by == our_abbr else our_abbr
+            
+            # Find the next play by the recovering team (start of their drive)
+            drive_start_idx = None
+            for j in range(i + 1, len(g.plays)):
+                next_play = g.plays[j]
+                if next_play.offense == recovered_by:
+                    drive_start_idx = j
+                    break
+            
+            if drive_start_idx is None:
+                continue
+            
+            # Track this drive until possession changes
+            drive_result = 'NO SCORE'
+            points_scored = 0
+            drive_plays = []
+            
+            for k in range(drive_start_idx, len(g.plays)):
+                dp = g.plays[k]
+                
+                # Stop if possession changes
+                if dp.offense != recovered_by:
+                    break
+                
+                drive_plays.append(dp)
+                
+                # Check for scoring
+                if dp.is_scoring:
+                    dp_desc = (dp.description or '').upper()
+                    if 'TOUCHDOWN' in dp_desc or 'TD' in dp_desc:
+                        drive_result = 'TD'
+                        points_scored = 6  # simplified, not counting PAT
+                    elif 'FIELD GOAL' in dp_desc or re.search(r'\bFG\b', dp_desc):
+                        drive_result = 'FG'
+                        points_scored = 3
+                    break
+            
+            # Build description for the drive
+            if drive_plays:
+                first_play = drive_plays[0]
+                drive_desc = f"{turnover_type} by {lost_by}, recovered by {recovered_by}. Drive: {drive_result}"
+                
+                post_turnover_drives.append({
+                    'quarter': p.quarter,
+                    'clock': p.clock or '',
+                    'turnover_type': turnover_type,
+                    'lost_by': lost_by,
+                    'recovered_by': recovered_by,
+                    'drive_result': drive_result,
+                    'points_scored': points_scored,
+                    'description': drive_desc,
+                    'turnover_description': p.description or '',
+                })
         
         # Determine conference membership
         sec_teams = [
@@ -483,6 +712,16 @@ def process_team_games(pdf_dir, team_identifier):
             'red_zone_trips': rz_trips,
             'red_zone_tds': rz_tds,
             'red_zone_fgs': rz_fgs,
+            'green_zone_trips': green_zone_trips,
+            'green_zone_tds': green_zone_tds,
+            'green_zone_fgs': green_zone_fgs,
+            'green_zone_failed': green_zone_failed,
+            'tight_red_zone_trips': tight_red_zone_trips,
+            'tight_red_zone_tds': tight_red_zone_tds,
+            'tight_red_zone_fgs': tight_red_zone_fgs,
+            'tight_red_zone_failed': tight_red_zone_failed,
+            'red_zone_plays': red_zone_plays,
+            'post_turnover_drives': post_turnover_drives,
             'middle8_points_for': middle8_for,
             'middle8_points_against': middle8_against,
             'middle8_scoring_plays': middle8_scoring,
