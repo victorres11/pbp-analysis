@@ -655,6 +655,7 @@ def process_team_games(pdf_dir, team_identifier):
         
         # Track drive results (need to track per drive)
         drive_results = {}  # drive_id -> {'zone': str, 'result': 'TD'/'FG'/'FAILED'}
+        drive_failures = {}  # drive_id -> 'TURNOVER'/'DOWNS'/'MISSED_FG'
         
         current_drive = 0
         for i, p in enumerate(g.plays):
@@ -719,6 +720,22 @@ def process_team_games(pdf_dir, team_identifier):
                         drive_results[current_drive] = {'zone': 'green', 'result': 'TD'}
                     elif is_fg:
                         drive_results[current_drive] = {'zone': 'green', 'result': 'FG'}
+
+            # Track failed outcomes: turnovers, turnover on downs, missed FGs
+            if current_drive not in drive_results and current_drive not in drive_failures:
+                is_turnover = p.is_turnover
+                is_turnover_on_downs = 'TURNOVER ON DOWNS' in desc
+                is_fg_attempt = is_fg
+                is_fg_made = is_fg_attempt and ('GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc)
+                is_fg_missed = is_fg_attempt and not is_fg_made and (
+                    'NO GOOD' in desc or 'MISSED' in desc or 'BLOCKED' in desc or 'WIDE' in desc
+                )
+                if is_turnover:
+                    drive_failures[current_drive] = 'TURNOVER'
+                elif is_turnover_on_downs:
+                    drive_failures[current_drive] = 'DOWNS'
+                elif is_fg_missed:
+                    drive_failures[current_drive] = 'MISSED_FG'
         
         # Count trips and outcomes
         green_zone_trips = len(drives_by_zone['green'])
@@ -755,10 +772,17 @@ def process_team_games(pdf_dir, team_identifier):
                 elif result == 'FG':
                     green_zone_fgs += 1
         
-        # Calculate failed attempts (trips - TDs - FGs)
-        green_zone_failed = green_zone_trips - (green_zone_tds + green_zone_fgs)
-        red_zone_failed = red_zone_trips - (red_zone_tds + red_zone_fgs)
-        tight_red_zone_failed = tight_red_zone_trips - (tight_red_zone_tds + tight_red_zone_fgs)
+        # Count failed outcomes per zone (turnovers, turnover on downs, missed FGs)
+        for drive_id in drive_failures:
+            if drive_id in drives_by_zone['tight_red']:
+                tight_red_zone_failed += 1
+                red_zone_failed += 1
+                green_zone_failed += 1
+            elif drive_id in drives_by_zone['red']:
+                red_zone_failed += 1
+                green_zone_failed += 1
+            elif drive_id in drives_by_zone['green']:
+                green_zone_failed += 1
         
         # For backward compatibility, keep old rz_ fields as red zone (20 & in)
         rz_trips = red_zone_trips

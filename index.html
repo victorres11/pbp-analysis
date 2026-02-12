@@ -492,7 +492,9 @@ function renderRedzone() {
 
     let html = `<div class="section-enter">`;
     html += renderZoneSection('Green Zone', '(30 yards & in)', gs, as_, 'green_zone', gf, af);
+    html += `<div class="border-t-2 border-zinc-700 my-6"></div>`;
     html += renderZoneSection('Red Zone', '(20 yards & in)', gs, as_, 'red_zone', gf, af);
+    html += `<div class="border-t-2 border-zinc-700 my-6"></div>`;
     html += renderZoneSection('Tight Red Zone', '(10 yards & in)', gs, as_, 'tight_red_zone', gf, af);
     html += `</div>`;
     return html;
