@@ -1,3 +1,0 @@
-{
-  "buildCommand": "bash inject-version.sh && mkdir -p .vercel/output/static && cp index.html data.json favicon.png .vercel/output/static/ && cp -r assets .vercel/output/static/"
-}

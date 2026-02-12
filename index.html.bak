@@ -51,7 +51,7 @@
         <div class="flex items-center gap-3">
             <img src="assets/vt-logo-icon.png" alt="VT Sports Solutions" style="height:32px">
             <span class="text-sm font-semibold text-zinc-200">Matchup Analysis</span>
-            <span class="text-xs text-zinc-500 ml-1">da2ca32 • 2026-02-12 12:31 PM MST</span>
+            <span class="text-xs text-zinc-500 ml-1">v2.0</span>
         </div>
         <div class="flex items-center gap-2" id="filterBar">
             <span class="text-xs text-zinc-500 mr-1">Filter:</span>
