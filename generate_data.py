@@ -605,6 +605,8 @@ def process_team_games(pdf_dir, team_identifier):
         
         # Count explosive plays
         our_explosives = 0
+        our_explosive_rushes = 0
+        our_explosive_passes = 0
         our_explosive_details = []
         for p in g.plays:
             if p.offense == our_abbr and p.yards and not p.is_no_play:
@@ -614,10 +616,15 @@ def process_team_games(pdf_dir, team_identifier):
                 threshold = 20 if is_pass else 15
                 if p.yards >= threshold:
                     our_explosives += 1
+                    play_type = 'pass' if is_pass else 'rush'
+                    if is_pass:
+                        our_explosive_passes += 1
+                    else:
+                        our_explosive_rushes += 1
                     our_explosive_details.append({
                         'description': p.description or '',
                         'yards': p.yards,
-                        'type': 'pass' if is_pass else 'rush'
+                        'type': play_type
                     })
         
         # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
@@ -889,6 +896,8 @@ def process_team_games(pdf_dir, team_identifier):
             'total_plays': our_stats.total_plays if our_stats and our_stats.total_plays else len([p for p in g.plays if p.offense == our_abbr]),
             'total_yards': our_stats.total_yards if our_stats and our_stats.total_yards else 0,
             'explosives': our_explosives,
+            'explosive_rushes': our_explosive_rushes,
+            'explosive_passes': our_explosive_passes,
             'explosive_details': our_explosive_details,
             'turnovers_lost': our_turnovers_lost,
             'turnovers_gained': opp_turnovers_lost,
