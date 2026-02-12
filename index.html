@@ -386,12 +386,14 @@ function initExplosivesCharts() {
                 return tip;
             }
         },
-        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        legend: { data: ['Georgia Rush', 'Georgia Pass', 'Arizona State Rush', 'Arizona State Pass'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
         series: [
-            { name: 'Georgia', type: 'line', data: gf.map(g => g.explosives), itemStyle: { color: '#ef4444' }, smooth: true },
-            { name: 'Arizona State', type: 'line', data: af.map(g => g.explosives), itemStyle: { color: '#f97316' }, smooth: true }
+            { name: 'Georgia Rush', type: 'line', data: gf.map(g => g.explosive_rushes), itemStyle: { color: '#22c55e' }, lineStyle: { color: '#22c55e' }, smooth: true },
+            { name: 'Georgia Pass', type: 'line', data: gf.map(g => g.explosive_passes), itemStyle: { color: '#3b82f6' }, lineStyle: { color: '#3b82f6' }, smooth: true },
+            { name: 'Arizona State Rush', type: 'line', data: af.map(g => g.explosive_rushes), itemStyle: { color: '#22c55e' }, lineStyle: { color: '#22c55e', type: 'dashed' }, smooth: true },
+            { name: 'Arizona State Pass', type: 'line', data: af.map(g => g.explosive_passes), itemStyle: { color: '#3b82f6' }, lineStyle: { color: '#3b82f6', type: 'dashed' }, smooth: true }
         ]
     });
     window.addEventListener('resize', () => c.resize());
