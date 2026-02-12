@@ -85,6 +85,7 @@
 let DATA = null;
 let currentTab = 'overview';
 let currentFilter = 'all';
+let allPlaysQuery = '';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -95,7 +96,6 @@ const TABS = [
     { id: '4thdown', label: '4th Down', icon: '🎯' },
     { id: 'turnovers', label: 'Turnovers', icon: '🔄' },
     { id: 'specialteams', label: 'Special Teams', icon: '🏈' },
-    { id: 'receiving', label: 'Receiving', icon: '🎯' },
     { id: 'allplays', label: 'All Plays', icon: '📋' },
 ];
 
@@ -140,6 +140,14 @@ function agg(games) {
         rzpct: rzt ? ((rztd+rzfg)/rzt*100).toFixed(1) : '0',
         rztdpct: rzt ? (rztd/rzt*100).toFixed(1) : '0',
     };
+}
+
+function sumField(games, field) {
+    return games.reduce((s,g) => s + (g[field] || 0), 0);
+}
+
+function sumSpecial(games, field) {
+    return games.reduce((s,g) => s + ((g.special_teams && g.special_teams[field]) || 0), 0);
 }
 
 function compBar(label, valA, valB, unit='') {
@@ -415,6 +423,339 @@ function renderSimpleTab(title, msg) {
     </div></div>`;
 }
 
+function renderMiddle8() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gaFor = sumField(gf, 'middle8_points_for');
+    const gaAgainst = sumField(gf, 'middle8_points_against');
+    const aaFor = sumField(af, 'middle8_points_for');
+    const aaAgainst = sumField(af, 'middle8_points_against');
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Middle 8 PF', gaFor, '', 'team-a')}
+            ${statCard('Middle 8 PA', gaAgainst, '', 'team-a')}
+            ${statCard('Middle 8 Diff', gaFor-gaAgainst, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Middle 8 PF', aaFor, '', 'team-b')}
+            ${statCard('Middle 8 PA', aaAgainst, '', 'team-b')}
+            ${statCard('Middle 8 Diff', aaFor-aaAgainst, '', 'team-b')}
+        </div>
+    </div>`;
+    html += compBar('Middle 8 Point Diff', gaFor-gaAgainst, aaFor-aaAgainst);
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('middle8Chart')}</div>`;
+
+    const gaPlays = gf.flatMap(g => (g.middle8_scoring_plays||[]).filter(p => p.team === ga.abbr).map(p => ({...p, opponent: g.opponent, game: g.game_number})));
+    const aaPlays = af.flatMap(g => (g.middle8_scoring_plays||[]).filter(p => p.team === aa.abbr).map(p => ({...p, opponent: g.opponent, game: g.game_number})));
+
+    const renderPlays = (plays, teamClass) => {
+        if (!plays.length) return `<div class="text-zinc-500 text-xs p-4">No middle 8 scoring plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Team</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Pts</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Desc</th>
+        </tr></thead><tbody>${plays.map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2">${p.clock||''}</td>
+            <td class="py-1 px-2 ${teamClass}">${p.team||''}</td>
+            <td class="py-1 px-2 text-right font-bold">${p.points}</td>
+            <td class="py-1 px-2 text-zinc-400">${(p.description||'').substring(0,90)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Middle 8 Scoring Plays', gaPlays.length, renderPlays(gaPlays, 'team-a'))}
+        ${collapsible('Arizona State Middle 8 Scoring Plays', aaPlays.length, renderPlays(aaPlays, 'team-b'))}
+    </div>`;
+
+    html += `</div>`;
+    return html;
+}
+
+function initMiddle8Charts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('middle8Chart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'bar', data: gf.map(g => (g.middle8_points_for||0) - (g.middle8_points_against||0)), itemStyle: { color: '#ef4444' } },
+            { name: 'Arizona State', type: 'bar', data: af.map(g => (g.middle8_points_for||0) - (g.middle8_points_against||0)), itemStyle: { color: '#f97316' } }
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderFourthDown() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gaAtt = sumField(gf, '4th_down_attempts');
+    const gaConv = sumField(gf, '4th_down_conversions');
+    const aaAtt = sumField(af, '4th_down_attempts');
+    const aaConv = sumField(af, '4th_down_conversions');
+    const gaPct = gaAtt ? (gaConv/gaAtt*100).toFixed(1) : '0.0';
+    const aaPct = aaAtt ? (aaConv/aaAtt*100).toFixed(1) : '0.0';
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('4th Att', gaAtt, '', 'team-a')}
+            ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a')}
+            ${statCard('Conv %', gaPct, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('4th Att', aaAtt, '', 'team-b')}
+            ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b')}
+            ${statCard('Conv %', aaPct, '', 'team-b')}
+        </div>
+    </div>`;
+    html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('fourthChart')}</div>`;
+
+    const renderGameTable = (games, teamClass) => {
+        return `<div class="glass rounded-xl overflow-hidden mt-4">
+            <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">4th Down</span></div>
+            <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Att</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Conv</th>
+                <th class="py-2 px-2 text-right text-zinc-500">%</th>
+            </tr></thead><tbody>${games.map(g => {
+                const att = g['4th_down_attempts'] || 0;
+                const conv = g['4th_down_conversions'] || 0;
+                const pct = att ? (conv/att*100).toFixed(1) : '0.0';
+                return `<tr class="border-b border-white/5 table-row">
+                    <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
+                    <td class="py-1 px-2">${g.opponent}</td>
+                    <td class="py-1 px-2 text-right">${att}</td>
+                    <td class="py-1 px-2 text-right font-bold">${conv}</td>
+                    <td class="py-1 px-2 text-right text-zinc-400">${pct}%</td>
+                </tr>`;
+            }).join('')}</tbody></table>
+        </div>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderGameTable(gf, 'team-a')}
+        ${renderGameTable(af, 'team-b')}
+    </div>`;
+    html += `</div>`;
+    return html;
+}
+
+function initFourthDownCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('fourthChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'line', data: gf.map(g => {
+                const att = g['4th_down_attempts'] || 0;
+                const conv = g['4th_down_conversions'] || 0;
+                return att ? +(conv/att*100).toFixed(1) : 0;
+            }), itemStyle: { color: '#ef4444' }, smooth: true },
+            { name: 'Arizona State', type: 'line', data: af.map(g => {
+                const att = g['4th_down_attempts'] || 0;
+                const conv = g['4th_down_conversions'] || 0;
+                return att ? +(conv/att*100).toFixed(1) : 0;
+            }), itemStyle: { color: '#f97316' }, smooth: true },
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function renderSpecialTeams() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gST = {
+        ko_ret: sumSpecial(gf, 'kickoff_returns'),
+        ko_yd: sumSpecial(gf, 'kickoff_return_yards'),
+        pr_ret: sumSpecial(gf, 'punt_returns'),
+        pr_yd: sumSpecial(gf, 'punt_return_yards'),
+        punts: sumSpecial(gf, 'punts'),
+        punt_yd: sumSpecial(gf, 'punt_yards'),
+        fg_m: sumSpecial(gf, 'field_goals_made'),
+        fg_a: sumSpecial(gf, 'field_goals_attempts'),
+        pat_m: sumSpecial(gf, 'pat_made'),
+        pat_a: sumSpecial(gf, 'pat_attempts'),
+    };
+    const aST = {
+        ko_ret: sumSpecial(af, 'kickoff_returns'),
+        ko_yd: sumSpecial(af, 'kickoff_return_yards'),
+        pr_ret: sumSpecial(af, 'punt_returns'),
+        pr_yd: sumSpecial(af, 'punt_return_yards'),
+        punts: sumSpecial(af, 'punts'),
+        punt_yd: sumSpecial(af, 'punt_yards'),
+        fg_m: sumSpecial(af, 'field_goals_made'),
+        fg_a: sumSpecial(af, 'field_goals_attempts'),
+        pat_m: sumSpecial(af, 'pat_made'),
+        pat_a: sumSpecial(af, 'pat_attempts'),
+    };
+    const gFgPct = gST.fg_a ? (gST.fg_m/gST.fg_a*100).toFixed(1) : '0.0';
+    const aFgPct = aST.fg_a ? (aST.fg_m/aST.fg_a*100).toFixed(1) : '0.0';
+    const gPuntAvg = gST.punts ? (gST.punt_yd/gST.punts).toFixed(1) : '0.0';
+    const aPuntAvg = aST.punts ? (aST.punt_yd/aST.punts).toFixed(1) : '0.0';
+    const gRetYds = gST.ko_yd + gST.pr_yd;
+    const aRetYds = aST.ko_yd + aST.pr_yd;
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('FG %', gFgPct+'%', gST.fg_m+' / '+gST.fg_a, 'team-a')}
+            ${statCard('Punt Avg', gPuntAvg, gST.punts+' punts', 'team-a')}
+            ${statCard('Return Yds', gRetYds, gST.ko_ret+' KO / '+gST.pr_ret+' PR', 'team-a')}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('FG %', aFgPct+'%', aST.fg_m+' / '+aST.fg_a, 'team-b')}
+            ${statCard('Punt Avg', aPuntAvg, aST.punts+' punts', 'team-b')}
+            ${statCard('Return Yds', aRetYds, aST.ko_ret+' KO / '+aST.pr_ret+' PR', 'team-b')}
+        </div>
+    </div>`;
+    html += compBar('FG %', Number(gFgPct), Number(aFgPct), '%');
+    html += compBar('Punt Avg', Number(gPuntAvg), Number(aPuntAvg));
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('stChart')}</div>`;
+
+    const renderStTable = (games, teamClass) => {
+        return `<div class="glass rounded-xl overflow-hidden mt-4">
+            <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">Special Teams</span></div>
+            <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-right text-zinc-500">FG</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Punts</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Ret Yds</th>
+            </tr></thead><tbody>${games.map(g => {
+                const st = g.special_teams || {};
+                const fg = `${st.field_goals_made||0}/${st.field_goals_attempts||0}`;
+                const ret = (st.kickoff_return_yards||0) + (st.punt_return_yards||0);
+                return `<tr class="border-b border-white/5 table-row">
+                    <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
+                    <td class="py-1 px-2">${g.opponent}</td>
+                    <td class="py-1 px-2 text-right">${fg}</td>
+                    <td class="py-1 px-2 text-right">${st.punts||0}</td>
+                    <td class="py-1 px-2 text-right">${ret}</td>
+                </tr>`;
+            }).join('')}</tbody></table>
+        </div>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderStTable(gf, 'team-a')}
+        ${renderStTable(af, 'team-b')}
+    </div>`;
+
+    html += `</div>`;
+    return html;
+}
+
+function initSpecialTeamsCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = echarts.init(document.getElementById('stChart'), 'dark');
+    c.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia', type: 'bar', data: gf.map(g => {
+                const st = g.special_teams || {};
+                return (st.kickoff_return_yards||0) + (st.punt_return_yards||0);
+            }), itemStyle: { color: '#ef4444' } },
+            { name: 'Arizona State', type: 'bar', data: af.map(g => {
+                const st = g.special_teams || {};
+                return (st.kickoff_return_yards||0) + (st.punt_return_yards||0);
+            }), itemStyle: { color: '#f97316' } }
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
+function filterPlayTree(tree, query) {
+    if (!query) return tree;
+    const q = query.toLowerCase();
+    return tree.map(qtr => {
+        const drives = qtr.drives.map(d => {
+            const plays = d.plays.filter(p => {
+                const hay = [p.description, p.offense, p.down_distance, p.spot, p.clock].join(' ').toLowerCase();
+                return hay.includes(q);
+            });
+            if (!plays.length) return null;
+            return { drive_id: d.drive_id, offense: d.offense, plays };
+        }).filter(Boolean);
+        if (!drives.length) return null;
+        return { quarter: qtr.quarter, drives };
+    }).filter(Boolean);
+}
+
+function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
+    const body = tree.map(q => {
+        const drives = q.drives.map(d => {
+            const plays = d.plays.map(p => `
+                <div class="text-xs py-1 border-b border-white/5">
+                    <span class="text-zinc-500 mr-2">${p.clock||''}</span>
+                    <span class="text-zinc-400 mr-2">${p.down_distance||''}</span>
+                    <span class="text-zinc-500 mr-2">${p.spot||''}</span>
+                    <span class="${p.offense === primaryAbbr ? primaryClass : secondaryClass} mr-2">${p.offense||''}</span>
+                    <span class="text-zinc-300">${p.description||''}</span>
+                </div>`).join('');
+            return `<details class="glass rounded-lg p-3 mt-2">
+                <summary class="cursor-pointer text-xs text-zinc-400">Drive ${d.drive_id} · ${d.offense||''} · ${d.plays.length} plays</summary>
+                <div class="mt-2">${plays}</div>
+            </details>`;
+        }).join('');
+        return `<details class="glass rounded-xl p-3 mt-3">
+            <summary class="cursor-pointer text-sm text-zinc-300">Quarter ${q.quarter}</summary>
+            <div class="mt-2">${drives}</div>
+        </details>`;
+    }).join('');
+    return `<div class="glass rounded-xl p-4">
+        <div class="text-sm font-semibold ${primaryClass} mb-2">Game ${game.game_number} · vs ${game.opponent}</div>
+        ${body || '<div class="text-xs text-zinc-500">No plays match this filter.</div>'}
+    </div>`;
+}
+
+function renderAllPlays() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    let html = `<div class="section-enter">`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-xs text-zinc-500 mb-2">Search all plays</div>
+        <input id="allPlaysSearch" class="w-full bg-zinc-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-white/20" placeholder="Filter by team, down/distance, spot, or description..." value="${allPlaysQuery}" oninput="updateAllPlaysQuery(this.value)">
+    </div>`;
+
+    const renderTeamColumn = (games, primaryAbbr, primaryClass, secondaryClass) => {
+        return games.map(g => {
+            const tree = filterPlayTree(g.play_tree || [], allPlaysQuery.trim());
+            return renderPlayTree(g, tree, primaryAbbr, primaryClass, secondaryClass);
+        }).join('');
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4">
+        <div class="space-y-4">${renderTeamColumn(gf, ga.abbr, 'team-a', 'team-b')}</div>
+        <div class="space-y-4">${renderTeamColumn(af, aa.abbr, 'team-b', 'team-a')}</div>
+    </div>`;
+    html += `</div>`;
+    return html;
+}
+
+function updateAllPlaysQuery(val) {
+    allPlaysQuery = val;
+    renderTab();
+}
+
 // ===== RENDER ENGINE =====
 
 const renderers = {
@@ -423,11 +764,10 @@ const renderers = {
     redzone: { render: renderRedzone, init: initRedzoneCharts },
     turnovers: { render: renderTurnovers, init: initTurnoverCharts },
     penalties: { render: renderPenalties, init: initPenaltyCharts },
-    middle8: { render: () => renderSimpleTab('⏱️ Middle 8', 'Last 4 min of 1H + first 4 min of 2H analysis — requires play-level clock data (coming soon)') },
-    '4thdown': { render: () => renderSimpleTab('🎯 4th Down Decisions', 'Go-for-it conversion analysis — requires play-level down/distance data (coming soon)') },
-    specialteams: { render: () => renderSimpleTab('🏈 Special Teams', 'Kickoffs, punts, FGs, returns — requires play-type classification (coming soon)') },
-    receiving: { render: () => renderSimpleTab('🎯 Situational Receiving', '3rd down + red zone receiving — requires player-level data (coming soon)') },
-    allplays: { render: () => renderSimpleTab('📋 All Plays Browser', 'Expandable play tree — requires full play-by-play data export (coming soon)') },
+    middle8: { render: renderMiddle8, init: initMiddle8Charts },
+    '4thdown': { render: renderFourthDown, init: initFourthDownCharts },
+    specialteams: { render: renderSpecialTeams, init: initSpecialTeamsCharts },
+    allplays: { render: renderAllPlays },
 };
 
 function renderTab() {
