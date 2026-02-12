@@ -440,6 +440,44 @@ function renderTurnovers() {
     html += compBar('Turnovers Forced', gs.tof, as_.tof);
     html += compBar('Turnovers Lost', gs.tol, as_.tol);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('toChart')}</div>`;
+
+    // Turnover play details
+    const renderTurnoverTable = (games, teamClass) => {
+        const toPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => p.is_turnover)
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!toPlays.length) return `<div class="text-zinc-500 text-xs p-4">No turnover plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Team</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${toPlays.map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+            <td class="py-1 px-2 ${teamClass}">${p.offense||''}</td>
+            <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,120)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Turnover Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.is_turnover)))).length, renderTurnoverTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Turnover Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.is_turnover)))).length, renderTurnoverTable(af, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -485,6 +523,42 @@ function renderPenalties() {
     </div>`;
     html += compBar('Penalties/Game', gs.penpg, as_.penpg);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('penChart')}</div>`;
+
+    // Penalty play details
+    const renderPenaltyTable = (games, teamClass) => {
+        const penPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!penPlays.length) return `<div class="text-zinc-500 text-xs p-4">No penalty plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${penPlays.map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+            <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,120)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Penalty Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))))).length, renderPenaltyTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Penalty Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))))).length, renderPenaltyTable(af, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -668,6 +742,48 @@ function renderFourthDown() {
         ${renderGameTable(gf, 'team-a')}
         ${renderGameTable(af, 'team-b')}
     </div>`;
+
+    // 4th down play details
+    const render4thDownTable = (games, teamAbbr, teamClass) => {
+        const fourthPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => p.offense === teamAbbr && (p.down_distance||'').startsWith('4-'))
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!fourthPlays.length) return `<div class="text-zinc-500 text-xs p-4">No 4th down plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Yards</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${fourthPlays.map(p => {
+            const conv = (p.description||'').includes('1ST DOWN');
+            return `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+                <td class="py-1 px-2">${p.opponent||''}</td>
+                <td class="py-1 px-2">${p.quarter}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+                <td class="py-1 px-2 text-right font-bold ${conv?'text-green-400':'text-red-400'}">${p.yards||0}</td>
+                <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,100)}</td>
+            </tr>`;
+        }).join('')}</tbody></table>`;
+    };
+
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia 4th Down Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === ga.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(gf, ga.abbr, 'team-a'))}
+        ${collapsible('Arizona State 4th Down Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === aa.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(af, aa.abbr, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -853,10 +969,12 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
         const drives = q.drives.map(d => {
             const plays = d.plays.map(p => `
                 <div class="text-xs py-1 border-b border-white/5">
+                    <span class="text-zinc-500 mr-2">Q${p.quarter||q.quarter}</span>
                     <span class="text-zinc-500 mr-2">${p.clock||''}</span>
                     <span class="text-zinc-400 mr-2">${p.down_distance||''}</span>
                     <span class="text-zinc-500 mr-2">${p.spot||''}</span>
-                    <span class="${p.offense === primaryAbbr ? primaryClass : secondaryClass} mr-2">${p.offense||''}</span>
+                    <span class="${p.offense === primaryAbbr ? primaryClass : secondaryClass} mr-2 font-semibold">${p.offense||''}</span>
+                    <span class="text-zinc-400 mr-1">${p.yards||0} yd${Math.abs(p.yards||0)!==1?'s':''}</span>
                     <span class="text-zinc-300">${p.description||''}</span>
                 </div>`).join('');
             return `<details class="glass rounded-lg p-3 mt-2">
@@ -870,7 +988,7 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
         </details>`;
     }).join('');
     return `<div class="glass rounded-xl p-4">
-        <div class="text-sm font-semibold ${primaryClass} mb-2">Game ${game.game_number} · vs ${game.opponent}</div>
+        <div class="text-sm font-semibold ${primaryClass} mb-2">Game ${game.game_number} · vs ${game.opponent} ${game.date?'('+game.date+')':''}</div>
         ${body || '<div class="text-xs text-zinc-500">No plays match this filter.</div>'}
     </div>`;
 }
