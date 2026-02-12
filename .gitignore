@@ -1,2 +1,3 @@
 node_modules/\n.venv/\n__pycache__/\n*.pyc
 .vercel
+__pycache__/
