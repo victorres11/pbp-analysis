@@ -760,6 +760,8 @@ def process_team_games(pdf_dir, team_identifier):
         
         # Post-Turnover Drive Tracking
         post_turnover_drives = []
+        points_off_turnovers_for = 0
+        points_off_turnovers_against = 0
         
         for i, p in enumerate(g.plays):
             if not p.is_turnover:
@@ -806,6 +808,12 @@ def process_team_games(pdf_dir, team_identifier):
                         drive_result = 'FG'
                         points_scored = 3
                     break
+            
+            # Accumulate points
+            if recovered_by == our_abbr:
+                points_off_turnovers_for += points_scored
+            else:
+                points_off_turnovers_against += points_scored
             
             # Build description for the drive
             if drive_plays:
@@ -903,6 +911,8 @@ def process_team_games(pdf_dir, team_identifier):
             'tight_red_zone_failed': tight_red_zone_failed,
             'red_zone_plays': red_zone_plays,
             'post_turnover_drives': post_turnover_drives,
+            'points_off_turnovers_for': points_off_turnovers_for,
+            'points_off_turnovers_against': points_off_turnovers_against,
             'middle8_points_for': middle8_for,
             'middle8_points_against': middle8_against,
             'middle8_scoring_plays': middle8_scoring,
