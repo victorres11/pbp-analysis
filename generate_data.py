@@ -312,6 +312,40 @@ def compute_fourth_down_stats(plays, our_abbr):
     return attempts, conversions
 
 
+def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
+    """Parse turnovers into INT and fumble breakdowns for both teams."""
+    our_ints_lost = 0
+    our_fumbles_lost = 0
+    our_ints_gained = 0
+    our_fumbles_gained = 0
+    
+    for p in plays:
+        if not p.is_turnover:
+            continue
+        
+        desc = (p.description or '').upper()
+        is_interception = 'INTERC' in desc or 'INT ' in desc or ' INT' in desc
+        is_fumble = 'FUMBLE' in desc or 'FUM' in desc
+        
+        # Determine who lost the ball
+        lost_by = p.offense or '?'
+        
+        if lost_by == our_abbr:
+            # We lost the turnover
+            if is_interception:
+                our_ints_lost += 1
+            elif is_fumble:
+                our_fumbles_lost += 1
+        elif lost_by == opp_abbr:
+            # Opponent lost the turnover (we gained it)
+            if is_interception:
+                our_ints_gained += 1
+            elif is_fumble:
+                our_fumbles_gained += 1
+    
+    return our_ints_lost, our_fumbles_lost, our_ints_gained, our_fumbles_gained
+
+
 def parse_penalty_details(plays, our_abbr, opp_abbr):
     """Extract detailed penalty information from plays."""
     penalty_details = []
@@ -784,6 +818,7 @@ def process_team_games(pdf_dir, team_identifier):
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
+        ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -801,6 +836,10 @@ def process_team_games(pdf_dir, team_identifier):
             'explosive_details': our_explosive_details,
             'turnovers_lost': our_turnovers_lost,
             'turnovers_gained': opp_turnovers_lost,
+            'interceptions_lost': ints_lost,
+            'fumbles_lost': fum_lost,
+            'interceptions_gained': ints_gained,
+            'fumbles_gained': fum_gained,
             'penalties': our_penalties,
             'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
