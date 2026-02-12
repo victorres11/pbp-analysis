@@ -254,7 +254,21 @@ function initOverviewCharts() {
     const c = echarts.init(document.getElementById('ppgChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -296,7 +310,21 @@ function initExplosivesCharts() {
     const c = echarts.init(document.getElementById('explChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -375,7 +403,22 @@ function initTurnoverCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const c = echarts.init(document.getElementById('toChart'), 'dark');
     c.setOption({
-        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName.includes('Georgia') ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia TO Margin', 'ASU TO Margin'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -405,7 +448,22 @@ function initPenaltyCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const c = echarts.init(document.getElementById('penChart'), 'dark');
     c.setOption({
-        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -484,7 +542,21 @@ function initMiddle8Charts() {
     const c = echarts.init(document.getElementById('middle8Chart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -558,7 +630,21 @@ function initFourthDownCharts() {
     const c = echarts.init(document.getElementById('fourthChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}%<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -666,7 +752,21 @@ function initSpecialTeamsCharts() {
     const c = echarts.init(document.getElementById('stChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
