@@ -131,6 +131,18 @@ function agg(games) {
     const rzt = games.reduce((s,g) => s + g.red_zone_trips, 0);
     const rztd = games.reduce((s,g) => s + g.red_zone_tds, 0);
     const rzfg = games.reduce((s,g) => s + g.red_zone_fgs, 0);
+    
+    // New zone stats
+    const green_zone_trips = games.reduce((s,g) => s + (g.green_zone_trips || 0), 0);
+    const green_zone_tds = games.reduce((s,g) => s + (g.green_zone_tds || 0), 0);
+    const green_zone_fgs = games.reduce((s,g) => s + (g.green_zone_fgs || 0), 0);
+    const green_zone_failed = games.reduce((s,g) => s + (g.green_zone_failed || 0), 0);
+    
+    const tight_red_zone_trips = games.reduce((s,g) => s + (g.tight_red_zone_trips || 0), 0);
+    const tight_red_zone_tds = games.reduce((s,g) => s + (g.tight_red_zone_tds || 0), 0);
+    const tight_red_zone_fgs = games.reduce((s,g) => s + (g.tight_red_zone_fgs || 0), 0);
+    const tight_red_zone_failed = games.reduce((s,g) => s + (g.tight_red_zone_failed || 0), 0);
+    
     return {
         games: n, wins, losses, record: `${wins}-${losses}`,
         pf, pa, ppg: (pf/n).toFixed(1), oppg: (pa/n).toFixed(1),
@@ -140,6 +152,9 @@ function agg(games) {
         rzt, rztd, rzfg,
         rzpct: rzt ? ((rztd+rzfg)/rzt*100).toFixed(1) : '0',
         rztdpct: rzt ? (rztd/rzt*100).toFixed(1) : '0',
+        green_zone_trips, green_zone_tds, green_zone_fgs, green_zone_failed,
+        red_zone_trips: rzt, red_zone_tds: rztd, red_zone_fgs: rzfg,
+        tight_red_zone_trips, tight_red_zone_tds, tight_red_zone_fgs, tight_red_zone_failed,
     };
 }
 
@@ -386,25 +401,98 @@ function renderRedzone() {
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
 
+    const renderZoneSection = (zoneName, zoneDesc, gStats, aStats, zoneKey, games_g, games_a) => {
+        const gTrips = gStats[`${zoneKey}_trips`] || 0;
+        const gTds = gStats[`${zoneKey}_tds`] || 0;
+        const gFgs = gStats[`${zoneKey}_fgs`] || 0;
+        const gFailed = gStats[`${zoneKey}_failed`] || 0;
+        const gTdPct = gTrips > 0 ? ((gTds / gTrips) * 100).toFixed(1) : '0.0';
+        const gScorePct = gTrips > 0 ? (((gTds + gFgs) / gTrips) * 100).toFixed(1) : '0.0';
+
+        const aTrips = aStats[`${zoneKey}_trips`] || 0;
+        const aTds = aStats[`${zoneKey}_tds`] || 0;
+        const aFgs = aStats[`${zoneKey}_fgs`] || 0;
+        const aFailed = aStats[`${zoneKey}_failed`] || 0;
+        const aTdPct = aTrips > 0 ? ((aTds / aTrips) * 100).toFixed(1) : '0.0';
+        const aScorePct = aTrips > 0 ? (((aTds + aFgs) / aTrips) * 100).toFixed(1) : '0.0';
+
+        let html = `<div class="mb-6">`;
+        html += `<h3 class="text-lg font-bold text-white mb-3">${zoneName} <span class="text-zinc-500 text-sm font-normal">${zoneDesc}</span></h3>`;
+        html += `<div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-4 gap-3">
+                ${statCard('Trips', gTrips, '', 'team-a')}
+                ${statCard('TDs', gTds, gTdPct+'%', 'team-a')}
+                ${statCard('FGs', gFgs, '', 'team-a')}
+                ${statCard('Failed', gFailed, '', 'team-a')}
+            </div>
+            <div class="grid grid-cols-4 gap-3">
+                ${statCard('Trips', aTrips, '', 'team-b')}
+                ${statCard('TDs', aTds, aTdPct+'%', 'team-b')}
+                ${statCard('FGs', aFgs, '', 'team-b')}
+                ${statCard('Failed', aFailed, '', 'team-b')}
+            </div>
+        </div>`;
+        html += compBar('TD Rate', parseFloat(gTdPct), parseFloat(aTdPct), '%');
+        html += compBar('Score Rate', parseFloat(gScorePct), parseFloat(aScorePct), '%');
+
+        // Collapsible play table
+        const tableId = `${zoneKey}Table`;
+        html += `<details class="mt-4 glass rounded-xl">
+            <summary class="cursor-pointer p-3 text-sm font-medium text-white hover:bg-white/5">
+                Show ${zoneName} Play Details
+            </summary>
+            <div class="p-4 pt-0">
+                <div class="grid grid-cols-2 gap-4">`;
+
+        const renderZonePlayTable = (games, teamName) => {
+            const zonePlays = games.flatMap(g => {
+                const plays = (g.red_zone_plays || []).filter(p => {
+                    if (zoneKey === 'green_zone') return p.yards_to_goal <= 30;
+                    if (zoneKey === 'red_zone') return p.yards_to_goal <= 20;
+                    if (zoneKey === 'tight_red_zone') return p.yards_to_goal <= 10;
+                    return false;
+                });
+                return plays.map(p => ({...p, game: g.game_number, opponent: g.opponent}));
+            });
+
+            if (!zonePlays.length) return `<div class="text-zinc-500 text-xs p-4">No plays in ${zoneName.toLowerCase()}</div>`;
+
+            return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Down</th>
+                <th class="py-2 px-2 text-left text-zinc-500">YTG</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Yds</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Score</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+            </tr></thead><tbody>${zonePlays.map(p => `<tr class="border-t border-white/5 hover:bg-white/5">
+                <td class="py-2 px-2">${p.game}</td>
+                <td class="py-2 px-2">${p.opponent}</td>
+                <td class="py-2 px-2">${p.quarter}</td>
+                <td class="py-2 px-2">${p.clock}</td>
+                <td class="py-2 px-2">${p.down_distance}</td>
+                <td class="py-2 px-2">${p.yards_to_goal}</td>
+                <td class="py-2 px-2">${p.play_type}</td>
+                <td class="py-2 px-2">${p.yards}</td>
+                <td class="py-2 px-2">${p.scoring ? '✅' : ''}</td>
+                <td class="py-2 px-2 text-zinc-400">${p.description}</td>
+            </tr>`).join('')}</tbody></table>`;
+        };
+
+        html += `<div><h4 class="text-sm font-medium text-white mb-2">${ga.name}</h4>${renderZonePlayTable(games_g, ga.name)}</div>`;
+        html += `<div><h4 class="text-sm font-medium text-white mb-2">${aa.name}</h4>${renderZonePlayTable(games_a, aa.name)}</div>`;
+        html += `</div></div></details>`;
+        html += `</div>`;
+        return html;
+    };
+
     let html = `<div class="section-enter">`;
-    html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="grid grid-cols-3 gap-3">
-            ${statCard('RZ Trips', gs.rzt, '', 'team-a')}
-            ${statCard('RZ TDs', gs.rztd, gs.rztdpct+'%', 'team-a')}
-            ${statCard('RZ FGs', gs.rzfg, '', 'team-a')}
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-            ${statCard('RZ Trips', as_.rzt, '', 'team-b')}
-            ${statCard('RZ TDs', as_.rztd, as_.rztdpct+'%', 'team-b')}
-            ${statCard('RZ FGs', as_.rzfg, '', 'team-b')}
-        </div>
-    </div>`;
-    html += compBar('RZ TD Rate', gs.rztdpct, as_.rztdpct, '%');
-    html += compBar('RZ Score Rate', gs.rzpct, as_.rzpct, '%');
-    html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="glass rounded-xl p-4">${chartContainer('rzChartA','250px')}</div>
-        <div class="glass rounded-xl p-4">${chartContainer('rzChartB','250px')}</div>
-    </div>`;
+    html += renderZoneSection('Green Zone', '(30 yards & in)', gs, as_, 'green_zone', gf, af);
+    html += renderZoneSection('Red Zone', '(20 yards & in)', gs, as_, 'red_zone', gf, af);
+    html += renderZoneSection('Tight Red Zone', '(10 yards & in)', gs, as_, 'tight_red_zone', gf, af);
     html += `</div>`;
     return html;
 }
@@ -1027,7 +1115,7 @@ function updateAllPlaysQuery(val) {
 const renderers = {
     overview: { render: renderOverview, init: initOverviewCharts },
     explosives: { render: renderExplosives, init: initExplosivesCharts },
-    redzone: { render: renderRedzone, init: initRedzoneCharts },
+    redzone: { render: renderRedzone },
     turnovers: { render: renderTurnovers, init: initTurnoverCharts },
     penalties: { render: renderPenalties, init: initPenaltyCharts },
     middle8: { render: renderMiddle8, init: initMiddle8Charts },
