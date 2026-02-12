@@ -557,16 +557,18 @@ function renderMiddle8() {
     const renderPlays = (plays, teamClass) => {
         if (!plays.length) return `<div class="text-zinc-500 text-xs p-4">No middle 8 scoring plays found.</div>`;
         return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
-            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
-            <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
             <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
             <th class="py-2 px-2 text-left text-zinc-500">Team</th>
-            <th class="py-2 px-2 text-right text-zinc-500">Pts</th>
-            <th class="py-2 px-2 text-left text-zinc-500">Desc</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Points</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
         </tr></thead><tbody>${plays.map(p => `<tr class="border-b border-white/5 table-row">
             <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
             <td class="py-1 px-2">${p.quarter}</td>
-            <td class="py-1 px-2">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
             <td class="py-1 px-2 ${teamClass}">${p.team||''}</td>
             <td class="py-1 px-2 text-right font-bold">${p.points}</td>
             <td class="py-1 px-2 text-zinc-400">${(p.description||'').substring(0,90)}</td>
