@@ -96,6 +96,7 @@ const TABS = [
     { id: 'penalties', label: 'Penalties', icon: '🚩' },
     { id: '4thdown', label: '4th Down', icon: '🎯' },
     { id: 'turnovers', label: 'Turnovers', icon: '🔄' },
+    { id: 'postturnovers', label: 'Post-Turnover', icon: '🔄' },
     { id: 'specialteams', label: 'Special Teams', icon: '🏈' },
     { id: 'allplays', label: 'All Plays', icon: '📋' },
 ];
@@ -599,6 +600,94 @@ function initTurnoverCharts() {
         ]
     });
     window.addEventListener('resize', () => c.resize());
+}
+
+function renderPostTurnover() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+
+    // Calculate points off turnovers for each team
+    const calcPointsOffTurnovers = (games, teamAbbr) => {
+        let totalPoints = 0;
+        games.forEach(g => {
+            const drives = g.post_turnover_drives || [];
+            drives.forEach(d => {
+                if (d.recovered_by === teamAbbr || 
+                    (teamAbbr === 'UGA' && d.recovered_by !== g.opponent_abbr) ||
+                    (teamAbbr === 'ASU' && d.recovered_by !== g.opponent_abbr)) {
+                    totalPoints += d.points_scored || 0;
+                }
+            });
+        });
+        return totalPoints;
+    };
+
+    const gPointsOff = calcPointsOffTurnovers(gf, 'UGA');
+    const aPointsOff = calcPointsOffTurnovers(af, 'ASU');
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('TO Gained', gs.tof, '', 'team-a')}
+            ${statCard('TO Lost', gs.tol, '', 'team-a')}
+            ${statCard('Pts Off TO', gPointsOff, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('TO Gained', as_.tof, '', 'team-b')}
+            ${statCard('TO Lost', as_.tol, '', 'team-b')}
+            ${statCard('Pts Off TO', aPointsOff, '', 'team-b')}
+        </div>
+    </div>`;
+    
+    html += compBar('Points Off Turnovers', gPointsOff, aPointsOff);
+
+    // Post-turnover drive tables
+    const renderPostTurnoverTable = (games, teamName, ourTeam) => {
+        const drives = games.flatMap(g => {
+            return (g.post_turnover_drives || []).map(d => ({...d, game: g.game_number, opponent: g.opponent}));
+        });
+
+        if (!drives.length) return `<div class="text-zinc-500 text-xs p-4">No post-turnover drives recorded.</div>`;
+
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Lost By</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Recovered By</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Result</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Points</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${drives.map(d => `<tr class="border-t border-white/5 hover:bg-white/5">
+            <td class="py-2 px-2">${d.game}</td>
+            <td class="py-2 px-2">${d.opponent}</td>
+            <td class="py-2 px-2">${d.quarter}</td>
+            <td class="py-2 px-2">${d.clock}</td>
+            <td class="py-2 px-2">${d.turnover_type}</td>
+            <td class="py-2 px-2">${d.lost_by}</td>
+            <td class="py-2 px-2">${d.recovered_by}</td>
+            <td class="py-2 px-2">${d.drive_result}</td>
+            <td class="py-2 px-2">${d.points_scored || 0}</td>
+            <td class="py-2 px-2 text-zinc-400">${d.turnover_description}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-medium text-white mb-2">${ga.name} Post-Turnover Drives</h4>
+            ${renderPostTurnoverTable(gf, ga.name, 'UGA')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-medium text-white mb-2">${aa.name} Post-Turnover Drives</h4>
+            ${renderPostTurnoverTable(af, aa.name, 'ASU')}
+        </div>
+    </div>`;
+
+    html += `</div>`;
+    return html;
 }
 
 function renderPenalties() {
@@ -1117,6 +1206,7 @@ const renderers = {
     explosives: { render: renderExplosives, init: initExplosivesCharts },
     redzone: { render: renderRedzone },
     turnovers: { render: renderTurnovers, init: initTurnoverCharts },
+    postturnovers: { render: renderPostTurnover },
     penalties: { render: renderPenalties, init: initPenaltyCharts },
     middle8: { render: renderMiddle8, init: initMiddle8Charts },
     '4thdown': { render: renderFourthDown, init: initFourthDownCharts },
