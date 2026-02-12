@@ -584,6 +584,72 @@ def process_team_games(pdf_dir, team_identifier):
         rz_tds = red_zone_tds
         rz_fgs = red_zone_fgs
         
+        # Post-Turnover Drive Tracking
+        post_turnover_drives = []
+        
+        for i, p in enumerate(g.plays):
+            if not p.is_turnover:
+                continue
+            
+            # Identify turnover details
+            desc = (p.description or '').upper()
+            turnover_type = 'INT' if 'INTERC' in desc else 'FUM' if 'FUMBLE' in desc else 'TO'
+            lost_by = p.offense or '?'
+            recovered_by = opp_abbr if lost_by == our_abbr else our_abbr
+            
+            # Find the next play by the recovering team (start of their drive)
+            drive_start_idx = None
+            for j in range(i + 1, len(g.plays)):
+                next_play = g.plays[j]
+                if next_play.offense == recovered_by:
+                    drive_start_idx = j
+                    break
+            
+            if drive_start_idx is None:
+                continue
+            
+            # Track this drive until possession changes
+            drive_result = 'NO SCORE'
+            points_scored = 0
+            drive_plays = []
+            
+            for k in range(drive_start_idx, len(g.plays)):
+                dp = g.plays[k]
+                
+                # Stop if possession changes
+                if dp.offense != recovered_by:
+                    break
+                
+                drive_plays.append(dp)
+                
+                # Check for scoring
+                if dp.is_scoring:
+                    dp_desc = (dp.description or '').upper()
+                    if 'TOUCHDOWN' in dp_desc or 'TD' in dp_desc:
+                        drive_result = 'TD'
+                        points_scored = 6  # simplified, not counting PAT
+                    elif 'FIELD GOAL' in dp_desc or re.search(r'\bFG\b', dp_desc):
+                        drive_result = 'FG'
+                        points_scored = 3
+                    break
+            
+            # Build description for the drive
+            if drive_plays:
+                first_play = drive_plays[0]
+                drive_desc = f"{turnover_type} by {lost_by}, recovered by {recovered_by}. Drive: {drive_result}"
+                
+                post_turnover_drives.append({
+                    'quarter': p.quarter,
+                    'clock': p.clock or '',
+                    'turnover_type': turnover_type,
+                    'lost_by': lost_by,
+                    'recovered_by': recovered_by,
+                    'drive_result': drive_result,
+                    'points_scored': points_scored,
+                    'description': drive_desc,
+                    'turnover_description': p.description or '',
+                })
+        
         # Determine conference membership
         sec_teams = [
             'alabama', 'arkansas', 'auburn', 'florida', 'georgia', 'kentucky', 'lsu',
@@ -655,6 +721,7 @@ def process_team_games(pdf_dir, team_identifier):
             'tight_red_zone_fgs': tight_red_zone_fgs,
             'tight_red_zone_failed': tight_red_zone_failed,
             'red_zone_plays': red_zone_plays,
+            'post_turnover_drives': post_turnover_drives,
             'middle8_points_for': middle8_for,
             'middle8_points_against': middle8_against,
             'middle8_scoring_plays': middle8_scoring,
