@@ -429,14 +429,19 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     stats = {
         'kickoff_returns': 0,
         'kickoff_return_yards': 0,
+        'kickoff_return_long': 0,
         'punt_returns': 0,
         'punt_return_yards': 0,
+        'punt_return_long': 0,
         'punts': 0,
         'punt_yards': 0,
+        'punts_inside_20': 0,
         'field_goals_made': 0,
         'field_goals_attempts': 0,
         'pat_made': 0,
         'pat_attempts': 0,
+        'onside_kicks_attempted': 0,
+        'onside_kicks_recovered': 0,
     }
 
     for p in plays:
@@ -447,30 +452,73 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         is_punt = 'PUNT' in desc
         is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
         is_pat = 'PAT' in desc or 'EXTRA POINT' in desc or 'POINT AFTER' in desc
+        is_onside = 'ONSIDE' in desc
 
         if p.offense == our_abbr:
-            if is_punt:
+            # Our punts
+            if is_punt and 'RETURN' not in desc:
                 stats['punts'] += 1
                 if p.yards is not None:
                     stats['punt_yards'] += p.yards
+                # Check for inside 20
+                if 'INSIDE 20' in desc or re.search(r'(OUT OF BOUNDS|DOWNED|FAIR CATCH).*?(\d+)', desc):
+                    # Try to determine if ball ended inside 20
+                    spot_match = re.search(r'AT\s+[A-Z]*(\d+)', desc)
+                    if spot_match and int(spot_match.group(1)) <= 20:
+                        stats['punts_inside_20'] += 1
+            
+            # Our field goals (include even if not marked as scrimmage play)
             if is_fg:
                 stats['field_goals_attempts'] += 1
                 if 'GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc:
                     stats['field_goals_made'] += 1
+            
+            # Our PATs
             if is_pat:
                 stats['pat_attempts'] += 1
                 if 'GOOD' in desc or 'MADE' in desc:
                     stats['pat_made'] += 1
+            
+            # Our onside kicks
+            if is_kickoff and is_onside:
+                stats['onside_kicks_attempted'] += 1
+                if 'RECOVER' in desc and our_abbr in desc:
+                    stats['onside_kicks_recovered'] += 1
 
-        if p.offense == opp_abbr:
-            if is_kickoff and 'RETURN' in desc:
+        # Opponent's kicks that we return
+        if p.offense == opp_abbr or is_kickoff:  # Kickoffs might not have offense set correctly
+            if is_kickoff and 'RETURN' in desc and our_abbr in desc:
                 stats['kickoff_returns'] += 1
                 if p.yards is not None:
                     stats['kickoff_return_yards'] += p.yards
-            if is_punt and 'RETURN' in desc:
+                    stats['kickoff_return_long'] = max(stats['kickoff_return_long'], p.yards)
+            
+            if is_punt and 'RETURN' in desc and our_abbr in desc:
                 stats['punt_returns'] += 1
                 if p.yards is not None:
                     stats['punt_return_yards'] += p.yards
+                    stats['punt_return_long'] = max(stats['punt_return_long'], p.yards)
+
+    # Calculate averages
+    if stats['kickoff_returns'] > 0:
+        stats['kickoff_return_avg'] = round(stats['kickoff_return_yards'] / stats['kickoff_returns'], 1)
+    else:
+        stats['kickoff_return_avg'] = 0.0
+    
+    if stats['punt_returns'] > 0:
+        stats['punt_return_avg'] = round(stats['punt_return_yards'] / stats['punt_returns'], 1)
+    else:
+        stats['punt_return_avg'] = 0.0
+    
+    if stats['punts'] > 0:
+        stats['punt_avg'] = round(stats['punt_yards'] / stats['punts'], 1)
+    else:
+        stats['punt_avg'] = 0.0
+    
+    if stats['field_goals_attempts'] > 0:
+        stats['field_goal_pct'] = round(stats['field_goals_made'] / stats['field_goals_attempts'] * 100, 1)
+    else:
+        stats['field_goal_pct'] = 0.0
 
     return stats
 
