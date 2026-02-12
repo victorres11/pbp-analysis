@@ -196,11 +196,11 @@
           "green_zone_trips": 4,
           "green_zone_tds": 2,
           "green_zone_fgs": 0,
-          "green_zone_failed": 2,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 2,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 1,
           "red_zone_plays": [
             {
               "quarter": 2,
@@ -2913,11 +2913,11 @@
           "green_zone_trips": 5,
           "green_zone_tds": 2,
           "green_zone_fgs": 2,
-          "green_zone_failed": 1,
+          "green_zone_failed": 0,
           "tight_red_zone_trips": 3,
           "tight_red_zone_tds": 2,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 2,
@@ -5672,11 +5672,11 @@
           "green_zone_trips": 6,
           "green_zone_tds": 4,
           "green_zone_fgs": 0,
-          "green_zone_failed": 2,
+          "green_zone_failed": 0,
           "tight_red_zone_trips": 5,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -8428,11 +8428,11 @@
           "green_zone_trips": 6,
           "green_zone_tds": 5,
           "green_zone_fgs": 0,
-          "green_zone_failed": 1,
+          "green_zone_failed": 0,
           "tight_red_zone_trips": 5,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -10930,11 +10930,11 @@
           "green_zone_trips": 5,
           "green_zone_tds": 2,
           "green_zone_fgs": 1,
-          "green_zone_failed": 2,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 3,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -16286,7 +16286,7 @@
           "tight_red_zone_trips": 5,
           "tight_red_zone_tds": 4,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -19135,7 +19135,7 @@
           "tight_red_zone_trips": 6,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 5,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -22015,11 +22015,11 @@
           "green_zone_trips": 9,
           "green_zone_tds": 3,
           "green_zone_fgs": 1,
-          "green_zone_failed": 5,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 6,
           "tight_red_zone_tds": 2,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 4,
+          "tight_red_zone_failed": 1,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -24889,11 +24889,11 @@
           "green_zone_trips": 8,
           "green_zone_tds": 5,
           "green_zone_fgs": 2,
-          "green_zone_failed": 1,
+          "green_zone_failed": 0,
           "tight_red_zone_trips": 5,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -27861,7 +27861,7 @@
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -30478,11 +30478,11 @@
           "green_zone_trips": 9,
           "green_zone_tds": 4,
           "green_zone_fgs": 3,
-          "green_zone_failed": 2,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 7,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 2,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 1,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -34190,7 +34190,7 @@
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 3,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -36976,7 +36976,7 @@
           "green_zone_trips": 5,
           "green_zone_tds": 4,
           "green_zone_fgs": 1,
-          "green_zone_failed": 0,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 2,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
@@ -42546,7 +42546,7 @@
           "green_zone_trips": 6,
           "green_zone_tds": 3,
           "green_zone_fgs": 2,
-          "green_zone_failed": 1,
+          "green_zone_failed": 0,
           "tight_red_zone_trips": 2,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 1,
@@ -45280,7 +45280,7 @@
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 1,
-          "tight_red_zone_failed": 2,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -48379,7 +48379,7 @@
           "green_zone_trips": 9,
           "green_zone_tds": 2,
           "green_zone_fgs": 4,
-          "green_zone_failed": 3,
+          "green_zone_failed": 2,
           "tight_red_zone_trips": 5,
           "tight_red_zone_tds": 2,
           "tight_red_zone_fgs": 2,
@@ -51427,11 +51427,11 @@
           "green_zone_trips": 4,
           "green_zone_tds": 1,
           "green_zone_fgs": 2,
-          "green_zone_failed": 1,
+          "green_zone_failed": 2,
           "tight_red_zone_trips": 2,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 2,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -54001,11 +54001,11 @@
           "green_zone_trips": 6,
           "green_zone_tds": 2,
           "green_zone_fgs": 4,
-          "green_zone_failed": 0,
+          "green_zone_failed": 2,
           "tight_red_zone_trips": 4,
           "tight_red_zone_tds": 2,
           "tight_red_zone_fgs": 1,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 2,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -60077,7 +60077,7 @@
           "tight_red_zone_trips": 2,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 1,
+          "tight_red_zone_failed": 0,
           "red_zone_plays": [
             {
               "quarter": 1,
@@ -63100,11 +63100,11 @@
           "green_zone_trips": 3,
           "green_zone_tds": 2,
           "green_zone_fgs": 1,
-          "green_zone_failed": 0,
+          "green_zone_failed": 1,
           "tight_red_zone_trips": 1,
           "tight_red_zone_tds": 1,
           "tight_red_zone_fgs": 0,
-          "tight_red_zone_failed": 0,
+          "tight_red_zone_failed": 1,
           "red_zone_plays": [
             {
               "quarter": 2,
