@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PBP Matchup Analysis — Georgia vs Arizona State</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -48,7 +49,7 @@
 <nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
     <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold text-xs">PBP</div>
+            <img src="assets/vt-logo-icon.png" alt="VT Sports Solutions" style="height:32px">
             <span class="text-sm font-semibold text-zinc-200">Matchup Analysis</span>
             <span class="text-xs text-zinc-500 ml-1">v2.0</span>
         </div>
@@ -253,7 +254,21 @@ function initOverviewCharts() {
     const c = echarts.init(document.getElementById('ppgChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -271,6 +286,10 @@ function renderExplosives() {
     const gs = agg(gf), as_ = agg(af);
 
     let html = `<div class="section-enter">`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium">Definition</div>
+        <div class="text-xs text-zinc-400 mt-1">Explosive plays: rushes of 15+ yards or passes of 20+ yards</div>
+    </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a')}
         ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b')}
@@ -278,14 +297,55 @@ function renderExplosives() {
     html += compBar('Explosives/Game', gs.explpg, as_.explpg);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('explChart')}</div>`;
 
-    // Explosive details for ASU
-    const allExpl = af.flatMap(g => (g.explosive_details||[]).map(e => ({...e, opponent: g.opponent})));
-    if (allExpl.length) {
-        let tbl = `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
-            <th class="py-2 px-2 text-left text-zinc-500">Opp</th><th class="py-2 px-2 text-left text-zinc-500">Desc</th><th class="py-2 px-2 text-right text-zinc-500">Yds</th>
-        </tr></thead><tbody>${allExpl.map(e => `<tr class="border-b border-white/5 table-row"><td class="py-1 px-2">${e.opponent||''}</td><td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,80)}</td><td class="py-1 px-2 text-right font-bold ${e.yards>=20?'text-orange-400':'text-zinc-300'}">${e.yards||''}</td></tr>`).join('')}</tbody></table>`;
-        html += collapsible('Arizona State Explosive Plays', allExpl.length, tbl);
-    }
+    // Helper to render explosive plays table with grouping
+    const renderExplTable = (games, teamClass) => {
+        const allExpl = games.flatMap((g,i) => (g.explosive_details||[]).map(e => ({...e, opponent: g.opponent, game: i+1})));
+        if (!allExpl.length) return `<div class="text-zinc-500 text-xs p-4">No explosive plays found.</div>`;
+        
+        const rushPlays = allExpl.filter(e => e.type === 'rush');
+        const passPlays = allExpl.filter(e => e.type === 'pass');
+        
+        let tbl = `<div class="space-y-3">`;
+        if (rushPlays.length) {
+            tbl += `<div><div class="text-xs font-semibold text-zinc-400 mb-2 px-2">Rush (${rushPlays.length} plays)</div>
+            <table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+            </tr></thead><tbody>${rushPlays.map(e => `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${e.game}</td>
+                <td class="py-1 px-2">${e.opponent||''}</td>
+                <td class="py-1 px-2 text-green-400">Run</td>
+                <td class="py-1 px-2 text-right font-bold">${e.yards||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,90)}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+        }
+        if (passPlays.length) {
+            tbl += `<div><div class="text-xs font-semibold text-zinc-400 mb-2 px-2">Pass (${passPlays.length} plays)</div>
+            <table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+            </tr></thead><tbody>${passPlays.map(e => `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${e.game}</td>
+                <td class="py-1 px-2">${e.opponent||''}</td>
+                <td class="py-1 px-2 text-blue-400">Pass</td>
+                <td class="py-1 px-2 text-right font-bold">${e.yards||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,90)}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+        }
+        tbl += `</div>`;
+        return tbl;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Explosive Plays', gf.reduce((sum,g) => sum + (g.explosive_details||[]).length, 0), renderExplTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Explosive Plays', af.reduce((sum,g) => sum + (g.explosive_details||[]).length, 0), renderExplTable(af, 'team-b'))}
+    </div>`;
     html += `</div>`;
     return html;
 }
@@ -295,7 +355,21 @@ function initExplosivesCharts() {
     const c = echarts.init(document.getElementById('explChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -366,6 +440,44 @@ function renderTurnovers() {
     html += compBar('Turnovers Forced', gs.tof, as_.tof);
     html += compBar('Turnovers Lost', gs.tol, as_.tol);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('toChart')}</div>`;
+
+    // Turnover play details
+    const renderTurnoverTable = (games, teamClass) => {
+        const toPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => p.is_turnover)
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!toPlays.length) return `<div class="text-zinc-500 text-xs p-4">No turnover plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Team</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${toPlays.map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+            <td class="py-1 px-2 ${teamClass}">${p.offense||''}</td>
+            <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,120)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Turnover Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.is_turnover)))).length, renderTurnoverTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Turnover Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.is_turnover)))).length, renderTurnoverTable(af, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -374,7 +486,22 @@ function initTurnoverCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const c = echarts.init(document.getElementById('toChart'), 'dark');
     c.setOption({
-        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName.includes('Georgia') ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia TO Margin', 'ASU TO Margin'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -396,6 +523,42 @@ function renderPenalties() {
     </div>`;
     html += compBar('Penalties/Game', gs.penpg, as_.penpg);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('penChart')}</div>`;
+
+    // Penalty play details
+    const renderPenaltyTable = (games, teamClass) => {
+        const penPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!penPlays.length) return `<div class="text-zinc-500 text-xs p-4">No penalty plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${penPlays.map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+            <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,120)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Penalty Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))))).length, renderPenaltyTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Penalty Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => (p.description||'').toUpperCase().includes('PENALTY'))))).length, renderPenaltyTable(af, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -404,7 +567,22 @@ function initPenaltyCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const c = echarts.init(document.getElementById('penChart'), 'dark');
     c.setOption({
-        backgroundColor: 'transparent', tooltip: { trigger: 'axis' },
+        backgroundColor: 'transparent',
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -453,16 +631,18 @@ function renderMiddle8() {
     const renderPlays = (plays, teamClass) => {
         if (!plays.length) return `<div class="text-zinc-500 text-xs p-4">No middle 8 scoring plays found.</div>`;
         return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
-            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
-            <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
             <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
             <th class="py-2 px-2 text-left text-zinc-500">Team</th>
-            <th class="py-2 px-2 text-right text-zinc-500">Pts</th>
-            <th class="py-2 px-2 text-left text-zinc-500">Desc</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Points</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
         </tr></thead><tbody>${plays.map(p => `<tr class="border-b border-white/5 table-row">
             <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
             <td class="py-1 px-2">${p.quarter}</td>
-            <td class="py-1 px-2">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
             <td class="py-1 px-2 ${teamClass}">${p.team||''}</td>
             <td class="py-1 px-2 text-right font-bold">${p.points}</td>
             <td class="py-1 px-2 text-zinc-400">${(p.description||'').substring(0,90)}</td>
@@ -483,7 +663,21 @@ function initMiddle8Charts() {
     const c = echarts.init(document.getElementById('middle8Chart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -548,6 +742,48 @@ function renderFourthDown() {
         ${renderGameTable(gf, 'team-a')}
         ${renderGameTable(af, 'team-b')}
     </div>`;
+
+    // 4th down play details
+    const render4thDownTable = (games, teamAbbr, teamClass) => {
+        const fourthPlays = games.flatMap((g,idx) => {
+            return (g.play_tree||[]).flatMap(q => 
+                q.drives.flatMap(d => 
+                    d.plays.filter(p => p.offense === teamAbbr && (p.down_distance||'').startsWith('4-'))
+                        .map(p => ({...p, game: g.game_number, opponent: g.opponent}))
+                )
+            );
+        });
+        if (!fourthPlays.length) return `<div class="text-zinc-500 text-xs p-4">No 4th down plays found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Down/Dist</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Spot</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Yards</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${fourthPlays.map(p => {
+            const conv = (p.description||'').includes('1ST DOWN');
+            return `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+                <td class="py-1 px-2">${p.opponent||''}</td>
+                <td class="py-1 px-2">${p.quarter}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.down_distance||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${p.spot||''}</td>
+                <td class="py-1 px-2 text-right font-bold ${conv?'text-green-400':'text-red-400'}">${p.yards||0}</td>
+                <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,100)}</td>
+            </tr>`;
+        }).join('')}</tbody></table>`;
+    };
+
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia 4th Down Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === ga.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(gf, ga.abbr, 'team-a'))}
+        ${collapsible('Arizona State 4th Down Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === aa.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(af, aa.abbr, 'team-b'))}
+    </div>`;
+
     html += `</div>`;
     return html;
 }
@@ -557,7 +793,21 @@ function initFourthDownCharts() {
     const c = echarts.init(document.getElementById('fourthChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}%<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -665,7 +915,21 @@ function initSpecialTeamsCharts() {
     const c = echarts.init(document.getElementById('stChart'), 'dark');
     c.setOption({
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
+        tooltip: { 
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
         yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
@@ -705,10 +969,12 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
         const drives = q.drives.map(d => {
             const plays = d.plays.map(p => `
                 <div class="text-xs py-1 border-b border-white/5">
+                    <span class="text-zinc-500 mr-2">Q${p.quarter||q.quarter}</span>
                     <span class="text-zinc-500 mr-2">${p.clock||''}</span>
                     <span class="text-zinc-400 mr-2">${p.down_distance||''}</span>
                     <span class="text-zinc-500 mr-2">${p.spot||''}</span>
-                    <span class="${p.offense === primaryAbbr ? primaryClass : secondaryClass} mr-2">${p.offense||''}</span>
+                    <span class="${p.offense === primaryAbbr ? primaryClass : secondaryClass} mr-2 font-semibold">${p.offense||''}</span>
+                    <span class="text-zinc-400 mr-1">${p.yards||0} yd${Math.abs(p.yards||0)!==1?'s':''}</span>
                     <span class="text-zinc-300">${p.description||''}</span>
                 </div>`).join('');
             return `<details class="glass rounded-lg p-3 mt-2">
@@ -722,7 +988,7 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
         </details>`;
     }).join('');
     return `<div class="glass rounded-xl p-4">
-        <div class="text-sm font-semibold ${primaryClass} mb-2">Game ${game.game_number} · vs ${game.opponent}</div>
+        <div class="text-sm font-semibold ${primaryClass} mb-2">Game ${game.game_number} · vs ${game.opponent} ${game.date?'('+game.date+')':''}</div>
         ${body || '<div class="text-xs text-zinc-500">No plays match this filter.</div>'}
     </div>`;
 }
@@ -797,9 +1063,18 @@ function switchTab(id) {
     renderTab();
 }
 
+function updateHeader() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    document.getElementById('teamARecord').textContent = gs.record + ' · ' + ga.conference;
+    document.getElementById('teamBRecord').textContent = as_.record + ' · ' + aa.conference;
+}
+
 function switchFilter(id) {
     currentFilter = id;
     buildFilters();
+    updateHeader();
     renderTab();
 }
 
@@ -808,15 +1083,18 @@ fetch('data.json').then(r => r.json()).then(d => {
     DATA = d;
     const ga = d.teams.georgia, aa = d.teams.asu;
     document.getElementById('teamAName').textContent = ga.name;
-    document.getElementById('teamARecord').textContent = ga.aggregates.record + ' · ' + ga.conference;
     document.getElementById('teamBName').textContent = aa.name;
-    document.getElementById('teamBRecord').textContent = aa.aggregates.record + ' · ' + aa.conference;
     buildNav();
     buildFilters();
+    updateHeader();
     renderTab();
 }).catch(e => {
     document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
 });
 </script>
+<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
+  <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
+  <img src="assets/vt-logo-text.png" alt="VT Sports Solutions" style="height:20px;">
+</a>
 </body>
 </html>
