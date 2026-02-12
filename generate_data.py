@@ -517,10 +517,14 @@ def process_team_games(pdf_dir, team_identifier):
                 red_zone_plays.append(play_dict)
             
             # Check for scoring on this play to determine drive result
-            if p.is_scoring:
-                desc = (p.description or '').upper()
-                is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
-                is_td = 'TOUCHDOWN' in desc or 'TD' in desc
+            desc = (p.description or '').upper()
+            is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
+            is_td = 'TOUCHDOWN' in desc or 'TD' in desc
+            
+            # Include FG attempts even if not marked as scrimmage play
+            is_scoring_play = p.is_scoring or (is_fg and ('GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc))
+            
+            if is_scoring_play:
                 
                 # Determine which zone this score came from
                 if ytg <= 10:
