@@ -286,7 +286,16 @@ def compute_fourth_down_stats(plays, our_abbr):
         if not dd.startswith('4-'):
             continue
         desc = (p.description or '').upper()
+        # Only count "go for it" attempts (rush or pass)
+        # Exclude punts, field goals, and penalties
         if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
+            continue
+        if 'PENALTY' in desc or 'PENALIZED' in desc:
+            continue
+        # Must be a rush or pass attempt
+        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
+                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc)
+        if not is_rush_or_pass:
             continue
         attempts += 1
         converted = False
