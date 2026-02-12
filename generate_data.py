@@ -286,7 +286,16 @@ def compute_fourth_down_stats(plays, our_abbr):
         if not dd.startswith('4-'):
             continue
         desc = (p.description or '').upper()
+        # Only count "go for it" attempts (rush or pass)
+        # Exclude punts, field goals, and penalties
         if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
+            continue
+        if 'PENALTY' in desc or 'PENALIZED' in desc:
+            continue
+        # Must be a rush or pass attempt
+        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
+                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc)
+        if not is_rush_or_pass:
             continue
         attempts += 1
         converted = False
@@ -303,18 +312,136 @@ def compute_fourth_down_stats(plays, our_abbr):
     return attempts, conversions
 
 
+def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
+    """Parse turnovers into INT and fumble breakdowns for both teams."""
+    our_ints_lost = 0
+    our_fumbles_lost = 0
+    our_ints_gained = 0
+    our_fumbles_gained = 0
+    
+    for p in plays:
+        if not p.is_turnover:
+            continue
+        
+        desc = (p.description or '').upper()
+        is_interception = 'INTERC' in desc or 'INT ' in desc or ' INT' in desc
+        is_fumble = 'FUMBLE' in desc or 'FUM' in desc
+        
+        # Determine who lost the ball
+        lost_by = p.offense or '?'
+        
+        if lost_by == our_abbr:
+            # We lost the turnover
+            if is_interception:
+                our_ints_lost += 1
+            elif is_fumble:
+                our_fumbles_lost += 1
+        elif lost_by == opp_abbr:
+            # Opponent lost the turnover (we gained it)
+            if is_interception:
+                our_ints_gained += 1
+            elif is_fumble:
+                our_fumbles_gained += 1
+    
+    return our_ints_lost, our_fumbles_lost, our_ints_gained, our_fumbles_gained
+
+
+def parse_penalty_details(plays, our_abbr, opp_abbr):
+    """Extract detailed penalty information from plays."""
+    penalty_details = []
+    
+    # Common penalty patterns
+    penalty_patterns = [
+        (r'HOLDING', 'Holding'),
+        (r'FALSE START', 'False Start'),
+        (r'PASS INTERFERENCE', 'Pass Interference'),
+        (r'OFFSIDE', 'Offside'),
+        (r'ILLEGAL (FORMATION|PROCEDURE|MOTION|SHIFT|BLOCK)', 'Illegal \\1'),
+        (r'ROUGHING THE (PASSER|KICKER)', 'Roughing the \\1'),
+        (r'FACEMASK', 'Facemask'),
+        (r'UNSPORTSMANLIKE', 'Unsportsmanlike Conduct'),
+        (r'TARGETING', 'Targeting'),
+        (r'DELAY OF GAME', 'Delay of Game'),
+        (r'ENCROACHMENT', 'Encroachment'),
+        (r'NEUTRAL ZONE INFRACTION', 'Neutral Zone Infraction'),
+        (r'ILLEGAL HANDS', 'Illegal Hands'),
+        (r'CLIPPING', 'Clipping'),
+        (r'INTENTIONAL GROUNDING', 'Intentional Grounding'),
+    ]
+    
+    for p in plays:
+        desc = p.description or ''
+        desc_upper = desc.upper()
+        
+        if 'PENALTY' not in desc_upper and 'PENALIZED' not in desc_upper:
+            continue
+        
+        # Parse penalty type
+        penalty_type = 'Unknown'
+        for pattern, name in penalty_patterns:
+            if re.search(pattern, desc_upper):
+                penalty_type = re.sub(pattern, name, desc_upper, count=1)
+                # Clean up the penalty type
+                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
+                penalty_type = penalty_type.title()
+                break
+        
+        # Parse yards
+        yards_match = re.search(r'(\d+)\s*YARD', desc_upper)
+        yards = int(yards_match.group(1)) if yards_match else 0
+        
+        # Parse accepted/declined
+        accepted = 'DECLINED' not in desc_upper and 'OFFSETTING' not in desc_upper
+        
+        # Determine penalized team
+        penalized_team = None
+        if p.offense == our_abbr:
+            # Check if it says opponent team name in penalty
+            if opp_abbr and opp_abbr.upper() in desc_upper:
+                penalized_team = opp_abbr
+            else:
+                penalized_team = our_abbr
+        elif p.offense == opp_abbr:
+            if our_abbr and our_abbr.upper() in desc_upper:
+                penalized_team = our_abbr
+            else:
+                penalized_team = opp_abbr
+        
+        # Determine offense or defense
+        # If the penalized team is the offense team, it's an offensive penalty
+        offense_or_defense = 'offense' if penalized_team == p.offense else 'defense'
+        
+        penalty_details.append({
+            'type': penalty_type,
+            'team': penalized_team or '?',
+            'yards': yards,
+            'accepted': accepted,
+            'description': desc,
+            'quarter': p.quarter,
+            'clock': p.clock or '',
+            'offense_or_defense': offense_or_defense,
+        })
+    
+    return penalty_details
+
+
 def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     stats = {
         'kickoff_returns': 0,
         'kickoff_return_yards': 0,
+        'kickoff_return_long': 0,
         'punt_returns': 0,
         'punt_return_yards': 0,
+        'punt_return_long': 0,
         'punts': 0,
         'punt_yards': 0,
+        'punts_inside_20': 0,
         'field_goals_made': 0,
         'field_goals_attempts': 0,
         'pat_made': 0,
         'pat_attempts': 0,
+        'onside_kicks_attempted': 0,
+        'onside_kicks_recovered': 0,
     }
 
     for p in plays:
@@ -325,30 +452,73 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         is_punt = 'PUNT' in desc
         is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
         is_pat = 'PAT' in desc or 'EXTRA POINT' in desc or 'POINT AFTER' in desc
+        is_onside = 'ONSIDE' in desc
 
         if p.offense == our_abbr:
-            if is_punt:
+            # Our punts
+            if is_punt and 'RETURN' not in desc:
                 stats['punts'] += 1
                 if p.yards is not None:
                     stats['punt_yards'] += p.yards
+                # Check for inside 20
+                if 'INSIDE 20' in desc or re.search(r'(OUT OF BOUNDS|DOWNED|FAIR CATCH).*?(\d+)', desc):
+                    # Try to determine if ball ended inside 20
+                    spot_match = re.search(r'AT\s+[A-Z]*(\d+)', desc)
+                    if spot_match and int(spot_match.group(1)) <= 20:
+                        stats['punts_inside_20'] += 1
+            
+            # Our field goals (include even if not marked as scrimmage play)
             if is_fg:
                 stats['field_goals_attempts'] += 1
                 if 'GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc:
                     stats['field_goals_made'] += 1
+            
+            # Our PATs
             if is_pat:
                 stats['pat_attempts'] += 1
                 if 'GOOD' in desc or 'MADE' in desc:
                     stats['pat_made'] += 1
+            
+            # Our onside kicks
+            if is_kickoff and is_onside:
+                stats['onside_kicks_attempted'] += 1
+                if 'RECOVER' in desc and our_abbr in desc:
+                    stats['onside_kicks_recovered'] += 1
 
-        if p.offense == opp_abbr:
-            if is_kickoff and 'RETURN' in desc:
+        # Opponent's kicks that we return
+        if p.offense == opp_abbr or is_kickoff:  # Kickoffs might not have offense set correctly
+            if is_kickoff and 'RETURN' in desc and our_abbr in desc:
                 stats['kickoff_returns'] += 1
                 if p.yards is not None:
                     stats['kickoff_return_yards'] += p.yards
-            if is_punt and 'RETURN' in desc:
+                    stats['kickoff_return_long'] = max(stats['kickoff_return_long'], p.yards)
+            
+            if is_punt and 'RETURN' in desc and our_abbr in desc:
                 stats['punt_returns'] += 1
                 if p.yards is not None:
                     stats['punt_return_yards'] += p.yards
+                    stats['punt_return_long'] = max(stats['punt_return_long'], p.yards)
+
+    # Calculate averages
+    if stats['kickoff_returns'] > 0:
+        stats['kickoff_return_avg'] = round(stats['kickoff_return_yards'] / stats['kickoff_returns'], 1)
+    else:
+        stats['kickoff_return_avg'] = 0.0
+    
+    if stats['punt_returns'] > 0:
+        stats['punt_return_avg'] = round(stats['punt_return_yards'] / stats['punt_returns'], 1)
+    else:
+        stats['punt_return_avg'] = 0.0
+    
+    if stats['punts'] > 0:
+        stats['punt_avg'] = round(stats['punt_yards'] / stats['punts'], 1)
+    else:
+        stats['punt_avg'] = 0.0
+    
+    if stats['field_goals_attempts'] > 0:
+        stats['field_goal_pct'] = round(stats['field_goals_made'] / stats['field_goals_attempts'] * 100, 1)
+    else:
+        stats['field_goal_pct'] = 0.0
 
     return stats
 
@@ -435,6 +605,8 @@ def process_team_games(pdf_dir, team_identifier):
         
         # Count explosive plays
         our_explosives = 0
+        our_explosive_rushes = 0
+        our_explosive_passes = 0
         our_explosive_details = []
         for p in g.plays:
             if p.offense == our_abbr and p.yards and not p.is_no_play:
@@ -444,10 +616,15 @@ def process_team_games(pdf_dir, team_identifier):
                 threshold = 20 if is_pass else 15
                 if p.yards >= threshold:
                     our_explosives += 1
+                    play_type = 'pass' if is_pass else 'rush'
+                    if is_pass:
+                        our_explosive_passes += 1
+                    else:
+                        our_explosive_rushes += 1
                     our_explosive_details.append({
                         'description': p.description or '',
                         'yards': p.yards,
-                        'type': 'pass' if is_pass else 'rush'
+                        'type': play_type
                     })
         
         # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
@@ -517,10 +694,14 @@ def process_team_games(pdf_dir, team_identifier):
                 red_zone_plays.append(play_dict)
             
             # Check for scoring on this play to determine drive result
-            if p.is_scoring:
-                desc = (p.description or '').upper()
-                is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
-                is_td = 'TOUCHDOWN' in desc or 'TD' in desc
+            desc = (p.description or '').upper()
+            is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
+            is_td = 'TOUCHDOWN' in desc or 'TD' in desc
+            
+            # Include FG attempts even if not marked as scrimmage play
+            is_scoring_play = p.is_scoring or (is_fg and ('GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc))
+            
+            if is_scoring_play:
                 
                 # Determine which zone this score came from
                 if ytg <= 10:
@@ -586,6 +767,8 @@ def process_team_games(pdf_dir, team_identifier):
         
         # Post-Turnover Drive Tracking
         post_turnover_drives = []
+        points_off_turnovers_for = 0
+        points_off_turnovers_against = 0
         
         for i, p in enumerate(g.plays):
             if not p.is_turnover:
@@ -632,6 +815,12 @@ def process_team_games(pdf_dir, team_identifier):
                         drive_result = 'FG'
                         points_scored = 3
                     break
+            
+            # Accumulate points
+            if recovered_by == our_abbr:
+                points_off_turnovers_for += points_scored
+            else:
+                points_off_turnovers_against += points_scored
             
             # Build description for the drive
             if drive_plays:
@@ -691,6 +880,8 @@ def process_team_games(pdf_dir, team_identifier):
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
+        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
+        ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -705,10 +896,17 @@ def process_team_games(pdf_dir, team_identifier):
             'total_plays': our_stats.total_plays if our_stats and our_stats.total_plays else len([p for p in g.plays if p.offense == our_abbr]),
             'total_yards': our_stats.total_yards if our_stats and our_stats.total_yards else 0,
             'explosives': our_explosives,
+            'explosive_rushes': our_explosive_rushes,
+            'explosive_passes': our_explosive_passes,
             'explosive_details': our_explosive_details,
             'turnovers_lost': our_turnovers_lost,
             'turnovers_gained': opp_turnovers_lost,
+            'interceptions_lost': ints_lost,
+            'fumbles_lost': fum_lost,
+            'interceptions_gained': ints_gained,
+            'fumbles_gained': fum_gained,
             'penalties': our_penalties,
+            'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
             'red_zone_tds': rz_tds,
             'red_zone_fgs': rz_fgs,
@@ -722,6 +920,8 @@ def process_team_games(pdf_dir, team_identifier):
             'tight_red_zone_failed': tight_red_zone_failed,
             'red_zone_plays': red_zone_plays,
             'post_turnover_drives': post_turnover_drives,
+            'points_off_turnovers_for': points_off_turnovers_for,
+            'points_off_turnovers_against': points_off_turnovers_against,
             'middle8_points_for': middle8_for,
             'middle8_points_against': middle8_against,
             'middle8_scoring_plays': middle8_scoring,
