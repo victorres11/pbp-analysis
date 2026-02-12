@@ -286,6 +286,10 @@ function renderExplosives() {
     const gs = agg(gf), as_ = agg(af);
 
     let html = `<div class="section-enter">`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium">Definition</div>
+        <div class="text-xs text-zinc-400 mt-1">Explosive plays: rushes of 15+ yards or passes of 20+ yards</div>
+    </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a')}
         ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b')}
@@ -293,14 +297,55 @@ function renderExplosives() {
     html += compBar('Explosives/Game', gs.explpg, as_.explpg);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('explChart')}</div>`;
 
-    // Explosive details for ASU
-    const allExpl = af.flatMap(g => (g.explosive_details||[]).map(e => ({...e, opponent: g.opponent})));
-    if (allExpl.length) {
-        let tbl = `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
-            <th class="py-2 px-2 text-left text-zinc-500">Opp</th><th class="py-2 px-2 text-left text-zinc-500">Desc</th><th class="py-2 px-2 text-right text-zinc-500">Yds</th>
-        </tr></thead><tbody>${allExpl.map(e => `<tr class="border-b border-white/5 table-row"><td class="py-1 px-2">${e.opponent||''}</td><td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,80)}</td><td class="py-1 px-2 text-right font-bold ${e.yards>=20?'text-orange-400':'text-zinc-300'}">${e.yards||''}</td></tr>`).join('')}</tbody></table>`;
-        html += collapsible('Arizona State Explosive Plays', allExpl.length, tbl);
-    }
+    // Helper to render explosive plays table with grouping
+    const renderExplTable = (games, teamClass) => {
+        const allExpl = games.flatMap((g,i) => (g.explosive_details||[]).map(e => ({...e, opponent: g.opponent, game: i+1})));
+        if (!allExpl.length) return `<div class="text-zinc-500 text-xs p-4">No explosive plays found.</div>`;
+        
+        const rushPlays = allExpl.filter(e => e.type === 'rush');
+        const passPlays = allExpl.filter(e => e.type === 'pass');
+        
+        let tbl = `<div class="space-y-3">`;
+        if (rushPlays.length) {
+            tbl += `<div><div class="text-xs font-semibold text-zinc-400 mb-2 px-2">Rush (${rushPlays.length} plays)</div>
+            <table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+            </tr></thead><tbody>${rushPlays.map(e => `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${e.game}</td>
+                <td class="py-1 px-2">${e.opponent||''}</td>
+                <td class="py-1 px-2 text-green-400">Run</td>
+                <td class="py-1 px-2 text-right font-bold">${e.yards||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,90)}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+        }
+        if (passPlays.length) {
+            tbl += `<div><div class="text-xs font-semibold text-zinc-400 mb-2 px-2">Pass (${passPlays.length} plays)</div>
+            <table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+                <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+                <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+                <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+            </tr></thead><tbody>${passPlays.map(e => `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${e.game}</td>
+                <td class="py-1 px-2">${e.opponent||''}</td>
+                <td class="py-1 px-2 text-blue-400">Pass</td>
+                <td class="py-1 px-2 text-right font-bold">${e.yards||''}</td>
+                <td class="py-1 px-2 text-zinc-400">${(e.description||'').substring(0,90)}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+        }
+        tbl += `</div>`;
+        return tbl;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia Explosive Plays', gf.reduce((sum,g) => sum + (g.explosive_details||[]).length, 0), renderExplTable(gf, 'team-a'))}
+        ${collapsible('Arizona State Explosive Plays', af.reduce((sum,g) => sum + (g.explosive_details||[]).length, 0), renderExplTable(af, 'team-b'))}
+    </div>`;
     html += `</div>`;
     return html;
 }
