@@ -110,6 +110,7 @@
         body.modal-open { overflow: hidden; }
         .kbd-help-btn { position: fixed; bottom: 1rem; left: 1rem; z-index: 45; width: 36px; height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #e4e4e7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease; }
         .kbd-help-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
+        .build-version { position: fixed; bottom: 4.25rem; right: 1rem; z-index: 40; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(9,9,11,0.72); color: #a1a1aa; font-size: 0.65rem; letter-spacing: 0.02em; text-transform: none; white-space: nowrap; }
         .kbd-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 55; }
         .kbd-modal.open { display: flex; }
         .kbd-backdrop { position: absolute; inset: 0; background: rgba(9,9,11,0.72); backdrop-filter: blur(6px); }
@@ -4027,6 +4028,7 @@ function initApp() {
 
 initApp();
 </script>
+<div class="build-version" aria-label="Build version">__BUILD_VERSION__</div>
 <a href="https://vtsportssolutions.com" target="_blank" rel="noopener" aria-label="VT Sports Solutions website" class="mobile-hide" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
   <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
   <img src="assets/vt-logo-text.png" alt="VT Sports Solutions" style="height:20px;">

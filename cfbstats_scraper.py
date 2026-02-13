@@ -175,6 +175,10 @@ def find_column(headers: Iterable[str], candidates: Iterable[str]) -> Optional[s
         for candidate in candidates:
             if normalize_header(candidate) in header:
                 return header_list[idx]
+    normalized_candidates = {normalize_header(candidate) for candidate in candidates}
+    if {"rank", "rk", "#"} & normalized_candidates and header_list:
+        if normalized_headers[0] == "":
+            return header_list[0]
     return None
 
 
@@ -325,7 +329,7 @@ class CfbstatsScraper:
             leaderboard = self.get_leaderboard(year, scope, 27, split=split)
             if not leaderboard:
                 continue
-            team_col = find_column(leaderboard.headers, ["Team"])
+            team_col = find_column(leaderboard.headers, ["Team", "Name"])
             rank_col = find_column(leaderboard.headers, ["Rank", "Rk", "#"])
             td_col = find_column(leaderboard.headers, ["TD %", "TD%", "TD Pct", "TD%"]) or ""
             if not team_col or not rank_col or not td_col:
@@ -428,7 +432,7 @@ class CfbstatsScraper:
                 )
                 if not leaderboard:
                     continue
-                team_col = find_column(leaderboard.headers, ["Team"])
+                team_col = find_column(leaderboard.headers, ["Team", "Name"])
                 rank_col = find_column(leaderboard.headers, ["Rank", "Rk", "#"])
                 stat_col = find_column(leaderboard.headers, cfg["stat_candidates"])
                 if not team_col or not rank_col or not stat_col:
