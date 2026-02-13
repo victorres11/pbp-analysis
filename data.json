@@ -7,10 +7,10 @@
       "color": "#ef4444",
       "aggregates": {
         "games": 13,
-        "record": "11-2",
+        "record": "12-1",
         "conf_record": "0-0",
-        "ppg": 28.5,
-        "opp_ppg": 12.8,
+        "ppg": 31.9,
+        "opp_ppg": 15.9,
         "explosives_per_game": 5.1,
         "turnover_margin": 0,
         "penalties_per_game": 5.4,
@@ -459,6 +459,9 @@
             "punts_inside_20": 3,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 2,
             "onside_kicks_attempted": 0,
@@ -3214,8 +3217,30 @@
             "punts": 2,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 3,
+            "field_goals_made": 2,
             "field_goals_attempts": 3,
+            "field_goal_long": 53,
+            "field_goal_attempt_long": 53,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "00:14",
+                "yards": 29,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "01:24",
+                "yards": 53,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "11:47",
+                "yards": 45,
+                "made": false
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -3223,7 +3248,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 66.7
           },
           "play_tree": [
             {
@@ -6129,6 +6154,9 @@
             "punts_inside_20": 0,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -8706,6 +8734,9 @@
             "punts_inside_20": 2,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -11296,6 +11327,16 @@
             "punts_inside_20": 1,
             "field_goals_made": 1,
             "field_goals_attempts": 1,
+            "field_goal_long": 39,
+            "field_goal_attempt_long": 39,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "00:16",
+                "yards": 39,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -13969,6 +14010,28 @@
             "punts_inside_20": 1,
             "field_goals_made": 3,
             "field_goals_attempts": 3,
+            "field_goal_long": 50,
+            "field_goal_attempt_long": 50,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "09:43",
+                "yards": 22,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "00:03",
+                "yards": 30,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "14:13",
+                "yards": 50,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -16659,6 +16722,9 @@
             "punts_inside_20": 0,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -19467,6 +19533,16 @@
             "punts_inside_20": 2,
             "field_goals_made": 1,
             "field_goals_attempts": 1,
+            "field_goal_long": 43,
+            "field_goal_attempt_long": 43,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "",
+                "yards": 43,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -22359,6 +22435,22 @@
             "punts_inside_20": 2,
             "field_goals_made": 2,
             "field_goals_attempts": 2,
+            "field_goal_long": 49,
+            "field_goal_attempt_long": 49,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "06:45",
+                "yards": 49,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "12:06",
+                "yards": 46,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -25365,6 +25457,28 @@
             "punts_inside_20": 0,
             "field_goals_made": 3,
             "field_goals_attempts": 3,
+            "field_goal_long": 51,
+            "field_goal_attempt_long": 51,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "11:08",
+                "yards": 51,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "00:01",
+                "yards": 35,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "02:09",
+                "yards": 42,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -28127,6 +28241,9 @@
             "punts_inside_20": 4,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -30254,8 +30371,8 @@
           "conference": false,
           "is_power4": false,
           "date": "",
-          "points_for": 0,
-          "points_against": 0,
+          "points_for": 44,
+          "points_against": 41,
           "total_plays": 87,
           "total_yards": 502,
           "explosives": 6,
@@ -31031,6 +31148,28 @@
             "punts_inside_20": 2,
             "field_goals_made": 3,
             "field_goals_attempts": 3,
+            "field_goal_long": 48,
+            "field_goal_attempt_long": 48,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "01:42",
+                "yards": 20,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "01:53",
+                "yards": 48,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "12:20",
+                "yards": 24,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -34522,6 +34661,9 @@
             "punts_inside_20": 1,
             "field_goals_made": 0,
             "field_goals_attempts": 0,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 0,
+            "field_goal_attempts_detail": [],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 1,
@@ -37186,8 +37328,24 @@
             "punts": 0,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 2,
+            "field_goals_made": 1,
             "field_goals_attempts": 2,
+            "field_goal_long": 36,
+            "field_goal_attempt_long": 57,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "01:55",
+                "yards": 36,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "00:02",
+                "yards": 57,
+                "made": false
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -37195,7 +37353,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 50.0
           },
           "play_tree": [
             {
@@ -40048,6 +40206,22 @@
             "punts_inside_20": 1,
             "field_goals_made": 2,
             "field_goals_attempts": 2,
+            "field_goal_long": 51,
+            "field_goal_attempt_long": 51,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "00:00",
+                "yards": 51,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "01:39",
+                "yards": 18,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -42857,6 +43031,22 @@
             "punts_inside_20": 0,
             "field_goals_made": 2,
             "field_goals_attempts": 2,
+            "field_goal_long": 47,
+            "field_goal_attempt_long": 47,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "06:46",
+                "yards": 47,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "02:48",
+                "yards": 26,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -45785,6 +45975,34 @@
             "punts_inside_20": 1,
             "field_goals_made": 4,
             "field_goals_attempts": 4,
+            "field_goal_long": 43,
+            "field_goal_attempt_long": 43,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "08:24",
+                "yards": 31,
+                "made": true
+              },
+              {
+                "quarter": 3,
+                "clock": "08:06",
+                "yards": 21,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "13:35",
+                "yards": 33,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "00:01",
+                "yards": 43,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -48933,8 +49151,36 @@
             "punts": 2,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 4,
+            "field_goals_made": 2,
             "field_goals_attempts": 4,
+            "field_goal_long": 26,
+            "field_goal_attempt_long": 46,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "",
+                "yards": 46,
+                "made": false
+              },
+              {
+                "quarter": 3,
+                "clock": "",
+                "yards": 26,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "",
+                "yards": 43,
+                "made": false
+              },
+              {
+                "quarter": 4,
+                "clock": "",
+                "yards": 23,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -48942,7 +49188,7 @@
             "kickoff_return_avg": 3.5,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 50.0
           },
           "play_tree": [
             {
@@ -51754,8 +52000,24 @@
             "punts": 2,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 2,
+            "field_goals_made": 1,
             "field_goals_attempts": 2,
+            "field_goal_long": 38,
+            "field_goal_attempt_long": 38,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "02:34",
+                "yards": 38,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "03:11",
+                "yards": 29,
+                "made": false
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -51763,7 +52025,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 50.0
           },
           "play_tree": [
             {
@@ -54458,6 +54720,34 @@
             "punts_inside_20": 1,
             "field_goals_made": 4,
             "field_goals_attempts": 4,
+            "field_goal_long": 47,
+            "field_goal_attempt_long": 47,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "01:47",
+                "yards": 34,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "14:08",
+                "yards": 47,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "01:48",
+                "yards": 26,
+                "made": true
+              },
+              {
+                "quarter": 4,
+                "clock": "14:17",
+                "yards": 28,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -57489,8 +57779,30 @@
             "punts": 4,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 3,
+            "field_goals_made": 1,
             "field_goals_attempts": 3,
+            "field_goal_long": 47,
+            "field_goal_attempt_long": 47,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "06:12",
+                "yards": 31,
+                "made": false
+              },
+              {
+                "quarter": 3,
+                "clock": "05:53",
+                "yards": 42,
+                "made": false
+              },
+              {
+                "quarter": 4,
+                "clock": "11:30",
+                "yards": 47,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 1,
@@ -57498,7 +57810,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 33.3
           },
           "play_tree": [
             {
@@ -60351,6 +60663,16 @@
             "punts_inside_20": 0,
             "field_goals_made": 1,
             "field_goals_attempts": 1,
+            "field_goal_long": 35,
+            "field_goal_attempt_long": 35,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "00:57",
+                "yards": 35,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 10,
             "onside_kicks_attempted": 0,
@@ -63255,8 +63577,24 @@
             "punts": 4,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 2,
+            "field_goals_made": 1,
             "field_goals_attempts": 2,
+            "field_goal_long": 49,
+            "field_goal_attempt_long": 49,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 4,
+                "clock": "",
+                "yards": 46,
+                "made": false
+              },
+              {
+                "quarter": 4,
+                "clock": "02:47",
+                "yards": 49,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -63264,7 +63602,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 50.0
           },
           "play_tree": [
             {
@@ -66017,6 +66355,22 @@
             "punts_inside_20": 0,
             "field_goals_made": 2,
             "field_goals_attempts": 2,
+            "field_goal_long": 39,
+            "field_goal_attempt_long": 39,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 1,
+                "clock": "09:27",
+                "yards": 39,
+                "made": true
+              },
+              {
+                "quarter": 2,
+                "clock": "00:09",
+                "yards": 39,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 1,
@@ -68765,8 +69119,18 @@
             "punts": 2,
             "punt_yards": 0,
             "punts_inside_20": 0,
-            "field_goals_made": 1,
+            "field_goals_made": 0,
             "field_goals_attempts": 1,
+            "field_goal_long": 0,
+            "field_goal_attempt_long": 49,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "01:24",
+                "yards": 49,
+                "made": false
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,
@@ -68774,7 +69138,7 @@
             "kickoff_return_avg": 0.0,
             "punt_return_avg": 0.0,
             "punt_avg": 0.0,
-            "field_goal_pct": 100.0
+            "field_goal_pct": 0.0
           },
           "play_tree": [
             {
@@ -71555,6 +71919,16 @@
             "punts_inside_20": 1,
             "field_goals_made": 1,
             "field_goals_attempts": 1,
+            "field_goal_long": 54,
+            "field_goal_attempt_long": 54,
+            "field_goal_attempts_detail": [
+              {
+                "quarter": 2,
+                "clock": "",
+                "yards": 54,
+                "made": true
+              }
+            ],
             "pat_made": 0,
             "pat_attempts": 0,
             "onside_kicks_attempted": 0,

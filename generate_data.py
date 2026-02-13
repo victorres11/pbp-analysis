@@ -28,7 +28,9 @@ def extract_scores_from_pdf(pdf_path):
     lines = text.split('\n')
     scores = {}
     
-    score_re = re.compile(r'([A-Za-z][A-Za-z.\' &-]{1,30}?)\s{2,}(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$')
+    score_re = re.compile(
+        r'([A-Za-z][A-Za-z.\' &-]{1,30}?)\s{2,}(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)(?:\s+(\d+))?\s*$'
+    )
     for i, line in enumerate(lines):
         if 'score by quarters' in line.lower():
             for j in range(i+1, min(i+12, len(lines))):
@@ -41,7 +43,8 @@ def extract_scores_from_pdf(pdf_path):
                 team_name = m.group(1).strip()
                 if team_name.upper() in ['TOTAL', 'TEAM']:
                     continue
-                final_score = int(m.group(6))
+                score_numbers = [int(n) for n in m.groups()[1:] if n is not None]
+                final_score = score_numbers[-1]
                 scores[team_name] = final_score
             break
     
@@ -110,6 +113,46 @@ def points_from_description(desc):
         if 'GOOD' in u or 'MADE' in u:
             return 1
     return 0
+
+
+def is_fg_attempt_desc(desc):
+    u = (desc or '').upper()
+    return 'FIELD GOAL' in u or re.search(r'\bFG\b', u)
+
+
+def is_fg_made_desc(desc):
+    u = (desc or '').upper()
+    if any(bad in u for bad in ['NO GOOD', 'MISSED', 'WIDE', 'BLOCKED']):
+        return False
+    return any(good in u for good in ['GOOD', 'IS GOOD', 'MADE'])
+
+
+def extract_field_goal_yards(desc):
+    u = (desc or '').upper()
+    if not is_fg_attempt_desc(u):
+        return None
+    patterns = [
+        r'(\d{1,3})\s*-\s*YARD\s+FIELD GOAL',
+        r'(\d{1,3})\s+YARD\s+FIELD GOAL',
+        r'FIELD GOAL(?:\s+ATTEMPT)?(?:\s+FROM|\s+AT)?\s*(\d{1,3})\s*YARD',
+        r'FG(?:\s+ATTEMPT)?(?:\s+FROM|\s+AT)?\s*(\d{1,3})\s*YARD',
+        r'(\d{1,3})\s*YDS?\s+FIELD GOAL',
+        r'(\d{1,3})\s*YD\S*\s+FIELD GOAL',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, u)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                return None
+    m = re.search(r'FROM\s+(\d{1,3})\s*YARD', u)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+    return None
 
 
 def is_drive_marker(desc):
@@ -438,6 +481,9 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         'punts_inside_20': 0,
         'field_goals_made': 0,
         'field_goals_attempts': 0,
+        'field_goal_long': 0,
+        'field_goal_attempt_long': 0,
+        'field_goal_attempts_detail': [],
         'pat_made': 0,
         'pat_attempts': 0,
         'onside_kicks_attempted': 0,
@@ -450,7 +496,7 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         desc = (p.description or '').upper()
         is_kickoff = 'KICKOFF' in desc
         is_punt = 'PUNT' in desc
-        is_fg = 'FIELD GOAL' in desc or re.search(r'\bFG\b', desc)
+        is_fg = is_fg_attempt_desc(desc)
         is_pat = 'PAT' in desc or 'EXTRA POINT' in desc or 'POINT AFTER' in desc
         is_onside = 'ONSIDE' in desc
 
@@ -470,8 +516,20 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
             # Our field goals (include even if not marked as scrimmage play)
             if is_fg:
                 stats['field_goals_attempts'] += 1
-                if 'GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc:
+                fg_made = is_fg_made_desc(desc)
+                if fg_made:
                     stats['field_goals_made'] += 1
+                fg_yards = extract_field_goal_yards(desc)
+                stats['field_goal_attempts_detail'].append({
+                    'quarter': p.quarter,
+                    'clock': p.clock or '',
+                    'yards': fg_yards if fg_yards is not None else '',
+                    'made': bool(fg_made),
+                })
+                if fg_yards is not None:
+                    stats['field_goal_attempt_long'] = max(stats['field_goal_attempt_long'], fg_yards)
+                    if fg_made:
+                        stats['field_goal_long'] = max(stats['field_goal_long'], fg_yards)
             
             # Our PATs
             if is_pat:
