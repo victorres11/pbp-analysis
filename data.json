@@ -6,11 +6,17 @@
       "conference": "SEC",
       "color": "#ef4444",
       "cfbstats": {
-        "red_zone_badges": [],
+        "red_zone_badges": [
+          "Ranks 4th in SEC in red zone TD% (70.00%)"
+        ],
         "third_down_badges": [],
         "explosive_badges": [],
-        "scoring_offense_badges": [],
-        "scoring_defense_badges": []
+        "scoring_offense_badges": [
+          "Ranks 5th in SEC in scoring offense (31.5 PPG)"
+        ],
+        "scoring_defense_badges": [
+          "Ranks 5th in SEC in scoring defense (31.5 PPG)"
+        ]
       },
       "aggregates": {
         "games": 13,
@@ -37610,11 +37616,17 @@
       "conference": "Big 12",
       "color": "#f97316",
       "cfbstats": {
-        "red_zone_badges": [],
+        "red_zone_badges": [
+          "Ranks 15th in Big 12 in red zone TD% (63.16%)"
+        ],
         "third_down_badges": [],
         "explosive_badges": [],
-        "scoring_offense_badges": [],
-        "scoring_defense_badges": []
+        "scoring_offense_badges": [
+          "Ranks 4th in Big 12 in scoring offense (32.9 PPG)"
+        ],
+        "scoring_defense_badges": [
+          "Ranks 4th in Big 12 in scoring defense (32.9 PPG)"
+        ]
       },
       "aggregates": {
         "games": 13,
@@ -76074,6 +76086,6 @@
   "metadata": {
     "generated": "2026-02-12",
     "version": "2.1",
-    "cfbstats_season": 2026
+    "cfbstats_season": 2024
   }
 }

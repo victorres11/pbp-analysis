@@ -53,7 +53,8 @@ DEFAULT_TEAM_ALIASES = {
 def normalize_header(value: str) -> str:
     if value is None:
         return ""
-    return re.sub(r"[^a-z0-9]+", "", value.lower())
+    # Preserve % to distinguish "TD" from "TD %"
+    return re.sub(r"[^a-z0-9%]+", "", value.lower())
 
 
 def normalize_team_name(name: str) -> str:
@@ -162,15 +163,30 @@ def parse_leaderboard_table(html: str) -> Optional[Dict[str, List[Dict[str, str]
 def find_column(headers: Iterable[str], candidates: Iterable[str]) -> Optional[str]:
     header_list = list(headers)
     normalized_headers = [normalize_header(h) for h in header_list]
-    for candidate in candidates:
-        target = normalize_header(candidate)
-        if target in normalized_headers:
-            return header_list[normalized_headers.index(target)]
-    for idx, header in enumerate(normalized_headers):
-        for candidate in candidates:
-            if normalize_header(candidate) in header:
-                return header_list[idx]
-    normalized_candidates = {normalize_header(candidate) for candidate in candidates}
+    normalized_candidates = [normalize_header(candidate) for candidate in candidates]
+    normalized_candidate_set = set(normalized_candidates)
+
+    # Prefer exact matches (after normalization), choosing the longest match.
+    exact_matches = [
+        (len(header_norm), idx)
+        for idx, header_norm in enumerate(normalized_headers)
+        if header_norm in normalized_candidate_set
+    ]
+    if exact_matches:
+        _, best_idx = max(exact_matches, key=lambda item: (item[0], -item[1]))
+        return header_list[best_idx]
+
+    # Fall back to substring matches, preferring longer candidates over shorter ones.
+    substring_matches = []
+    for idx, header_norm in enumerate(normalized_headers):
+        for candidate_norm in normalized_candidates:
+            if candidate_norm and candidate_norm in header_norm:
+                substring_matches.append((len(candidate_norm), len(header_norm), idx))
+    if substring_matches:
+        _, _, best_idx = max(substring_matches, key=lambda item: (item[0], item[1], -item[2]))
+        return header_list[best_idx]
+
+    normalized_candidates = set(normalized_candidates)
     if {"rank", "rk", "#"} & normalized_candidates and header_list:
         if normalized_headers[0] == "":
             return header_list[0]
@@ -387,7 +403,7 @@ class CfbstatsScraper:
                 "key": "scoring_offense",
                 "label": "scoring offense",
                 "category": CATEGORY_IDS["SCORING"],
-                "stat_candidates": ["Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
+                "stat_candidates": ["Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
                 "formatter": format_ppg,
                 "offense": "offense",
             },
@@ -395,7 +411,7 @@ class CfbstatsScraper:
                 "key": "scoring_defense",
                 "label": "scoring defense",
                 "category": CATEGORY_IDS["SCORING"],
-                "stat_candidates": ["Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
+                "stat_candidates": ["Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
                 "formatter": format_ppg,
                 "offense": "defense",
             },
@@ -430,7 +446,8 @@ class CfbstatsScraper:
                 team_col = find_column(leaderboard.headers, ["Team", "Name"])
                 rank_col = find_column(leaderboard.headers, ["Rank", "Rk", "#"])
                 stat_col = find_column(leaderboard.headers, cfg["stat_candidates"])
-                if not team_col or not rank_col or not stat_col:
+                # Check 'is None' because rank_col can be empty string ""
+                if team_col is None or rank_col is None or stat_col is None:
                     continue
                 for row in leaderboard.rows:
                     team_name = row.get(team_col, "")

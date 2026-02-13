@@ -1226,7 +1226,7 @@ def main():
             return years.pop()
         return date.today().year
 
-    season_year = infer_season_year([asu_dir, georgia_dir])
+    season_year = 2024  # Hardcode to 2024 season (games played fall 2024/early 2025)
     scraper = CfbstatsScraper()
     cfbstats_badges = scraper.get_context_badges(
         season_year,
