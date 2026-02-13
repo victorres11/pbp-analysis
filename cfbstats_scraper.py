@@ -141,16 +141,11 @@ def parse_leaderboard_table(html: str) -> Optional[Dict[str, List[Dict[str, str]
     header_index = None
     for idx, row in enumerate(rows):
         normalized = [normalize_header(c) for c in row]
-        if "team" in normalized and any(h in normalized for h in ("rank", "rk", "#")):
+        if "name" in normalized or "team" in normalized:
             header_index = idx
             break
     if header_index is None:
-        for idx, row in enumerate(rows):
-            if any(c.strip().lower() == "team" for c in row):
-                header_index = idx
-                break
-    if header_index is None:
-        return None
+        header_index = 0
 
     headers = rows[header_index]
     data_rows = rows[header_index + 1 :]
