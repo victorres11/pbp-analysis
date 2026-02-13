@@ -739,6 +739,7 @@ def process_team_games(pdf_dir, team_identifier):
                     'yards': p.yards or 0,
                     'scoring': p.is_scoring,
                     'description': p.description or '',
+                    'drive_id': current_drive,
                     'zone': 'green' if ytg <= 30 else ''
                 }
                 
@@ -841,6 +842,23 @@ def process_team_games(pdf_dir, team_identifier):
                 green_zone_failed += 1
             elif drive_id in drives_by_zone['green']:
                 green_zone_failed += 1
+
+        # Attach drive results to red zone plays when available
+        drive_result_map = {}
+        for drive_id, result_info in drive_results.items():
+            drive_result_map[drive_id] = result_info['result']
+        for drive_id, failure in drive_failures.items():
+            if failure == 'TURNOVER':
+                drive_result_map[drive_id] = 'TURNOVER'
+            elif failure == 'DOWNS':
+                drive_result_map[drive_id] = 'TURNOVER ON DOWNS'
+            elif failure == 'MISSED_FG':
+                drive_result_map[drive_id] = 'MISSED_FG'
+
+        for play in red_zone_plays:
+            drive_id = play.get('drive_id')
+            if drive_id in drive_result_map:
+                play['drive_result'] = drive_result_map[drive_id]
         
         # For backward compatibility, keep old rz_ fields as red zone (20 & in)
         rz_trips = red_zone_trips

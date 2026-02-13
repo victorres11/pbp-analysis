@@ -288,6 +288,70 @@ function statCard(label, value, sub, teamClass) {
     </div>`;
 }
 
+function classifyRedZoneFailure(play) {
+    const result = (play.drive_result || '').toUpperCase();
+    const desc = (play.description || '').toUpperCase();
+    const fgHint = desc.includes('FIELD GOAL') || /\bFG\b/.test(desc) || result.includes('FG');
+    const missedFg = result.includes('MISSED_FG') || (fgHint && (
+        desc.includes('NO GOOD') || desc.includes('MISSED') || desc.includes('BLOCKED') || desc.includes('WIDE')
+    ));
+    if (result.includes('DOWNS') || desc.includes('TURNOVER ON DOWNS')) return 'downs';
+    if (missedFg) return 'missed_fg';
+    if (result.includes('TURNOVER') || result.includes('INT') || result.includes('FUM') ||
+        desc.includes('INTERCEPT') || desc.includes('PICKED OFF') || desc.includes('FUMBLE') ||
+        desc.includes('FUMBLED') || desc.includes('RECOVERED BY')) return 'turnover';
+    if (result.includes('END') || result.includes('HALF') || result.includes('GAME') || result.includes('TIME EXPIRED') ||
+        desc.includes('END OF HALF') || desc.includes('END OF GAME') || desc.includes('TIME EXPIRED') ||
+        desc.includes('END OF 1ST') || desc.includes('END OF 2ND') || desc.includes('END OF 3RD') || desc.includes('END OF 4TH')) {
+        return 'end_half_game';
+    }
+    return null;
+}
+
+function computeFailedBreakdown(games, zoneKey) {
+    const breakdown = { turnover: 0, downs: 0, end_half_game: 0, missed_fg: 0 };
+    const seenDrives = new Set();
+    games.forEach(g => {
+        const plays = (g.red_zone_plays || []).filter(p => {
+            if (zoneKey === 'green_zone') return p.yards_to_goal <= 30;
+            if (zoneKey === 'red_zone') return p.yards_to_goal <= 20;
+            if (zoneKey === 'tight_red_zone') return p.yards_to_goal <= 10;
+            return false;
+        });
+        plays.forEach(p => {
+            if (p.scoring) return;
+            const kind = classifyRedZoneFailure(p);
+            if (!kind) return;
+            const driveKey = (p.drive_id !== undefined && p.drive_id !== null)
+                ? `${g.game_number || ''}-${p.drive_id}`
+                : `${g.game_number || ''}-${p.quarter || ''}-${p.clock || ''}-${p.description || ''}`;
+            if (seenDrives.has(driveKey)) return;
+            seenDrives.add(driveKey);
+            breakdown[kind] += 1;
+        });
+    });
+    return breakdown;
+}
+
+function failedStatCard(value, teamClass, breakdown) {
+    const total = Object.values(breakdown || {}).reduce((s,v) => s + v, 0);
+    const details = total ? `
+        <details class="mt-2 text-left text-xs text-zinc-500">
+            <summary class="cursor-pointer hover:text-zinc-300">Breakdown</summary>
+            <div class="mt-2 space-y-1 text-zinc-400">
+                <div class="flex items-center justify-between"><span>Turnovers</span><span class="text-zinc-200">${breakdown.turnover}</span></div>
+                <div class="flex items-center justify-between"><span>Turnover on downs</span><span class="text-zinc-200">${breakdown.downs}</span></div>
+                <div class="flex items-center justify-between"><span>End of half/game</span><span class="text-zinc-200">${breakdown.end_half_game}</span></div>
+                <div class="flex items-center justify-between"><span>Missed FG</span><span class="text-zinc-200">${breakdown.missed_fg}</span></div>
+            </div>
+        </details>` : '';
+    return `<div class="stat-card glass rounded-xl p-4 text-center">
+        <div class="text-xs text-zinc-500">Failed</div>
+        <div class="text-2xl font-bold ${teamClass} mt-1">${value}</div>
+        ${details}
+    </div>`;
+}
+
 function formatGameDate(dateStr) {
     if (!dateStr) return '';
     const parsed = new Date(dateStr);
@@ -600,6 +664,7 @@ function renderRedzone() {
         const gTds = gStats[`${zoneKey}_tds`] || 0;
         const gFgs = gStats[`${zoneKey}_fgs`] || 0;
         const gFailed = gStats[`${zoneKey}_failed`] || 0;
+        const gFailedBreakdown = computeFailedBreakdown(games_g, zoneKey);
         const gTdPct = gTrips > 0 ? ((gTds / gTrips) * 100).toFixed(1) : '0.0';
         const gScorePct = gTrips > 0 ? (((gTds + gFgs) / gTrips) * 100).toFixed(1) : '0.0';
 
@@ -607,6 +672,7 @@ function renderRedzone() {
         const aTds = aStats[`${zoneKey}_tds`] || 0;
         const aFgs = aStats[`${zoneKey}_fgs`] || 0;
         const aFailed = aStats[`${zoneKey}_failed`] || 0;
+        const aFailedBreakdown = computeFailedBreakdown(games_a, zoneKey);
         const aTdPct = aTrips > 0 ? ((aTds / aTrips) * 100).toFixed(1) : '0.0';
         const aScorePct = aTrips > 0 ? (((aTds + aFgs) / aTrips) * 100).toFixed(1) : '0.0';
 
@@ -617,13 +683,13 @@ function renderRedzone() {
                 ${statCard('Trips', gTrips, '', 'team-a')}
                 ${statCard('TDs', gTds, gTdPct+'%', 'team-a')}
                 ${statCard('FGs', gFgs, '', 'team-a')}
-                ${statCard('Failed', gFailed, '', 'team-a')}
+                ${failedStatCard(gFailed, 'team-a', gFailedBreakdown)}
             </div>
             <div class="grid grid-cols-4 gap-3">
                 ${statCard('Trips', aTrips, '', 'team-b')}
                 ${statCard('TDs', aTds, aTdPct+'%', 'team-b')}
                 ${statCard('FGs', aFgs, '', 'team-b')}
-                ${statCard('Failed', aFailed, '', 'team-b')}
+                ${failedStatCard(aFailed, 'team-b', aFailedBreakdown)}
             </div>
         </div>`;
         html += compBar('TD Rate', parseFloat(gTdPct), parseFloat(aTdPct), '%');
