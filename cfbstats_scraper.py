@@ -335,22 +335,31 @@ class CfbstatsScraper:
             cached = self.load_cache(cache_path)
             if cached:
                 return cached
-            legacy_cache = self.load_cache(self.legacy_cache_path(year, scope, category, split, sort))
-            if legacy_cache:
-                return legacy_cache
+            # Legacy cache files do not include offense/defense in the filename,
+            # so they only safely represent offense leaderboards.
+            if offense == "offense":
+                legacy_cache = self.load_cache(
+                    self.legacy_cache_path(year, scope, category, split, sort)
+                )
+                if legacy_cache:
+                    return legacy_cache
 
         url = self.build_leaderboard_url(year, scope, category, split, sort, offense)
         html = self.fetch_html(url)
         if not html:
-            return self.load_cache(cache_path) or self.load_cache(
-                self.legacy_cache_path(year, scope, category, split, sort)
-            )
+            if offense == "offense":
+                return self.load_cache(cache_path) or self.load_cache(
+                    self.legacy_cache_path(year, scope, category, split, sort)
+                )
+            return self.load_cache(cache_path)
 
         parsed = parse_leaderboard_table(html)
         if not parsed:
-            return self.load_cache(cache_path) or self.load_cache(
-                self.legacy_cache_path(year, scope, category, split, sort)
-            )
+            if offense == "offense":
+                return self.load_cache(cache_path) or self.load_cache(
+                    self.legacy_cache_path(year, scope, category, split, sort)
+                )
+            return self.load_cache(cache_path)
 
         result = LeaderboardResult(
             headers=parsed["headers"],
@@ -451,16 +460,16 @@ class CfbstatsScraper:
                 break
 
         if not margin_map:
-            gain_map = {
-                name: row.get("gain")
-                for name, row in {**offense_stats, **defense_stats}.items()
-                if row.get("gain") is not None
-            }
-            lost_map = {
-                name: row.get("lost")
-                for name, row in {**offense_stats, **defense_stats}.items()
-                if row.get("lost") is not None
-            }
+            gain_map: Dict[str, float] = {}
+            lost_map: Dict[str, float] = {}
+            for source in combined_sources:
+                for name, row in source.items():
+                    gain = row.get("gain")
+                    if gain is not None and name not in gain_map:
+                        gain_map[name] = gain
+                    lost = row.get("lost")
+                    if lost is not None and name not in lost_map:
+                        lost_map[name] = lost
             for name, gain in gain_map.items():
                 lost = lost_map.get(name)
                 if gain is None or lost is None:
@@ -604,14 +613,6 @@ class CfbstatsScraper:
                 "offense": "offense",
             },
             {
-                "key": "turnover_margin",
-                "label": "turnover margin",
-                "category": CATEGORY_IDS["TURNOVERS"],
-                "stat_candidates": ["Margin", "TO Margin", "Margin/G", "+/-"],
-                "formatter": lambda v: str(v).strip() if v is not None else "",
-                "offense": "offense",
-            },
-            {
                 "key": "penalties",
                 "label": "penalty yards/game",
                 "category": CATEGORY_IDS["PENALTIES"],
@@ -714,6 +715,7 @@ class CfbstatsScraper:
         }
         for team_id in teams:
             badges[team_id]["scoring_margin"] = []
+            badges[team_id]["turnover_margin"] = []
         team_lookup = build_team_lookup(teams)
 
         by_conference: Dict[str, List[str]] = {}
@@ -727,6 +729,15 @@ class CfbstatsScraper:
             scope = CONFERENCE_IDS.get(conf)
             if not scope:
                 continue
+            self._populate_turnover_margin_badges(
+                year,
+                scope,
+                conf,
+                team_ids,
+                teams,
+                badges,
+                split,
+            )
             for cfg in configs:
                 leaderboard = self.get_leaderboard(
                     year,
