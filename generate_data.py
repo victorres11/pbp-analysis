@@ -590,9 +590,17 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         'kickoff_returns': 0,
         'kickoff_return_yards': 0,
         'kickoff_return_long': 0,
+        'kick_return_30_plus': 0,
+        'kick_return_30_plus_plays': [],
         'punt_returns': 0,
         'punt_return_yards': 0,
         'punt_return_long': 0,
+        'punt_return_20_plus': 0,
+        'punt_return_20_plus_plays': [],
+        'special_teams_tds': 0,
+        'special_teams_td_plays': [],
+        'fg_blocks': 0,
+        'punt_blocks': 0,
         'punts': 0,
         'punt_yards': 0,
         'punt_net_yards': 0,
@@ -610,6 +618,21 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         'onside_kicks_recovered': 0,
     }
 
+    def add_return_play(key, play, yards):
+        stats[key].append({
+            'description': play.description or '',
+            'yards': yards if yards is not None else '',
+            'quarter': play.quarter,
+            'clock': play.clock or '',
+        })
+
+    def add_td_play(play):
+        stats['special_teams_td_plays'].append({
+            'description': play.description or '',
+            'quarter': play.quarter,
+            'clock': play.clock or '',
+        })
+
     for p in plays:
         if p.is_no_play:
             continue
@@ -619,6 +642,12 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         is_fg = is_fg_attempt_desc(desc)
         is_pat = 'PAT' in desc or 'EXTRA POINT' in desc or 'POINT AFTER' in desc
         is_onside = 'ONSIDE' in desc
+
+        if 'BLOCKED' in desc:
+            if is_fg and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
+                stats['fg_blocks'] += 1
+            if is_punt and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
+                stats['punt_blocks'] += 1
 
         if p.offense == our_abbr:
             # Our punts
@@ -681,15 +710,36 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         if p.offense == opp_abbr or is_kickoff:  # Kickoffs might not have offense set correctly
             if is_kickoff and 'RETURN' in desc and our_abbr in desc:
                 stats['kickoff_returns'] += 1
-                if p.yards is not None:
-                    stats['kickoff_return_yards'] += p.yards
-                    stats['kickoff_return_long'] = max(stats['kickoff_return_long'], p.yards)
+                ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
+                if ret_yards is not None:
+                    stats['kickoff_return_yards'] += ret_yards
+                    stats['kickoff_return_long'] = max(stats['kickoff_return_long'], ret_yards)
+                    if ret_yards >= 30:
+                        stats['kick_return_30_plus'] += 1
+                        add_return_play('kick_return_30_plus_plays', p, ret_yards)
             
             if is_punt and 'RETURN' in desc and our_abbr in desc:
                 stats['punt_returns'] += 1
-                if p.yards is not None:
-                    stats['punt_return_yards'] += p.yards
-                    stats['punt_return_long'] = max(stats['punt_return_long'], p.yards)
+                ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
+                if ret_yards is not None:
+                    stats['punt_return_yards'] += ret_yards
+                    stats['punt_return_long'] = max(stats['punt_return_long'], ret_yards)
+                    if ret_yards >= 20:
+                        stats['punt_return_20_plus'] += 1
+                        add_return_play('punt_return_20_plus_plays', p, ret_yards)
+
+        if 'TOUCHDOWN' in desc and (is_kickoff or is_punt or is_fg or is_pat or 'RETURN' in desc or 'BLOCKED' in desc):
+            has_our_team = our_abbr in desc
+            has_opp_team = opp_abbr in desc
+            credited = False
+            if has_our_team:
+                credited = True
+            elif not has_opp_team:
+                if is_kickoff or is_punt or is_fg or is_pat:
+                    credited = (p.offense == opp_abbr)
+            if credited:
+                stats['special_teams_tds'] += 1
+                add_td_play(p)
 
     # Calculate averages
     if stats['kickoff_returns'] > 0:

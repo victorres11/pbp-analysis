@@ -35,6 +35,7 @@ CONFERENCE_IDS = {
 
 CATEGORY_IDS = {
     "FOURTH_DOWN": 26,
+    "TURNOVER_MARGIN": 12,
     "TURNOVERS": 12,
     "PENALTIES": 14,
     "TIME_OF_POSSESSION": 15,
@@ -272,7 +273,19 @@ class CfbstatsScraper:
             f"{split}/category{int(category):02d}/{sort}.html"
         )
 
-    def cache_path(self, year: int, scope: str, category: int, split: str, sort: str) -> Path:
+    def cache_path(
+        self,
+        year: int,
+        scope: str,
+        category: int,
+        split: str,
+        sort: str,
+        offense: str,
+    ) -> Path:
+        filename = f"{year}_{scope}_category{int(category):02d}_{split}_{sort}_{offense}.json"
+        return self.cache_dir / filename
+
+    def legacy_cache_path(self, year: int, scope: str, category: int, split: str, sort: str) -> Path:
         filename = f"{year}_{scope}_category{int(category):02d}_{split}_{sort}.json"
         return self.cache_dir / filename
 
@@ -317,20 +330,27 @@ class CfbstatsScraper:
         offense: str = "offense",
         force_refresh: bool = False,
     ) -> Optional[LeaderboardResult]:
-        cache_path = self.cache_path(year, scope, category, split, sort)
+        cache_path = self.cache_path(year, scope, category, split, sort, offense)
         if not force_refresh:
             cached = self.load_cache(cache_path)
             if cached:
                 return cached
+            legacy_cache = self.load_cache(self.legacy_cache_path(year, scope, category, split, sort))
+            if legacy_cache:
+                return legacy_cache
 
         url = self.build_leaderboard_url(year, scope, category, split, sort, offense)
         html = self.fetch_html(url)
         if not html:
-            return self.load_cache(cache_path)
+            return self.load_cache(cache_path) or self.load_cache(
+                self.legacy_cache_path(year, scope, category, split, sort)
+            )
 
         parsed = parse_leaderboard_table(html)
         if not parsed:
-            return self.load_cache(cache_path)
+            return self.load_cache(cache_path) or self.load_cache(
+                self.legacy_cache_path(year, scope, category, split, sort)
+            )
 
         result = LeaderboardResult(
             headers=parsed["headers"],
@@ -339,6 +359,159 @@ class CfbstatsScraper:
         )
         self.save_cache(cache_path, result)
         return result
+
+    def _extract_turnover_stats(
+        self, leaderboard: Optional[LeaderboardResult]
+    ) -> Optional[Dict[str, Dict[str, Optional[float]]]]:
+        if not leaderboard:
+            return None
+        team_col = find_column(leaderboard.headers, ["Team", "Name"])
+        if team_col is None:
+            return None
+
+        games_col = find_column(leaderboard.headers, ["G", "GP", "Games"])
+        total_gain_col = find_column(leaderboard.headers, ["Total Gain", "Total G", "Total G."])
+        total_lost_col = find_column(leaderboard.headers, ["Total Lost", "Total L", "Total L."])
+        fum_gain_col = find_column(leaderboard.headers, ["Fum. Gain", "Fum Gain", "Fum G", "Fum G."])
+        int_gain_col = find_column(leaderboard.headers, ["Int. Gain", "INT Gain", "Int G", "INT G."])
+        fum_lost_col = find_column(leaderboard.headers, ["Fum. Lost", "Fum Lost", "Fum L", "Fum L."])
+        int_lost_col = find_column(leaderboard.headers, ["Int. Lost", "INT Lost", "Int L", "INT L."])
+        margin_col = find_column(leaderboard.headers, ["Margin", "TO Margin", "+/-", "Margin/G", "Margin/Gm"])
+
+        stats: Dict[str, Dict[str, Optional[float]]] = {}
+        for row in leaderboard.rows:
+            team_name = row.get(team_col, "")
+            if not team_name:
+                continue
+            key = normalize_team_name(team_name)
+            games = parse_number(row.get(games_col, "")) if games_col else None
+            total_gain = parse_number(row.get(total_gain_col, "")) if total_gain_col else None
+            total_lost = parse_number(row.get(total_lost_col, "")) if total_lost_col else None
+            if total_gain is None and fum_gain_col and int_gain_col:
+                fum_gain = parse_number(row.get(fum_gain_col, "")) or 0.0
+                int_gain = parse_number(row.get(int_gain_col, "")) or 0.0
+                total_gain = fum_gain + int_gain
+            if total_lost is None and fum_lost_col and int_lost_col:
+                fum_lost = parse_number(row.get(fum_lost_col, "")) or 0.0
+                int_lost = parse_number(row.get(int_lost_col, "")) or 0.0
+                total_lost = fum_lost + int_lost
+            margin = parse_number(row.get(margin_col, "")) if margin_col else None
+            if margin_col and margin is not None:
+                header_norm = normalize_header(margin_col)
+                if "marging" in header_norm or "marginpg" in header_norm or "margingm" in header_norm:
+                    if games:
+                        margin = round(margin * games)
+            stats[key] = {
+                "games": games,
+                "gain": total_gain,
+                "lost": total_lost,
+                "margin": margin,
+            }
+        return stats
+
+    def _populate_turnover_margin_badges(
+        self,
+        year: int,
+        scope: str,
+        conf: str,
+        team_ids: List[str],
+        teams: Dict[str, Dict[str, str]],
+        badges: Dict[str, Dict[str, List[Dict[str, str]]]],
+        split: str,
+    ) -> None:
+        offense_lb = self.get_leaderboard(
+            year,
+            scope,
+            CATEGORY_IDS["TURNOVER_MARGIN"],
+            split=split,
+            offense="offense",
+        )
+        defense_lb = self.get_leaderboard(
+            year,
+            scope,
+            CATEGORY_IDS["TURNOVER_MARGIN"],
+            split=split,
+            offense="defense",
+        )
+        offense_stats = self._extract_turnover_stats(offense_lb) or {}
+        defense_stats = self._extract_turnover_stats(defense_lb) or {}
+
+        margin_map: Dict[str, float] = {}
+
+        # Prefer tables that include both gains and losses.
+        combined_sources = [offense_stats, defense_stats]
+        for source in combined_sources:
+            for name, row in source.items():
+                gain = row.get("gain")
+                lost = row.get("lost")
+                if gain is None or lost is None:
+                    continue
+                margin_map[name] = gain - lost
+            if margin_map:
+                break
+
+        if not margin_map:
+            gain_map = {
+                name: row.get("gain")
+                for name, row in {**offense_stats, **defense_stats}.items()
+                if row.get("gain") is not None
+            }
+            lost_map = {
+                name: row.get("lost")
+                for name, row in {**offense_stats, **defense_stats}.items()
+                if row.get("lost") is not None
+            }
+            for name, gain in gain_map.items():
+                lost = lost_map.get(name)
+                if gain is None or lost is None:
+                    continue
+                margin_map[name] = gain - lost
+
+        if not margin_map:
+            for source in combined_sources:
+                for name, row in source.items():
+                    margin = row.get("margin")
+                    if margin is None:
+                        continue
+                    margin_map[name] = margin
+                if margin_map:
+                    break
+
+        if not margin_map:
+            return
+
+        ranked = sorted(margin_map.items(), key=lambda item: item[1], reverse=True)
+        rank_lookup = {name: idx + 1 for idx, (name, _) in enumerate(ranked)}
+        total_ranked = len(ranked)
+
+        for team_id in team_ids:
+            info = teams.get(team_id, {})
+            candidates = [
+                normalize_team_name(info.get("name")),
+                normalize_team_name(info.get("abbr")),
+            ]
+            team_key = next((c for c in candidates if c in margin_map), None)
+            if not team_key:
+                continue
+            margin_value = margin_map[team_key]
+            rank = rank_lookup.get(team_key)
+            if not rank:
+                continue
+            if margin_value is None:
+                continue
+            if float(margin_value).is_integer():
+                margin_display = f"{int(margin_value):+d}"
+            else:
+                margin_display = f"{margin_value:+.1f}"
+            badges[team_id]["turnover_margin"].append(
+                {
+                    "rank": rank,
+                    "conference": conf,
+                    "value": margin_display,
+                    "label": "turnover margin",
+                    "total": total_ranked,
+                }
+            )
 
     def get_red_zone_badges(
         self,
