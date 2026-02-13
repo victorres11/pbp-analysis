@@ -10,123 +10,293 @@
           "red_zone": {
             "rank": 4,
             "conference": "SEC",
-            "value": "70.00%",
+            "value": "77.59%",
             "label": "red zone TD%",
             "total": 16
           },
           "third_down": {
-            "rank": 12,
+            "rank": 5,
             "conference": "SEC",
-            "value": "39.20%",
+            "value": "43.65%",
             "label": "third down %",
             "total": 16
           },
           "fourth_down": {
-            "rank": 1,
+            "rank": 2,
             "conference": "SEC",
-            "value": "66.67%",
+            "value": "75.00%",
             "label": "4th down conversion %",
             "total": 16
           },
           "penalties": {
-            "rank": 7,
+            "rank": 3,
             "conference": "SEC",
-            "value": "53.6",
+            "value": "43.5",
             "label": "penalty yards/game",
             "total": 16
           },
           "time_of_possession": {
-            "rank": 7,
+            "rank": 1,
             "conference": "SEC",
-            "value": "421:14",
+            "value": "474:14",
             "label": "time of possession",
             "total": 16
           },
           "sacks_offense": {
-            "rank": 5,
+            "rank": 16,
             "conference": "SEC",
-            "value": "37.0",
+            "value": "20.0",
             "label": "sacks allowed",
             "total": 16
           },
           "sacks_defense": {
-            "rank": 6,
+            "rank": 3,
             "conference": "SEC",
-            "value": "25.0",
+            "value": "20.0",
             "label": "sacks",
             "total": 16
           },
           "total_offense": {
-            "rank": 10,
+            "rank": 7,
             "conference": "SEC",
-            "value": "405.4",
+            "value": "402.4",
             "label": "total offense",
             "total": 16
           },
           "total_defense": {
-            "rank": 8,
+            "rank": 4,
             "conference": "SEC",
-            "value": "329.9",
+            "value": "298.0",
             "label": "total defense",
             "total": 16
           },
           "rushing_offense": {
-            "rank": 15,
+            "rank": 4,
             "conference": "SEC",
-            "value": "124.43",
+            "value": "182.14",
             "label": "rushing offense",
             "total": 16
           },
           "rushing_defense": {
-            "rank": 8,
+            "rank": 2,
             "conference": "SEC",
-            "value": "129.64",
+            "value": "81.50",
             "label": "rushing defense",
             "total": 16
           },
           "passing_offense": {
-            "rank": 3,
+            "rank": 12,
             "conference": "SEC",
-            "value": "281.0",
+            "value": "220.2",
             "label": "passing offense",
             "total": 16
           },
           "passing_defense": {
-            "rank": 6,
+            "rank": 8,
             "conference": "SEC",
-            "value": "200.2",
+            "value": "216.5",
             "label": "passing defense",
             "total": 16
           },
           "scoring_offense": {
-            "rank": 5,
+            "rank": 6,
             "conference": "SEC",
-            "value": "31.5 PPG",
+            "value": "32.1 PPG",
             "label": "scoring offense",
             "total": 16
           },
           "scoring_defense": {
-            "rank": 7,
+            "rank": 2,
             "conference": "SEC",
-            "value": "20.6 PPG",
+            "value": "17.6 PPG",
             "label": "scoring defense",
             "total": 16
           },
           "scoring_margin": {
-            "rank": 6,
+            "rank": 3,
             "conference": "SEC",
-            "value": "+10.9",
+            "value": "+14.5",
             "label": "scoring margin",
             "total": 16
           },
           "turnover_margin": {
-            "rank": 11,
+            "rank": 10,
             "conference": "SEC",
-            "value": "-1",
+            "value": "+0",
             "label": "turnover margin",
             "total": 16
           }
         }
+      },
+      "bye_weeks": [
+        4,
+        9
+      ],
+      "schedule": {
+        "team": "georgia",
+        "team_full": "University of Georgia",
+        "team_short": "Georgia",
+        "season": 2025,
+        "bye_weeks": [
+          4,
+          9
+        ],
+        "games": [
+          {
+            "week": 1,
+            "game_date": "2025-08-30",
+            "opponent": "Marshall",
+            "opponent_seo": "marshall",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42947",
+            "contest_url": "/game/6459414"
+          },
+          {
+            "week": 2,
+            "game_date": "2025-09-06",
+            "opponent": "Austin Peay",
+            "opponent_seo": "austin-peay",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42718",
+            "contest_url": "/game/6459386"
+          },
+          {
+            "week": 3,
+            "game_date": "2025-09-13",
+            "opponent": "Tennessee",
+            "opponent_seo": "tennessee",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42884",
+            "contest_url": "/game/6459399"
+          },
+          {
+            "week": 4,
+            "game_date": null,
+            "opponent": null,
+            "opponent_seo": null,
+            "is_home": null,
+            "is_bye": true,
+            "result": null,
+            "game_id": null,
+            "contest_url": null
+          },
+          {
+            "week": 5,
+            "game_date": "2025-09-27",
+            "opponent": "Alabama",
+            "opponent_seo": "alabama",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42949",
+            "contest_url": "/game/6459415"
+          },
+          {
+            "week": 6,
+            "game_date": "2025-10-04",
+            "opponent": "Kentucky",
+            "opponent_seo": "kentucky",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42535",
+            "contest_url": "/game/6459350"
+          },
+          {
+            "week": 7,
+            "game_date": "2025-10-11",
+            "opponent": "Auburn",
+            "opponent_seo": "auburn",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41715",
+            "contest_url": "/game/6459152"
+          },
+          {
+            "week": 8,
+            "game_date": "2025-10-18",
+            "opponent": "Ole Miss",
+            "opponent_seo": "ole-miss",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41951",
+            "contest_url": "/game/6459182"
+          },
+          {
+            "week": 9,
+            "game_date": null,
+            "opponent": null,
+            "opponent_seo": null,
+            "is_home": null,
+            "is_bye": true,
+            "result": null,
+            "game_id": null,
+            "contest_url": null
+          },
+          {
+            "week": 10,
+            "game_date": "2025-11-01",
+            "opponent": "Florida",
+            "opponent_seo": "florida",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "40457",
+            "contest_url": "/game/6458809"
+          },
+          {
+            "week": 11,
+            "game_date": "2025-11-08",
+            "opponent": "Mississippi St.",
+            "opponent_seo": "mississippi-st",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41324",
+            "contest_url": "/game/6459081"
+          },
+          {
+            "week": 12,
+            "game_date": "2025-11-15",
+            "opponent": "Texas",
+            "opponent_seo": "texas",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42953",
+            "contest_url": "/game/6459418"
+          },
+          {
+            "week": 13,
+            "game_date": "2025-11-22",
+            "opponent": "Charlotte",
+            "opponent_seo": "charlotte",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42957",
+            "contest_url": "/game/6459420"
+          },
+          {
+            "week": 14,
+            "game_date": "2025-11-28",
+            "opponent": "Georgia Tech",
+            "opponent_seo": "georgia-tech",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42968",
+            "contest_url": "/game/6459425"
+          }
+        ]
       },
       "aggregates": {
         "games": 13,
@@ -37860,125 +38030,295 @@
       "cfbstats": {
         "rankings": {
           "red_zone": {
-            "rank": 15,
+            "rank": 13,
             "conference": "Big 12",
-            "value": "63.16%",
+            "value": "51.06%",
             "label": "red zone TD%",
             "total": 16
           },
           "third_down": {
-            "rank": 3,
+            "rank": 15,
             "conference": "Big 12",
-            "value": "45.92%",
+            "value": "33.33%",
             "label": "third down %",
             "total": 16
           },
           "fourth_down": {
-            "rank": 11,
+            "rank": 7,
             "conference": "Big 12",
-            "value": "52.78%",
+            "value": "58.33%",
             "label": "4th down conversion %",
             "total": 16
           },
           "penalties": {
-            "rank": 11,
+            "rank": 13,
             "conference": "Big 12",
-            "value": "53.6",
+            "value": "57.8",
             "label": "penalty yards/game",
             "total": 16
           },
           "time_of_possession": {
-            "rank": 1,
+            "rank": 3,
             "conference": "Big 12",
-            "value": "456:42",
+            "value": "410:07",
             "label": "time of possession",
             "total": 16
           },
           "sacks_offense": {
-            "rank": 6,
+            "rank": 2,
             "conference": "Big 12",
-            "value": "24.0",
+            "value": "34.0",
             "label": "sacks allowed",
             "total": 16
           },
           "sacks_defense": {
-            "rank": 9,
+            "rank": 12,
             "conference": "Big 12",
-            "value": "21.0",
+            "value": "26.0",
             "label": "sacks",
             "total": 16
           },
           "total_offense": {
-            "rank": 4,
+            "rank": 5,
             "conference": "Big 12",
-            "value": "429.4",
+            "value": "417.3",
             "label": "total offense",
             "total": 16
           },
           "total_defense": {
-            "rank": 5,
+            "rank": 7,
             "conference": "Big 12",
-            "value": "339.6",
+            "value": "357.5",
             "label": "total defense",
             "total": 16
           },
           "rushing_offense": {
-            "rank": 4,
+            "rank": 2,
             "conference": "Big 12",
-            "value": "199.93",
+            "value": "193.62",
             "label": "rushing offense",
             "total": 16
           },
           "rushing_defense": {
-            "rank": 1,
+            "rank": 3,
             "conference": "Big 12",
-            "value": "112.93",
+            "value": "124.00",
             "label": "rushing defense",
             "total": 16
           },
           "passing_offense": {
-            "rank": 10,
+            "rank": 6,
             "conference": "Big 12",
-            "value": "229.5",
+            "value": "223.7",
             "label": "passing offense",
             "total": 16
           },
           "passing_defense": {
-            "rank": 10,
+            "rank": 13,
             "conference": "Big 12",
-            "value": "226.7",
+            "value": "233.5",
             "label": "passing defense",
             "total": 16
           },
           "scoring_offense": {
-            "rank": 4,
+            "rank": 12,
             "conference": "Big 12",
-            "value": "32.9 PPG",
+            "value": "25.8 PPG",
             "label": "scoring offense",
             "total": 16
           },
           "scoring_defense": {
-            "rank": 3,
+            "rank": 8,
             "conference": "Big 12",
-            "value": "22.6 PPG",
+            "value": "24.5 PPG",
             "label": "scoring defense",
             "total": 16
           },
           "scoring_margin": {
-            "rank": 2,
+            "rank": 11,
             "conference": "Big 12",
-            "value": "+10.3",
+            "value": "+1.3",
             "label": "scoring margin",
             "total": 16
           },
           "turnover_margin": {
-            "rank": 1,
+            "rank": 15,
             "conference": "Big 12",
-            "value": "+14",
+            "value": "-6",
             "label": "turnover margin",
             "total": 16
           }
         }
+      },
+      "bye_weeks": [
+        6,
+        11
+      ],
+      "schedule": {
+        "team": "arizona-st",
+        "team_full": "Arizona State University",
+        "team_short": "Arizona St.",
+        "season": 2025,
+        "bye_weeks": [
+          6,
+          11
+        ],
+        "games": [
+          {
+            "week": 1,
+            "game_date": "2025-08-30",
+            "opponent": "Northern Ariz.",
+            "opponent_seo": "northern-ariz",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43212",
+            "contest_url": "/game/6459506"
+          },
+          {
+            "week": 2,
+            "game_date": "2025-09-06",
+            "opponent": "Mississippi St.",
+            "opponent_seo": "mississippi-st",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41319",
+            "contest_url": "/game/6459076"
+          },
+          {
+            "week": 3,
+            "game_date": "2025-09-13",
+            "opponent": "Texas St.",
+            "opponent_seo": "texas-st",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "42069",
+            "contest_url": "/game/6459206"
+          },
+          {
+            "week": 4,
+            "game_date": "2025-09-20",
+            "opponent": "Baylor",
+            "opponent_seo": "baylor",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43214",
+            "contest_url": "/game/6459508"
+          },
+          {
+            "week": 5,
+            "game_date": "2025-09-26",
+            "opponent": "TCU",
+            "opponent_seo": "tcu",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41164",
+            "contest_url": "/game/6459038"
+          },
+          {
+            "week": 6,
+            "game_date": null,
+            "opponent": null,
+            "opponent_seo": null,
+            "is_home": null,
+            "is_bye": true,
+            "result": null,
+            "game_id": null,
+            "contest_url": null
+          },
+          {
+            "week": 7,
+            "game_date": "2025-10-11",
+            "opponent": "Utah",
+            "opponent_seo": "utah",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "41994",
+            "contest_url": "/game/6459192"
+          },
+          {
+            "week": 8,
+            "game_date": "2025-10-18",
+            "opponent": "Texas Tech",
+            "opponent_seo": "texas-tech",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43215",
+            "contest_url": "/game/6459509"
+          },
+          {
+            "week": 9,
+            "game_date": "2025-10-25",
+            "opponent": "Houston",
+            "opponent_seo": "houston",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "40588",
+            "contest_url": "/game/6458858"
+          },
+          {
+            "week": 10,
+            "game_date": "2025-11-01",
+            "opponent": "Iowa St.",
+            "opponent_seo": "iowa-st",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "40993",
+            "contest_url": "/game/6458988"
+          },
+          {
+            "week": 11,
+            "game_date": null,
+            "opponent": null,
+            "opponent_seo": null,
+            "is_home": null,
+            "is_bye": true,
+            "result": null,
+            "game_id": null,
+            "contest_url": null
+          },
+          {
+            "week": 12,
+            "game_date": "2025-11-15",
+            "opponent": "West Virginia",
+            "opponent_seo": "west-virginia",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43216",
+            "contest_url": "/game/6459510"
+          },
+          {
+            "week": 13,
+            "game_date": "2025-11-22",
+            "opponent": "Colorado",
+            "opponent_seo": "colorado",
+            "is_home": false,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43213",
+            "contest_url": "/game/6459507"
+          },
+          {
+            "week": 14,
+            "game_date": "2025-11-28",
+            "opponent": "Arizona",
+            "opponent_seo": "arizona",
+            "is_home": true,
+            "is_bye": false,
+            "result": null,
+            "game_id": "43119",
+            "contest_url": "/game/6459466"
+          }
+        ]
       },
       "aggregates": {
         "games": 13,
@@ -76603,8 +76943,8 @@
     }
   },
   "metadata": {
-    "generated": "2026-02-12",
+    "generated": "2026-02-13",
     "version": "2.1",
-    "cfbstats_season": 2024
+    "cfbstats_season": 2025
   }
 }

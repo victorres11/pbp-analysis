@@ -26,6 +26,7 @@ from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
 
 from cfbstats_scraper import CfbstatsScraper
+from pbp_parser.ncaa_schedule import fetch_team_schedule
 
 LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
@@ -1356,8 +1357,17 @@ def main():
             return years.pop()
         return date.today().year
 
-    season_year = 2024  # Hardcode to 2024 season (games played fall 2024/early 2025)
+    season_year = 2024  # CFBStats uses academic year start
+    ncaa_season = 2025   # NCAA API uses calendar year of the season
     scraper = CfbstatsScraper()
+
+    # Fetch schedules from NCAA API for bye week detection
+    print("\n=== Fetching NCAA Schedules ===")
+    ncaa_schedules = {}
+    for team_seo in ["georgia", "arizona-st"]:
+        print(f"  Fetching {team_seo} schedule...")
+        ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
+        print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
     cfbstats_rankings = scraper.get_context_badges(
         season_year,
         {
@@ -1391,6 +1401,8 @@ def main():
                 "cfbstats": {
                     "rankings": build_rankings("georgia"),
                 },
+                "bye_weeks": ncaa_schedules["georgia"].bye_weeks if "georgia" in ncaa_schedules else [],
+                "schedule": ncaa_schedules["georgia"].to_dict() if "georgia" in ncaa_schedules else None,
                 "aggregates": georgia_agg,
                 "games": georgia_games,
             },
@@ -1402,6 +1414,8 @@ def main():
                 "cfbstats": {
                     "rankings": build_rankings("asu"),
                 },
+                "bye_weeks": ncaa_schedules["arizona-st"].bye_weeks if "arizona-st" in ncaa_schedules else [],
+                "schedule": ncaa_schedules["arizona-st"].to_dict() if "arizona-st" in ncaa_schedules else None,
                 "aggregates": asu_agg,
                 "games": asu_games,
             }

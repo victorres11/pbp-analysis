@@ -1,0 +1,115 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Ole Miss",
+      "G": "15",
+      "Yards": "0"
+    },
+    {
+      "": "2",
+      "Name": "Tennessee",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "3",
+      "Name": "Vanderbilt",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "4",
+      "Name": "Arkansas",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "5",
+      "Name": "Alabama",
+      "G": "15",
+      "Yards": "0"
+    },
+    {
+      "": "6",
+      "Name": "Texas A&M",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "7",
+      "Name": "Missouri",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "8",
+      "Name": "Georgia",
+      "G": "14",
+      "Yards": "0"
+    },
+    {
+      "": "9",
+      "Name": "Mississippi State",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "10",
+      "Name": "Texas",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "11",
+      "Name": "LSU",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "12",
+      "Name": "Oklahoma",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "13",
+      "Name": "South Carolina",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "14",
+      "Name": "Florida",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "15",
+      "Name": "Auburn",
+      "G": "12",
+      "Yards": "1"
+    },
+    {
+      "": "16",
+      "Name": "Kentucky",
+      "G": "12",
+      "Yards": "0"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:40.430293Z"
+}

@@ -1,0 +1,115 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Texas Tech",
+      "G": "14",
+      "Yards": "0"
+    },
+    {
+      "": "2",
+      "Name": "Utah",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "3",
+      "Name": "BYU",
+      "G": "14",
+      "Yards": "0"
+    },
+    {
+      "": "4",
+      "Name": "Arizona State",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "4",
+      "Name": "TCU",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "6",
+      "Name": "Baylor",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "7",
+      "Name": "Arizona",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "8",
+      "Name": "Cincinnati",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "9",
+      "Name": "Houston",
+      "G": "13",
+      "Yards": "0"
+    },
+    {
+      "": "10",
+      "Name": "Kansas",
+      "G": "12",
+      "Yards": "1"
+    },
+    {
+      "": "11",
+      "Name": "Iowa State",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "12",
+      "Name": "Kansas State",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "13",
+      "Name": "UCF",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "14",
+      "Name": "Colorado",
+      "G": "12",
+      "Yards": "0"
+    },
+    {
+      "": "15",
+      "Name": "West Virginia",
+      "G": "12",
+      "Yards": "1"
+    },
+    {
+      "": "16",
+      "Name": "Oklahoma State",
+      "G": "12",
+      "Yards": "0"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:46.418681Z"
+}
