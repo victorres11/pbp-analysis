@@ -2854,14 +2854,16 @@ function renderSpecialTeams() {
     const aq = makeQuality(af);
     const buildStBreakdown = (games, getter) => games.map(g => {
         const st = g.special_teams || {};
+        const value = Number(getter(st, g) || 0);
+        if (value <= 0) return null;
         return {
             game_number: g.game_number,
             opponent: g.opponent,
             opponent_abbr: g.opponent_abbr,
             date: g.date,
-            value: getter(st, g) || 0,
+            value,
         };
-    });
+    }).filter(Boolean);
     
     // Aggregate special teams data
     const gPunts = sumSpecial(gf, 'punts');
