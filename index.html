@@ -42,6 +42,41 @@
         .chevron { transition: transform 0.3s ease; }
         .chevron.open { transform: rotate(180deg); }
         .vt-logo-icon { background: rgba(255,255,255,0.95); padding: 4px; border-radius: 8px; }
+
+        @media (max-width: 768px) {
+            body { font-size: 16px; }
+            .text-xs { font-size: 0.8125rem; }
+            .text-sm { font-size: 0.9375rem; }
+            .text-lg { font-size: 1.0625rem; }
+
+            nav .max-w-7xl { padding-left: 1rem; padding-right: 1rem; }
+            #filterBar { flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+            #filterBar span { display: none; }
+
+            #tabNav { flex-wrap: wrap; overflow-x: visible; }
+            #tabNav .nav-pill { flex: 1 1 calc(50% - 0.25rem); min-height: 44px; padding: 0.5rem 0.75rem; }
+            #tabNav .nav-pill[data-tab="allplays"],
+            #tabNav .nav-pill[data-tab="postturnovers"] { display: none; }
+
+            #mainContent { padding-left: 1rem; padding-right: 1rem; }
+            #mainContent .grid.grid-cols-2 { grid-template-columns: 1fr; }
+            #mainContent .grid.grid-cols-3,
+            #mainContent .grid.grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+            #mainContent table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+            #mainContent table { min-width: 100%; }
+
+            button, .filter-chip, .nav-pill, summary { min-height: 44px; }
+            summary { display: flex; align-items: center; gap: 0.5rem; }
+
+            .mobile-hide { display: none !important; }
+
+            .team-header { flex-direction: column; gap: 0.75rem; }
+            .team-header .text-right,
+            .team-header .text-left { text-align: center; }
+            .team-header h1 { font-size: 1.5rem; }
+            .team-header .vs-badge { font-size: 1.75rem; }
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -62,7 +97,7 @@
 
 <!-- Team Header -->
 <div class="pt-20 pb-4 max-w-7xl mx-auto px-6">
-    <div class="flex items-center justify-center gap-6">
+    <div class="team-header flex items-center justify-center gap-6">
         <div class="text-right">
             <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
             <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
@@ -1519,7 +1554,7 @@ function renderTab() {
 function buildNav() {
     const nav = document.getElementById('tabNav');
     nav.innerHTML = TABS.map(t =>
-        `<button class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent whitespace-nowrap ${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
+        `<button class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent whitespace-nowrap ${t.id===currentTab?'active':''}" data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
     ).join('');
 }
 
@@ -1565,7 +1600,7 @@ fetch('data.json').then(r => r.json()).then(d => {
     document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
 });
 </script>
-<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
+<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" class="mobile-hide" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
   <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
   <img src="assets/vt-logo-text.png" alt="VT Sports Solutions" style="height:20px;">
 </a>
