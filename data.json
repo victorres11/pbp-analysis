@@ -37649,57 +37649,68 @@
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #1 K.Brown caught at NAU44, for 22 yards to the NAU27 (#43 R.Davis; #8 C.Moses), 1ST DOWN.",
               "yards": 22,
-              "type": "pass"
+              "type": "pass",
+              "player": "K. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at ASU26, for 22 yards to the ASU33 (#24 S.Wilson), 1ST DOWN.",
               "yards": 22,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #1 K.Brown rush right for 34 yards gain to the NAU19 (#8 C.Moses), out of bounds, 1ST DOWN.",
               "yards": 34,
-              "type": "rush"
+              "type": "rush",
+              "player": "K. Brown"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 19 yards gain to the NAU04 (#3 A.Ma'afu), 1ST DOWN.",
               "yards": 19,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #7 C.Metayer caught at NAU43, for 20 yards to the NAU40 (#6 B.Nivens), 1ST DOWN.",
               "yards": 20,
-              "type": "pass"
+              "type": "pass",
+              "player": "C. Metayer"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush middle for 52 yards gain to the NAU00 TOUCHDOWN, clock 12:24, 1ST DOWN. Northern Ariz. 6, Arizona St. 24. 5 plays, 76 yards, 02:30",
               "yards": 52,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #3 R.Brown caught at ASU20, for 75 yards to the NAU00 TOUCHDOWN nullified by penalty, clock 08:02 PENALTY ASU Holding (#12 M.McClain) 10 yards from ASU25 to ASU15.",
               "yards": 75,
-              "type": "pass"
+              "type": "pass",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush left for 15 yards gain to the ASU20 (#11 J.Wesley), out of bounds.",
               "yards": 15,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush right for 18 yards gain to the NAU00 TOUCHDOWN, clock 00:11, 1ST Northern Ariz. vs Arizona St. (Aug 30, 2025) Site: Tempe, Arizona Stadium: Mountain America Stadium Attendance: 56759 DOWN. Northern Ariz. 13, Arizona St. 31. 9 plays, 70 yards, 03:04",
               "yards": 18,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #1 K.Brown rush left for 16 yards gain to the ASU46 (#4 M.Beresford), 1ST DOWN.",
               "yards": 16,
-              "type": "rush"
+              "type": "rush",
+              "player": "K. Brown"
             },
             {
               "description": "No Huddle-Shotgun #6 K.Udoh rush middle for 19 yards gain to the NAU16 (#13 J.Johnson III), 1ST DOWN.",
               "yards": 19,
-              "type": "rush"
+              "type": "rush",
+              "player": "K. Udoh"
             }
           ],
           "turnovers_lost": 2,
@@ -40621,27 +40632,32 @@
             {
               "description": "No Huddle-Shotgun #6 K.Udoh rush left for 21 yards gain to the ASU28 (#2 I.Smith), 1ST DOWN.",
               "yards": 21,
-              "type": "rush"
+              "type": "rush",
+              "player": "K. Udoh"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at MSU49, for 23 yards to the MSU44 (#3 B.Lanier), 1ST DOWN.",
               "yards": 23,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 15 yards gain to the ASU46 (#21 H.Washington; #40 N.Mitchell), 1ST DOWN.",
               "yards": 15,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short left to #0 J.Tyson caught at MSU28, for 21 yards to the MSU24 (#1 K.Jones), 1ST DOWN.",
               "yards": 21,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 26 yards gain to the MSU03 (#4 D.Brumfield), 1ST DOWN.",
               "yards": 26,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             }
           ],
           "turnovers_lost": 2,
@@ -43467,37 +43483,44 @@
             {
               "description": "Shotgun #3 R.Brown rush left for 23 yards gain to the ASU43 (#7 R.Nolan), out of bounds, 1ST DOWN.",
               "yards": 23,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #0 J.Tyson caught at TXST37, for 36 yards to the TXST33, End Of Play, 1ST DOWN.",
               "yards": 36,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short left to #0 J.Tyson caught at TXST15, for 30 yards to the P7 TXST00 TOUCHDOWN, clock 12:47, 1ST DOWN. The previous play is under automatic review - \"Runner broke the plane\". PLAY CONFIRMED. Texas St. 3, Arizona St. 10. 10 plays, 75 yards, 04:29",
               "yards": 30,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush left for 18 yards gain to the TXST07 (#7 R.Nolan), 1ST DOWN.",
               "yards": 18,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 16 yards gain to the TXST01 (#8 K.Washington; #9 J.Rios).",
               "yards": 16,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short left to #7 C.Metayer caught at TXST30, for 27 yards to the TXST00 TOUCHDOWN, clock 08:35, 1ST DOWN. Texas St. 3, Arizona St. 27. 13 plays, 79 yards, 06:12 #35 J.Gomez kickoff 65 yards to the TXST00 #5 J.Jenkins return 41 yards to the TXST41 (#35 J.Gomez).",
               "yards": 27,
-              "type": "pass"
+              "type": "pass",
+              "player": "C. Metayer"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush left for 75 yards gain to the TXST00 TOUCHDOWN, clock 02:17, 1ST DOWN. Texas St. 9, Arizona St. 34. 1 plays, 75 yards, 00:12 #35 J.Gomez kickoff 65 yards to the TXST00 #5 J.Jenkins return 28 yards to the TXST28 (#0 R.Bimage Jr.), out of bounds.",
               "yards": 75,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             }
           ],
           "turnovers_lost": 0,
@@ -46191,12 +46214,14 @@
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush middle for 27 yards gain to the BAYLOR10, End Of Play, 1ST DOWN. Time 1st Downs Conversions Stadium: McLane Stadium Attendance: 40964",
               "yards": 27,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep middle to #83 D.Eusebio caught at BAYLOR48, for 61 yards to the BAYLOR26 (#33 D.Coleman), 1ST DOWN.",
               "yards": 61,
-              "type": "pass"
+              "type": "pass",
+              "player": "D. Eusebio"
             }
           ],
           "turnovers_lost": 1,
@@ -49379,27 +49404,32 @@
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 28 yards gain to the TCU36 (#2 J.Johnson), 1ST DOWN.",
               "yards": 28,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #0 J.Tyson caught at TCU20, for 57 yards to the TCU00 TOUCHDOWN, clock 04:51, 1ST DOWN. TCU 17, Arizona St. 7. 3 plays, 65 yards, 01:23 #35 J.Gomez kickoff 65 yards to the TCU00, Touchback.",
               "yards": 57,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush middle for 24 yards gain to the TCU08 (#7 J.Dwyer), 1ST DOWN.",
               "yards": 24,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #16 J.Hamilton caught at TCU22, for 44 yards to the TCU16 (#21 B.Clark), 1ST DOWN.",
               "yards": 44,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Hamilton"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 35 yards gain to the TCU38 (#1 A.Jordan), out of bounds, 1ST DOWN.",
               "yards": 35,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             }
           ],
           "turnovers_lost": 2,
@@ -52603,7 +52633,8 @@
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush left for 20 yards gain to the Utes27 (#7 J.Hall), 1ST DOWN.",
               "yards": 20,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             }
           ],
           "turnovers_lost": 1,
@@ -55240,32 +55271,38 @@
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 17 yards gain to the ASU32 (#20 D.Balfour), 1ST DOWN.",
               "yards": 17,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #16 J.Hamilton caught at TTU25, for 49 yards to the TTU17 QB hurried by #18 T.Tilmon (#7 B.Jordan), 1ST DOWN.",
               "yards": 49,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Hamilton"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #16 J.Hamilton caught at TTU07, for 45 yards to the TTU04 (#7 B.Jordan), 1ST DOWN.",
               "yards": 45,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Hamilton"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #7 C.Metayer caught at TTU33, for 23 yards to the TTU30 (#7 B.Jordan), 1ST DOWN.",
               "yards": 23,
-              "type": "pass"
+              "type": "pass",
+              "player": "C. Metayer"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 22 yards gain to the ASU38 (#5 C.Wisniewski), 1ST DOWN.",
               "yards": 22,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #0 J.Tyson caught at TTU39, for 33 yards to the TTU22 (#14 B.Pollock), 1ST DOWN.",
               "yards": 33,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             }
           ],
           "turnovers_lost": 2,
@@ -58466,42 +58503,50 @@
             {
               "description": "Shotgun #10 S.Leavitt pass complete short right to #12 M.McClain caught at ASU42, for 25 yards to the ASU50 (#8 K.Webb), out of bounds, 1ST DOWN.",
               "yards": 25,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt rush middle for 16 yards gain to the UH 35 fumbled by #10 S.Leavitt at ASU43 recovered by UH #15 W.James at UH 35, End Of Play. 4 plays, 57 yards, 01:55",
               "yards": 16,
-              "type": "rush"
+              "type": "rush",
+              "player": "S. Leavitt"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep right to #12 M.McClain caught at UH 49, for 33 yards to the UH 47 (#1 L.McCutchin Sr.), 1ST DOWN.",
               "yards": 33,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete short right to #9 C.Harpole caught at ASU47, for 21 yards to the UH 46 (#6 J.Allen), 1ST DOWN.",
               "yards": 21,
-              "type": "pass"
+              "type": "pass",
+              "player": "C. Harpole"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #12 M.McClain caught at UH 12, for 36 yards to the UH 03 (#15 W.James), 1ST DOWN.",
               "yards": 36,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #10 S.Leavitt pass complete deep left to #12 M.McClain caught at UH 44, for 36 yards to the UH 30 (#9 C.Platt Jr.), 1ST DOWN.",
               "yards": 36,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 23 yards gain to the UH 40 (#6 J.Allen), 1ST DOWN.",
               "yards": 23,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete short left to #7 C.Metayer caught at UH 12, for 27 yards to the UH 00 P19 TOUCHDOWN, clock 05:12, 1ST DOWN, PENALTY UH Holding declined. Houston 24, Arizona St. 16. 7 plays, 70 yards, 02:03",
               "yards": 27,
-              "type": "pass"
+              "type": "pass",
+              "player": "C. Metayer"
             }
           ],
           "turnovers_lost": 1,
@@ -61393,37 +61438,44 @@
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush right for 16 yards gain to the ASU25 (#26 C.Bacon), 1ST DOWN.",
               "yards": 16,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #12 M.McClain caught at ISU33, for 21 yards to the ISU33, End Of Play, 1ST DOWN.",
               "yards": 21,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete short right to #12 M.McClain caught at ASU32, for 28 yards to the ISU46 (#36 C.Van Dinter), out of bounds, 1ST DOWN.",
               "yards": 28,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #18 J.Moss caught at ISU23, for 38 yards to the ISU08 (#29 D.Surges), 1ST DOWN.",
               "yards": 38,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Moss"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush middle for 88 yards gain to the ISU00 TOUCHDOWN, clock 07:47, 1ST DOWN. R15 Arizona State 24, Iowa State 16. 3 plays, 94 yards, 01:24",
               "yards": 88,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 26 yards gain to the ASU49 (#7 T.Bell), out of bounds, 1ST DOWN.",
               "yards": 26,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush right for 15 yards gain to the ISU25, out of bounds at ISU25, 1ST DOWN.",
               "yards": 15,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             }
           ],
           "turnovers_lost": 3,
@@ -64555,22 +64607,26 @@
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep left to #12 M.McClain caught at ASU46, for 24 yards to the ASU46 (#6 J.Scruggs), out of bounds, 1ST DOWN.",
               "yards": 24,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush left for 21 yards gain to the WVU33 (#13 D.Carter Jr.), out of bounds, 1ST DOWN.",
               "yards": 21,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete short middle to #18 J.Moss caught at WVU12, for 25 yards to the WVU06 (#7 I.Boyce), 1ST DOWN.",
               "yards": 25,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Moss"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete short middle to #3 R.Brown caught at WVU26, for 33 yards to the WVU00 QB hurried by #5 F.Perry TOUCHDOWN, clock 01:41, 1ST DOWN. West Virginia 10, Arizona St. 22. 8 plays, 69 yards, 02:49",
               "yards": 33,
-              "type": "pass"
+              "type": "pass",
+              "player": "R. Brown"
             }
           ],
           "turnovers_lost": 2,
@@ -67123,37 +67179,44 @@
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #0 J.Tyson caught at COLO31, for 42 yards to the COLO21 (#13 J.Slaughter), out of bounds, 1ST DOWN.",
               "yards": 42,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Tyson"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete short right to #12 M.McClain caught at ASU41, for 25 yards to the COLO48 (#29 I.Yates), 1ST DOWN.",
               "yards": 25,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #3 R.Brown caught at COLO10, for 33 yards to the COLO00 TOUCHDOWN, clock 03:19, 1ST DOWN. Arizona St. 10, Colorado 7. 8 plays, 77 yards, 05:05",
               "yards": 33,
-              "type": "pass"
+              "type": "pass",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 59 yards gain to the COLO21 (#3 T.Parks), out of bounds, 1ST DOWN.",
               "yards": 59,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush right for 20 yards gain to the ASU46 fumbled by #3 R.Brown at ASU45 forced by #13 J.Slaughter recovered by COLO #17 I.Hardge at ASU46, End Of Play. 1 plays, 20 yards, 00:14 Time 1st Downs Conversions Stadium: Folsom Field Attendance: 43348",
               "yards": 20,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush middle for 88 yards gain to the COLO00 TOUCHDOWN, clock 13:31, 1ST DOWN. Arizona St. 28, Colorado 17. 1 plays, 88 yards, 00:13",
               "yards": 88,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #6 K.Udoh rush middle for 25 yards gain to the COLO10 (#3 T.Parks), 1ST DOWN.",
               "yards": 25,
-              "type": "rush"
+              "type": "rush",
+              "player": "K. Udoh"
             }
           ],
           "turnovers_lost": 4,
@@ -70195,17 +70258,20 @@
             {
               "description": "No Huddle-Shotgun #3 R.Brown rush left for 28 yards gain to the UA 33 (#25 M.Dansby), 1ST DOWN.",
               "yards": 28,
-              "type": "rush"
+              "type": "rush",
+              "player": "R. Brown"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush left for 27 yards gain to the UA 00 TOUCHDOWN, clock 10:33, 1ST DOWN. Arizona 0, Arizona St. 7. 8 plays, 90 yards, 03:53",
               "yards": 27,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep left to #12 M.McClain caught at UA 20, for 25 yards to the UA 16 (#2 T.Stukes), out of bounds, 1ST DOWN.",
               "yards": 25,
-              "type": "pass"
+              "type": "pass",
+              "player": "M. McClain"
             }
           ],
           "turnovers_lost": 5,
@@ -72839,47 +72905,56 @@
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep right to #18 J.Moss caught at DUKE29, for 51 yards to the DUKE23 (#8 D.Stone), 1ST DOWN.",
               "yards": 51,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Moss"
             },
             {
               "description": "No Huddle-Shotgun #22 J.Brown Jr. rush left for 17 yards gain to the ASU45 (#26 M.Jones; #21 L.Callahan), 1ST DOWN.",
               "yards": 17,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Brown Jr."
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims pass complete deep middle to #18 J.Moss caught at DUKE13, for 44 yards to the DUKE00 TOUCHDOWN, clock 05:05, 1ST DOWN. Arizona St. vs Duke (Dec 31, 2025) Site: EL PASO, Texas Stadium: Sun Bowl Attendance: 44975 Arizona St. 14, Duke 14. 5 plays, 75 yards, 01:38",
               "yards": 44,
-              "type": "pass"
+              "type": "pass",
+              "player": "J. Moss"
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush right for 20 yards gain to the DUKE44 (#21 L.Callahan), 1ST DOWN.",
               "yards": 20,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "No Huddle-Shotgun #22 J.Brown Jr. rush middle for 25 yards gain to the DUKE39 (#21 L.Callahan), out of bounds, 1ST DOWN.",
               "yards": 25,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Brown Jr."
             },
             {
               "description": "No Huddle-Shotgun #2 J.Sims rush right for 38 yards gain to the DUKE00 TOUCHDOWN, clock 03:49, 1ST DOWN. Arizona St. 21, Duke 21. 6 plays, 75 yards, 02:17 #35 J.Gomez kickoff 9 yards to the ASU44, out of bounds at ASU44.",
               "yards": 38,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Sims"
             },
             {
               "description": "Shotgun #22 J.Brown Jr. rush right for 44 yards gain to the DUKE31 (#12 T.Freeman), out of bounds, 1ST DOWN.",
               "yards": 44,
-              "type": "rush"
+              "type": "rush",
+              "player": "J. Brown Jr."
             },
             {
               "description": "Shotgun #2 J.Sims pass complete short to #23 D.Robinson caught at ASU28, for 68 yards to the DUKE08 (#3 C.Weaver), 1ST DOWN.",
               "yards": 68,
-              "type": "pass"
+              "type": "pass",
+              "player": "D. Robinson"
             },
             {
               "description": "Shotgun #2 J.Sims pass complete short left to #83 D.Eusebio caught at ASU38, for 38 yards to the DUKE23 (#3 C.Weaver), out of bounds, 1ST DOWN.",
               "yards": 38,
-              "type": "pass"
+              "type": "pass",
+              "player": "D. Eusebio"
             }
           ],
           "turnovers_lost": 3,

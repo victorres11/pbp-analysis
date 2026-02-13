@@ -27,18 +27,29 @@ from pbp_parser.explosives import compute_team_explosives
 
 from cfbstats_scraper import CfbstatsScraper
 
-NAME_PATTERN = re.compile(
+LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
     r"[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+)?"
 )
-PASS_RECEIVER_RE = re.compile(r"\bto\s+(" + NAME_PATTERN.pattern + r")", re.IGNORECASE)
-RUSH_PLAYER_RE = re.compile(r"(" + NAME_PATTERN.pattern + r")\s+(?:rush|run)\b", re.IGNORECASE)
+HASH_INITIAL_LAST_PATTERN = re.compile(r"#\d+\s+[A-Z]\.[A-Za-z.'-]+")
+HASH_FULLNAME_PATTERN = re.compile(r"#\d+\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)+")
+EXPLOSIVE_NAME_PATTERN = re.compile(
+    r"(" + "|".join([
+        LAST_FIRST_PATTERN.pattern,
+        HASH_INITIAL_LAST_PATTERN.pattern,
+        HASH_FULLNAME_PATTERN.pattern,
+    ]) + r")"
+)
+PASS_RECEIVER_RE = re.compile(r"\bto\s+(" + EXPLOSIVE_NAME_PATTERN.pattern + r")", re.IGNORECASE)
+RUSH_PLAYER_RE = re.compile(r"(" + EXPLOSIVE_NAME_PATTERN.pattern + r")\s+(?:rush|run)\b", re.IGNORECASE)
 
 
 def normalize_player_name(raw):
     if not raw:
         return None
     cleaned = re.sub(r'\s+', ' ', raw.strip())
+    cleaned = re.sub(r'^#\d+\s+', '', cleaned)
+    cleaned = re.sub(r'\b([A-Z])\.(?=[A-Za-z])', r'\1. ', cleaned)
     if ',' not in cleaned:
         return cleaned
     last, first = cleaned.split(',', 1)
