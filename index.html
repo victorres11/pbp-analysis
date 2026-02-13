@@ -1142,9 +1142,41 @@ function formatOpponentLabel(name, abbr) {
     return `${cleanName} <span class="text-xs text-zinc-500">(${cleanAbbr})</span>`;
 }
 
+function parseScheduleDate(dateStr) {
+    if (!dateStr) return null;
+    const trimmed = dateStr.trim();
+    const monthMap = {
+        Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+        Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+    };
+    const parts = trimmed.split(' ');
+    if (parts.length >= 3) {
+        const month = monthMap[parts[0]];
+        const day = Number(parts[1].replace(',', ''));
+        const year = Number(parts[2]);
+        if (Number.isInteger(month) && Number.isFinite(day) && Number.isFinite(year)) {
+            return new Date(Date.UTC(year, month, day));
+        }
+    }
+    const fallback = new Date(trimmed);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
 function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
-    let rows = games.map((g,i) => {
+    const rows = [];
+    let prevDate = null;
+    games.forEach((g, i) => {
+        const currentDate = parseScheduleDate(g.date || g.game_date);
+        if (prevDate && currentDate) {
+            const gapDays = Math.round((currentDate - prevDate) / 86400000);
+            if (gapDays > 7) {
+                rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
+                    <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week</td>
+                </tr>`);
+            }
+        }
+
         const w = g.points_for > g.points_against;
         const dateLabel = formatGameDate(g.date || g.game_date);
         const opponentLabel = formatOpponentLabel(g.opponent, g.opponent_abbr);
@@ -1158,20 +1190,21 @@ function scheduleTable(team, games, teamClass) {
                     <div class="text-xs text-zinc-400">${outlierList.join(', ')}</div>
                 </span>
             </span>` : '';
-        return `<tr class="schedule-row border-b border-white/5">
-            <td class="py-2 px-3 text-xs text-zinc-400">${i+1}</td>
+        rows.push(`<tr class="schedule-row border-b border-white/5">
+            <td class="py-2 px-3 text-xs text-zinc-400">${i + 1}</td>
             <td class="py-2 px-3 text-sm">
                 ${opponentLabel}
                 ${dateLabel ? `<div class="text-xs text-zinc-500">${dateLabel}</div>` : ''}
             </td>
-            <td class="py-2 px-3 text-sm font-bold ${w ? 'text-green-400' : 'text-red-400'}">${w?'W':'L'} ${g.points_for}-${g.points_against}${outlierBadge}</td>
+            <td class="py-2 px-3 text-sm font-bold ${w ? 'text-green-400' : 'text-red-400'}">${w ? 'W' : 'L'} ${g.points_for}-${g.points_against}${outlierBadge}</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
-        </tr>`;
-    }).join('');
+        </tr>`);
+        if (currentDate) prevDate = currentDate;
+    });
     return `<div class="glass rounded-xl overflow-hidden">
         <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
-        <table class="w-full"><tbody>${rows}</tbody></table>
+        <table class="w-full"><tbody>${rows.join('')}</tbody></table>
     </div>`;
 }
 
