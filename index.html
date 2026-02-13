@@ -18,6 +18,19 @@
         .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
         .stat-card { transition: all 0.2s ease; }
         .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4); }
+        .stat-card:hover .dq-info { opacity: 0.85; }
+        .dq-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid transparent; font-size: 0.68rem; letter-spacing: 0.02em; }
+        .dq-green { color: #86efac; background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.35); }
+        .dq-yellow { color: #fde68a; background: rgba(234,179,8,0.14); border-color: rgba(234,179,8,0.35); }
+        .dq-red { color: #fca5a5; background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.35); }
+        .dq-neutral { color: #a1a1aa; background: rgba(113,113,122,0.12); border-color: rgba(113,113,122,0.28); }
+        .dq-tooltip { position: relative; display: inline-flex; align-items: center; }
+        .dq-tooltip-content { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translate(-50%, -4px); min-width: 180px; max-width: 240px; background: #111114; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.5rem 0.6rem; font-size: 0.72rem; color: #e4e4e7; opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; z-index: 20; box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
+        .dq-tooltip:hover .dq-tooltip-content { opacity: 1; transform: translate(-50%, -8px); pointer-events: auto; }
+        .dq-icon { width: 14px; height: 14px; border-radius: 999px; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; font-weight: 700; }
+        .dq-info { opacity: 0.4; transition: opacity 0.2s ease; }
+        .dq-warning { font-size: 0.7rem; line-height: 1; margin-left: 2px; }
+        .dq-outlier { font-size: 0.65rem; padding: 0.12rem 0.35rem; border-radius: 999px; border: 1px solid rgba(244,114,182,0.4); color: #f9a8d4; background: rgba(244,114,182,0.14); }
         .nav-pill { transition: all 0.15s ease; }
         .nav-pill:hover { background: rgba(255,255,255,0.08); }
         .nav-pill.active { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
@@ -45,6 +58,12 @@
         .chevron { transition: transform 0.3s ease; }
         .chevron.open { transform: rotate(180deg); }
         .vt-logo-icon { background: rgba(255,255,255,0.95); padding: 4px; border-radius: 8px; }
+        .menu-button { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #e4e4e7; font-size: 0.75rem; font-weight: 600; padding: 0.45rem 0.7rem; border-radius: 0.5rem; transition: all 0.15s ease; }
+        .menu-button:hover { background: rgba(255,255,255,0.08); }
+        .menu-panel { position: absolute; right: 0; top: calc(100% + 0.5rem); min-width: 190px; background: rgba(9,9,11,0.98); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.75rem; box-shadow: 0 12px 30px rgba(0,0,0,0.45); padding: 0.35rem; z-index: 60; }
+        .menu-item { width: 100%; display: flex; align-items: center; gap: 0.5rem; text-align: left; padding: 0.5rem 0.6rem; font-size: 0.75rem; color: #e4e4e7; border-radius: 0.55rem; transition: background 0.15s ease, color 0.15s ease; }
+        .menu-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 0.35rem 0.4rem; }
         .zone-section { border: 1px solid rgba(255,255,255,0.06); border-left-width: 4px; border-radius: 16px; padding: 16px; }
         .zone-green { border-left-color: #22c55e; background: linear-gradient(90deg, rgba(34,197,94,0.14), rgba(9,9,11,0) 65%); }
         .zone-red { border-left-color: #ef4444; background: linear-gradient(90deg, rgba(239,68,68,0.14), rgba(9,9,11,0) 65%); }
@@ -60,8 +79,47 @@
         .chart-skeleton { position: absolute; inset: 0; background: linear-gradient(110deg, rgba(255,255,255,0.05) 8%, rgba(255,255,255,0.12) 18%, rgba(255,255,255,0.05) 33%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
         .chart-shell.chart-ready .chart-skeleton { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .chart-fallback { display: flex; align-items: center; justify-content: center; height: 100%; color: #a1a1aa; font-size: 0.85rem; text-align: center; padding: 1rem; }
+        .pbp-timeline { position: relative; height: 56px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); overflow: hidden; }
+        .pbp-timeline-track { position: absolute; left: 16px; right: 16px; top: 50%; height: 2px; transform: translateY(-50%); background: rgba(255,255,255,0.12); }
+        .pbp-marker { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 999px; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.35); background: #71717a; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .pbp-marker:hover { transform: translate(-50%, -50%) scale(1.2); box-shadow: 0 0 0 4px rgba(255,255,255,0.08); }
+        .pbp-marker.td { background: #22c55e; border-color: rgba(34,197,94,0.9); }
+        .pbp-marker.turnover { background: #ef4444; border-color: rgba(239,68,68,0.9); }
+        .pbp-marker.big { background: #f59e0b; border-color: rgba(245,158,11,0.9); }
+        .pbp-marker.selected { box-shadow: 0 0 0 5px rgba(255,255,255,0.12); }
+        .pbp-divider { position: absolute; top: 10px; bottom: 10px; width: 1px; background: rgba(255,255,255,0.16); }
+        .pbp-divider-label { position: absolute; top: 8px; font-size: 0.62rem; color: #a1a1aa; transform: translateX(-50%); letter-spacing: 0.05em; }
+        .pbp-table-head { border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .pbp-row { border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .pbp-row:last-child { border-bottom: none; }
+        .pbp-row summary { list-style: none; }
+        .pbp-row summary::-webkit-details-marker { display: none; }
+        .pbp-row[open] { background: rgba(255,255,255,0.03); }
+        .pbp-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.45rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); font-size: 0.65rem; color: #e4e4e7; }
+        .pbp-badge.td { border-color: rgba(34,197,94,0.45); color: #86efac; }
+        .pbp-badge.turnover { border-color: rgba(239,68,68,0.45); color: #fca5a5; }
+        .pbp-badge.big { border-color: rgba(245,158,11,0.45); color: #fcd34d; }
+        .pbp-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1.25rem; }
         @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+        .skip-link { position: absolute; left: -999px; top: 0.75rem; z-index: 60; padding: 0.5rem 0.75rem; background: #f97316; color: #09090b; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-decoration: none; }
+        .skip-link:focus { left: 0.75rem; }
+        :focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+        button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+        body.modal-open { overflow: hidden; }
+        .kbd-help-btn { position: fixed; bottom: 1rem; left: 1rem; z-index: 45; width: 36px; height: 36px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #e4e4e7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease; }
+        .kbd-help-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
+        .kbd-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 55; }
+        .kbd-modal.open { display: flex; }
+        .kbd-backdrop { position: absolute; inset: 0; background: rgba(9,9,11,0.72); backdrop-filter: blur(6px); }
+        .kbd-dialog { position: relative; width: min(540px, 92vw); background: #0f0f13; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.25rem 1.25rem 1rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .kbd-dialog h2 { font-size: 1rem; font-weight: 700; color: #fafafa; margin-bottom: 0.75rem; }
+        .kbd-list { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+        .kbd-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem; color: #d4d4d8; }
+        .kbd-key { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.75rem; padding: 0.2rem 0.45rem; border-radius: 6px; background: rgba(255,255,255,0.12); color: #fafafa; border: 1px solid rgba(255,255,255,0.2); }
+        .kbd-close { margin-top: 0.75rem; width: 100%; border-radius: 999px; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-weight: 600; background: rgba(255,255,255,0.08); color: #f4f4f5; border: 1px solid rgba(255,255,255,0.12); }
+        .kbd-close:hover { background: rgba(255,255,255,0.16); }
 
         @media (max-width: 768px) {
             body { font-size: 16px; }
@@ -75,7 +133,6 @@
 
             #tabNav { flex-wrap: wrap; overflow-x: visible; }
             #tabNav .nav-pill { flex: 1 1 calc(50% - 0.25rem); min-height: 44px; padding: 0.5rem 0.75rem; }
-            #tabNav .nav-pill[data-tab="allplays"],
             #tabNav .nav-pill[data-tab="postturnovers"] { display: none; }
 
             #mainContent { padding-left: 1rem; padding-right: 1rem; }
@@ -96,13 +153,15 @@
             .team-header .text-left { text-align: center; }
             .team-header h1 { font-size: 1.5rem; }
             .team-header .vs-badge { font-size: 1.75rem; }
+
+            .pbp-details-grid { grid-template-columns: 1fr; }
         }
 
         @media print {
             @page { margin: 0.6in; }
             * { animation: none !important; transition: none !important; box-shadow: none !important; text-shadow: none !important; }
             body { background: #ffffff !important; color: #111111 !important; font-size: 11pt; line-height: 1.35; }
-            nav, #tabNav, #filterBar, .mobile-hide { display: none !important; }
+            nav, #tabNav, #filterBar, .mobile-hide, #kbdHelpBtn, #kbdModal { display: none !important; }
             main, .max-w-7xl { max-width: none !important; padding: 0 !important; }
             .section-enter { animation: none !important; }
             .glass, .zone-section, .team-a-bg, .team-b-bg { background: #ffffff !important; border-color: #d1d5db !important; }
@@ -138,6 +197,8 @@
     </style>
 </head>
 <body class="min-h-screen">
+<a href="#mainContent" class="skip-link">Skip to content</a>
+<div id="srAnnouncement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Top Bar -->
 <nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
@@ -147,8 +208,28 @@
             <span class="text-sm font-semibold text-zinc-200">Matchup Analysis</span>
             <span class="text-xs text-zinc-500 ml-1" id="buildVersion">2b43abe • 2026-02-12 05:18 PM MST</span>
         </div>
-        <div class="flex items-center gap-2" id="filterBar">
-            <span class="text-xs text-zinc-500 mr-1">Filter:</span>
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" id="filterBar" role="toolbar" aria-label="Filters">
+                <span class="text-xs text-zinc-500 mr-1">Filter:</span>
+            </div>
+            <div class="relative" id="exportMenu">
+                <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
+                <div class="menu-panel hidden" id="exportPanel">
+                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export current view as PDF</button>
+                    <button class="menu-item" type="button" onclick="exportCurrentTabCsv()">📄 Export current tab as CSV</button>
+                    <button class="menu-item" type="button" onclick="downloadRawJson()">🗂️ Export data.json</button>
+                    <div class="menu-divider"></div>
+                    <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy shareable link</button>
+                </div>
+            </div>
+            <div class="relative" id="shareMenu">
+                <button class="menu-button" id="shareToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Share menu">Share</button>
+                <div class="menu-panel hidden" id="sharePanel">
+                    <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy link</button>
+                    <button class="menu-item" type="button" onclick="shareToTwitter()">🐦 Share on Twitter</button>
+                    <button class="menu-item" type="button" onclick="shareViaEmail()">✉️ Share via email</button>
+                </div>
+            </div>
         </div>
     </div>
 </nav>
@@ -159,28 +240,52 @@
         <div class="text-right">
             <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
             <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
+            <div class="mt-1 flex items-center justify-end gap-2">
+                <span class="dq-badge dq-neutral" id="teamAQuality">Data —</span>
+            </div>
         </div>
         <div class="text-4xl font-black vs-badge">VS</div>
         <div class="text-left">
             <h1 class="text-3xl font-extrabold team-b" id="teamBName">Arizona State</h1>
             <p class="text-sm text-zinc-400" id="teamBRecord">5-7 · Big 12</p>
+            <div class="mt-1 flex items-center justify-start gap-2">
+                <span class="dq-badge dq-neutral" id="teamBQuality">Data —</span>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Tab Navigation -->
 <div class="sticky top-14 z-40 border-b border-white/5 bg-[#09090b]/90 backdrop-blur-xl">
-    <div class="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto py-2" id="tabNav"></div>
+    <div class="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto py-2" id="tabNav" role="tablist" aria-label="Analysis sections"></div>
 </div>
 
 <!-- Main Content -->
-<main class="max-w-7xl mx-auto px-6 py-6" id="mainContent"></main>
+<main class="max-w-7xl mx-auto px-6 py-6" id="mainContent" role="tabpanel" tabindex="-1"></main>
+
+<button class="kbd-help-btn" id="kbdHelpBtn" aria-label="Keyboard shortcuts">?</button>
+<div class="kbd-modal" id="kbdModal" role="dialog" aria-modal="true" aria-labelledby="kbdTitle" aria-hidden="true">
+    <div class="kbd-backdrop" data-close="kbd"></div>
+    <div class="kbd-dialog" role="document">
+        <h2 id="kbdTitle">Keyboard shortcuts</h2>
+        <div class="kbd-list">
+            <div class="kbd-item"><span>Next/previous tab</span><span class="kbd-key">← / →</span></div>
+            <div class="kbd-item"><span>Jump to tab 1-9</span><span class="kbd-key">1-9</span></div>
+            <div class="kbd-item"><span>Focus search (when available)</span><span class="kbd-key">/</span></div>
+            <div class="kbd-item"><span>Close expanded sections</span><span class="kbd-key">Esc</span></div>
+            <div class="kbd-item"><span>Show this help</span><span class="kbd-key">?</span></div>
+        </div>
+        <button class="kbd-close" id="kbdCloseBtn">Close</button>
+    </div>
+</div>
 
 <script>
 let DATA = null;
 let currentTab = 'overview';
 let currentFilter = 'all';
 let allPlaysQuery = '';
+let allPlaysFilters = { team: 'all', type: 'all', scoring: false, turnover: false };
+let allPlaysSelected = null;
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -204,6 +309,34 @@ const FILTERS = [
     { id: 'power4', label: 'Power 4' },
     { id: 'last3', label: 'Last 3' },
 ];
+
+function getShareParams() {
+    const params = new URLSearchParams();
+    params.set('tab', currentTab);
+    params.set('filter', currentFilter);
+    return params;
+}
+
+function buildShareUrl() {
+    const base = window.location.href.split('#')[0];
+    return `${base}#${getShareParams().toString()}`;
+}
+
+function applyHashState() {
+    if (!window.location.hash) return;
+    const raw = window.location.hash.replace(/^#/, '');
+    const params = new URLSearchParams(raw);
+    const tab = params.get('tab');
+    const filter = params.get('filter');
+    if (tab && TABS.some(t => t.id === tab)) currentTab = tab;
+    if (filter && FILTERS.some(f => f.id === filter)) currentFilter = filter;
+}
+
+function updateHashState() {
+    const hash = getShareParams().toString();
+    if (window.location.hash.replace(/^#/, '') === hash) return;
+    window.history.replaceState(null, '', `#${hash}`);
+}
 
 function filterGames(games) {
     switch(currentFilter) {
@@ -253,6 +386,181 @@ function agg(games) {
         red_zone_trips: rzt, red_zone_tds: rztd, red_zone_fgs: rzfg,
         tight_red_zone_trips, tight_red_zone_tds, tight_red_zone_fgs, tight_red_zone_failed,
     };
+}
+
+const EXPECTED_GAME_PATHS = [
+    'conference', 'date', 'game_number', 'opponent', 'opponent_abbr', 'is_power4',
+    'points_for', 'points_against', 'explosives', 'explosive_rushes', 'explosive_passes', 'explosive_details',
+    'penalties', 'penalty_details',
+    'turnovers_gained', 'turnovers_lost', 'interceptions_gained', 'interceptions_lost', 'fumbles_gained', 'fumbles_lost',
+    'red_zone_trips', 'red_zone_tds', 'red_zone_fgs', 'red_zone_plays',
+    'green_zone_trips', 'green_zone_tds', 'green_zone_fgs', 'green_zone_failed',
+    'tight_red_zone_trips', 'tight_red_zone_tds', 'tight_red_zone_fgs', 'tight_red_zone_failed',
+    'middle8_points_for', 'middle8_points_against', 'middle8_scoring_plays',
+    'post_turnover_drives', 'points_off_turnovers_for', 'points_off_turnovers_against',
+    '4th_down_attempts', '4th_down_conversions',
+    'play_tree',
+    'special_teams.punts', 'special_teams.punt_yards', 'special_teams.punts_inside_20',
+    'special_teams.punt_return_long', 'special_teams.field_goals_made', 'special_teams.field_goals_attempts',
+    'special_teams.kickoff_return_avg', 'special_teams.kickoff_return_long',
+    'special_teams.punt_return_avg', 'special_teams.punt_return_long',
+];
+
+function hasPath(obj, path) {
+    const parts = path.split('.');
+    let cur = obj;
+    for (const part of parts) {
+        if (!cur || !Object.prototype.hasOwnProperty.call(cur, part)) return false;
+        cur = cur[part];
+    }
+    return true;
+}
+
+function computeFieldQuality(games, fields) {
+    const total = (games.length || 0) * (fields.length || 0);
+    if (!total) return { pct: 0, present: 0, total: 0, missing: [], missingCounts: {} };
+    let present = 0;
+    const missingCounts = {};
+    games.forEach(g => {
+        fields.forEach(field => {
+            if (hasPath(g, field)) {
+                present += 1;
+            } else {
+                missingCounts[field] = (missingCounts[field] || 0) + 1;
+            }
+        });
+    });
+    const pct = Math.round((present / total) * 100);
+    return { pct, present, total, missing: Object.keys(missingCounts), missingCounts };
+}
+
+function qualityClass(pct) {
+    if (pct === null || pct === undefined) return 'dq-neutral';
+    if (pct >= 90) return 'dq-green';
+    if (pct >= 70) return 'dq-yellow';
+    return 'dq-red';
+}
+
+function qualityLabel(pct) {
+    if (pct === null || pct === undefined) return 'Unknown';
+    if (pct >= 90) return 'Complete';
+    if (pct >= 70) return 'Partial';
+    return 'Sparse';
+}
+
+function formatFieldLabel(field) {
+    if (!field) return '';
+    return field.replace('special_teams.', 'ST ').replace(/_/g, ' ');
+}
+
+function summarizeMissing(missingCounts, limit = 3) {
+    const entries = Object.entries(missingCounts).sort((a,b) => b[1] - a[1]);
+    return entries.slice(0, limit).map(([field, count]) => `${formatFieldLabel(field)} (${count})`);
+}
+
+function buildQuality(games, fields, label, note) {
+    if (!fields || !fields.length) {
+        return { pct: null, present: 0, total: 0, missing: [], missingCounts: {}, label, note: note || 'Not tracked' };
+    }
+    const q = computeFieldQuality(games, fields);
+    return { ...q, label, note };
+}
+
+function makeQuality(games) {
+    return (fields, label, note) => buildQuality(games, fields, label, note);
+}
+
+function qualityTooltipHtml(title, quality) {
+    const pct = quality.pct === null ? '—' : `${quality.pct}%`;
+    const label = qualityLabel(quality.pct);
+    const missingSummary = quality.missing.length ? summarizeMissing(quality.missingCounts, 4).join(', ') : 'No missing fields detected.';
+    const note = quality.note ? `<div class="text-xs text-zinc-500 mt-1">${quality.note}</div>` : '';
+    return `
+        <div class="text-xs font-semibold text-white mb-1">${title}</div>
+        <div class="text-xs text-zinc-300">Completeness: ${pct} - ${label}</div>
+        <div class="text-xs text-zinc-400 mt-1">${missingSummary}</div>
+        ${note}
+    `;
+}
+
+function qualityInfoIcon(title, quality) {
+    const cls = qualityClass(quality.pct);
+    return `<span class="dq-tooltip dq-info ${cls}">
+        <span class="dq-icon">i</span>
+        <span class="dq-tooltip-content">${qualityTooltipHtml(title, quality)}</span>
+    </span>`;
+}
+
+function qualityWarningIcon(title, quality) {
+    if (!quality.missing || !quality.missing.length) return '';
+    const cls = qualityClass(quality.pct);
+    return `<span class="dq-tooltip dq-warning ${cls}">
+        !
+        <span class="dq-tooltip-content">${qualityTooltipHtml(`${title} (incomplete)`, quality)}</span>
+    </span>`;
+}
+
+function qualityBadge(quality, label = 'Data') {
+    const cls = qualityClass(quality.pct);
+    const pct = quality.pct === null ? '—' : `${quality.pct}%`;
+    return `<span class="dq-badge ${cls}">${label} ${pct}</span>`;
+}
+
+function computeTeamQuality(games) {
+    return buildQuality(games, EXPECTED_GAME_PATHS, 'Overall data');
+}
+
+function computeOutlierMap(games, fields = ['points_for', 'points_against', 'explosives'], threshold = 2) {
+    const stats = {};
+    fields.forEach(field => {
+        const vals = games.map(g => (hasPath(g, field) ? g[field] : null)).filter(v => v !== null && v !== undefined);
+        const mean = vals.length ? vals.reduce((s,v) => s + v, 0) / vals.length : 0;
+        const variance = vals.length > 1 ? vals.reduce((s,v) => s + Math.pow(v - mean, 2), 0) / vals.length : 0;
+        const stdev = Math.sqrt(variance);
+        stats[field] = { mean, stdev };
+    });
+    const outliers = {};
+    games.forEach((g, idx) => {
+        const key = g.game_number || (idx + 1);
+        fields.forEach(field => {
+            const { mean, stdev } = stats[field];
+            if (!stdev || !hasPath(g, field)) return;
+            const z = (g[field] - mean) / stdev;
+            if (Math.abs(z) >= threshold) {
+                const label = `${formatFieldLabel(field)} ${g[field]} (${z.toFixed(1)} sd)`;
+                if (!outliers[key]) outliers[key] = [];
+                outliers[key].push(label);
+            }
+        });
+    });
+    return outliers;
+}
+
+function renderQualityScoreCard(ga, aa, gQuality, aQuality) {
+    const gMissing = gQuality.missing.length ? summarizeMissing(gQuality.missingCounts, 5).join(', ') : 'No missing fields detected.';
+    const aMissing = aQuality.missing.length ? summarizeMissing(aQuality.missingCounts, 5).join(', ') : 'No missing fields detected.';
+    return `<div class="glass rounded-xl p-4 mb-6">
+        <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold text-white">Data quality</div>
+            <div class="text-xs text-zinc-500">Completeness vs expected fields</div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="rounded-lg border border-white/5 p-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium team-a">${ga.name}</span>
+                    ${qualityBadge(gQuality, 'Data')}
+                </div>
+                <div class="text-xs text-zinc-500 mt-2">Missing: ${gMissing}</div>
+            </div>
+            <div class="rounded-lg border border-white/5 p-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium team-b">${aa.name}</span>
+                    ${qualityBadge(aQuality, 'Data')}
+                </div>
+                <div class="text-xs text-zinc-500 mt-2">Missing: ${aMissing}</div>
+            </div>
+        </div>
+    </div>`;
 }
 
 function sumField(games, field) {
@@ -331,9 +639,14 @@ function compBar(label, valA, valB, unit='') {
     </div>`;
 }
 
-function statCard(label, value, sub, teamClass) {
+function statCard(label, value, sub, teamClass, quality) {
+    const infoQuality = quality || { pct: null, missing: [], missingCounts: {}, label, note: 'Quality not available' };
+    const infoIcon = qualityInfoIcon(`${label} data`, infoQuality);
+    const warningIcon = quality ? qualityWarningIcon(`${label} data`, quality) : '';
     return `<div class="stat-card glass rounded-xl p-4 text-center">
-        <div class="text-xs text-zinc-500">${label}</div>
+        <div class="text-xs text-zinc-500 flex items-center justify-center gap-1">
+            <span>${label}</span>${warningIcon}${infoIcon}
+        </div>
         <div class="text-2xl font-bold ${teamClass} mt-1">${value}</div>
         ${sub ? `<div class="text-xs text-zinc-500 mt-1">${sub}</div>` : ''}
     </div>`;
@@ -392,7 +705,7 @@ function computeFailedBreakdown(games, zoneKey) {
     return breakdown;
 }
 
-function failedStatCard(value, teamClass, breakdown) {
+function failedStatCard(value, teamClass, breakdown, quality) {
     const total = Object.values(breakdown || {}).reduce((s,v) => s + v, 0);
     const details = total ? `
         <details class="mt-2 text-left text-xs text-zinc-500">
@@ -404,8 +717,13 @@ function failedStatCard(value, teamClass, breakdown) {
                 <div class="flex items-center justify-between"><span>Missed FG</span><span class="text-zinc-200">${breakdown.missed_fg}</span></div>
             </div>
         </details>` : '';
+    const infoQuality = quality || { pct: null, missing: [], missingCounts: {}, label: 'Failed', note: 'Quality not available' };
+    const infoIcon = qualityInfoIcon('Failed data', infoQuality);
+    const warningIcon = quality ? qualityWarningIcon('Failed data', quality) : '';
     return `<div class="stat-card glass rounded-xl p-4 text-center">
-        <div class="text-xs text-zinc-500">Failed</div>
+        <div class="text-xs text-zinc-500 flex items-center justify-center gap-1">
+            <span>Failed</span>${warningIcon}${infoIcon}
+        </div>
         <div class="text-2xl font-bold ${teamClass} mt-1">${value}</div>
         ${details}
     </div>`;
@@ -432,17 +750,28 @@ function formatOpponentLabel(name, abbr) {
 }
 
 function scheduleTable(team, games, teamClass) {
+    const outliers = computeOutlierMap(games);
     let rows = games.map((g,i) => {
         const w = g.points_for > g.points_against;
         const dateLabel = formatGameDate(g.date);
         const opponentLabel = formatOpponentLabel(g.opponent, g.opponent_abbr);
+        const gameKey = g.game_number || (i + 1);
+        const outlierList = outliers[gameKey] || [];
+        const outlierBadge = outlierList.length ? `
+            <span class="dq-tooltip dq-outlier ml-2">
+                OUT
+                <span class="dq-tooltip-content">
+                    <div class="text-xs font-semibold text-white mb-1">Outlier flag</div>
+                    <div class="text-xs text-zinc-400">${outlierList.join(', ')}</div>
+                </span>
+            </span>` : '';
         return `<tr class="schedule-row border-b border-white/5">
             <td class="py-2 px-3 text-xs text-zinc-400">${i+1}</td>
             <td class="py-2 px-3 text-sm">
                 ${opponentLabel}
                 ${dateLabel ? `<div class="text-xs text-zinc-500">${dateLabel}</div>` : ''}
             </td>
-            <td class="py-2 px-3 text-sm font-bold ${w ? 'text-green-400' : 'text-red-400'}">${w?'W':'L'} ${g.points_for}-${g.points_against}</td>
+            <td class="py-2 px-3 text-sm font-bold ${w ? 'text-green-400' : 'text-red-400'}">${w?'W':'L'} ${g.points_for}-${g.points_against}${outlierBadge}</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
         </tr>`;
@@ -463,12 +792,24 @@ function chartContainer(id, h='300px') {
 function collapsible(title, count, content) {
     const uid = 'coll_' + Math.random().toString(36).substr(2,9);
     return `<div class="glass rounded-xl mt-4 overflow-hidden">
-        <button onclick="document.getElementById('${uid}').classList.toggle('open');this.querySelector('.chevron').classList.toggle('open')" class="collapsible-toggle w-full px-4 py-3 flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-200 transition">
+        <button id="${uid}_btn" aria-controls="${uid}" aria-expanded="false" aria-label="${title} collapsible section" onclick="toggleCollapsible('${uid}', this)" class="collapsible-toggle w-full px-4 py-3 flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-200 transition">
             <span>${title} — ${count} plays</span>
             <svg class="chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
         <div id="${uid}" class="collapsible-body">${content}</div>
     </div>`;
+}
+
+function toggleCollapsible(id, btn) {
+    const body = document.getElementById(id);
+    if (!body) return;
+    body.classList.toggle('open');
+    if (btn) {
+        const expanded = body.classList.contains('open');
+        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        const chevron = btn.querySelector('.chevron');
+        if (chevron) chevron.classList.toggle('open', expanded);
+    }
 }
 
 function fourthDownNote() {
@@ -482,18 +823,23 @@ function renderOverview() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
+    const gQuality = computeTeamQuality(gf);
+    const aQuality = computeTeamQuality(af);
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
+    html += renderQualityScoreCard(ga, aa, gQuality, aQuality);
     // Stat cards
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a')}
-            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a')}
+            ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a', gq(['points_for','points_against'], 'Record'))}
+            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b')}
-            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b')}
+            ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b', aq(['points_for','points_against'], 'Record'))}
+            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
         </div>
     </div>`;
 
@@ -703,6 +1049,8 @@ function renderExplosives() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     const gExplRush = sumField(gf, 'explosive_rushes');
     const gExplPass = sumField(gf, 'explosive_passes');
     const aExplRush = sumField(af, 'explosive_rushes');
@@ -726,17 +1074,17 @@ function renderExplosives() {
         <div class="text-xs text-zinc-400 mt-1">Explosive plays: rushes of 15+ yards or passes of 20+ yards</div>
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a')}
-        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b')}
+        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a', gq(['explosives'], 'Total Explosives'))}
+        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b', aq(['explosives'], 'Total Explosives'))}
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('Explosive Rushes', gExplRush, gExplRushPg+'/game', 'team-a')}
-            ${statCard('Explosive Passes', gExplPass, gExplPassPg+'/game', 'team-a')}
+            ${statCard('Explosive Rushes', gExplRush, gExplRushPg+'/game', 'team-a', gq(['explosive_rushes'], 'Explosive Rushes'))}
+            ${statCard('Explosive Passes', gExplPass, gExplPassPg+'/game', 'team-a', gq(['explosive_passes'], 'Explosive Passes'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('Explosive Rushes', aExplRush, aExplRushPg+'/game', 'team-b')}
-            ${statCard('Explosive Passes', aExplPass, aExplPassPg+'/game', 'team-b')}
+            ${statCard('Explosive Rushes', aExplRush, aExplRushPg+'/game', 'team-b', aq(['explosive_rushes'], 'Explosive Rushes'))}
+            ${statCard('Explosive Passes', aExplPass, aExplPassPg+'/game', 'team-b', aq(['explosive_passes'], 'Explosive Passes'))}
         </div>
     </div>`;
     if (hasDefExpl) {
@@ -759,19 +1107,19 @@ function renderExplosives() {
         </div>`;
         if (defTotalField) {
             html += `<div class="grid grid-cols-2 gap-4 mb-4">
-                ${statCard('Explosives Allowed', gDefTotal, gDefTotalPg+'/game', 'team-a')}
-                ${statCard('Explosives Allowed', aDefTotal, aDefTotalPg+'/game', 'team-b')}
+                ${statCard('Explosives Allowed', gDefTotal, gDefTotalPg+'/game', 'team-a', gq([defTotalField], 'Explosives Allowed'))}
+                ${statCard('Explosives Allowed', aDefTotal, aDefTotalPg+'/game', 'team-b', aq([defTotalField], 'Explosives Allowed'))}
             </div>`;
         }
         if (defRushField || defPassField) {
             html += `<div class="grid grid-cols-2 gap-4 mb-6">
                 <div class="grid grid-cols-2 gap-3">
-                    ${defRushField ? statCard('Explosive Rushes Allowed', gDefRush, gDefRushPg+'/game', 'team-a') : ''}
-                    ${defPassField ? statCard('Explosive Passes Allowed', gDefPass, gDefPassPg+'/game', 'team-a') : ''}
+                    ${defRushField ? statCard('Explosive Rushes Allowed', gDefRush, gDefRushPg+'/game', 'team-a', gq([defRushField], 'Explosive Rushes Allowed')) : ''}
+                    ${defPassField ? statCard('Explosive Passes Allowed', gDefPass, gDefPassPg+'/game', 'team-a', gq([defPassField], 'Explosive Passes Allowed')) : ''}
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    ${defRushField ? statCard('Explosive Rushes Allowed', aDefRush, aDefRushPg+'/game', 'team-b') : ''}
-                    ${defPassField ? statCard('Explosive Passes Allowed', aDefPass, aDefPassPg+'/game', 'team-b') : ''}
+                    ${defRushField ? statCard('Explosive Rushes Allowed', aDefRush, aDefRushPg+'/game', 'team-b', aq([defRushField], 'Explosive Rushes Allowed')) : ''}
+                    ${defPassField ? statCard('Explosive Passes Allowed', aDefPass, aDefPassPg+'/game', 'team-b', aq([defPassField], 'Explosive Passes Allowed')) : ''}
                 </div>
             </div>`;
         }
@@ -870,8 +1218,11 @@ function renderRedzone() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
 
     const renderZoneSection = (zoneName, zoneDesc, gStats, aStats, zoneKey, games_g, games_a) => {
+        const zoneFields = [`${zoneKey}_trips`, `${zoneKey}_tds`, `${zoneKey}_fgs`, `${zoneKey}_failed`, 'red_zone_plays'];
         const zoneClass = zoneKey === 'green_zone' ? 'zone-green' : (zoneKey === 'red_zone' ? 'zone-red' : 'zone-tight');
         const zoneTitleClass = zoneKey === 'green_zone' ? 'zone-title-green' : (zoneKey === 'red_zone' ? 'zone-title-red' : 'zone-title-tight');
         const gTrips = gStats[`${zoneKey}_trips`] || 0;
@@ -894,16 +1245,16 @@ function renderRedzone() {
         html += `<h3 class="text-lg font-bold text-white mb-3 zone-title ${zoneTitleClass}">${zoneName} <span class="text-zinc-500 text-sm font-normal">${zoneDesc}</span></h3>`;
         html += `<div class="grid grid-cols-2 gap-4 mb-4">
             <div class="grid grid-cols-4 gap-3">
-                ${statCard('Trips', gTrips, '', 'team-a')}
-                ${statCard('TDs', gTds, gTdPct+'%', 'team-a')}
-                ${statCard('FGs', gFgs, '', 'team-a')}
-                ${failedStatCard(gFailed, 'team-a', gFailedBreakdown)}
+                ${statCard('Trips', gTrips, '', 'team-a', gq(zoneFields, `${zoneName} Trips`))}
+                ${statCard('TDs', gTds, gTdPct+'%', 'team-a', gq(zoneFields, `${zoneName} TDs`))}
+                ${statCard('FGs', gFgs, '', 'team-a', gq(zoneFields, `${zoneName} FGs`))}
+                ${failedStatCard(gFailed, 'team-a', gFailedBreakdown, gq(zoneFields, `${zoneName} Failed`))}
             </div>
             <div class="grid grid-cols-4 gap-3">
-                ${statCard('Trips', aTrips, '', 'team-b')}
-                ${statCard('TDs', aTds, aTdPct+'%', 'team-b')}
-                ${statCard('FGs', aFgs, '', 'team-b')}
-                ${failedStatCard(aFailed, 'team-b', aFailedBreakdown)}
+                ${statCard('Trips', aTrips, '', 'team-b', aq(zoneFields, `${zoneName} Trips`))}
+                ${statCard('TDs', aTds, aTdPct+'%', 'team-b', aq(zoneFields, `${zoneName} TDs`))}
+                ${statCard('FGs', aFgs, '', 'team-b', aq(zoneFields, `${zoneName} FGs`))}
+                ${failedStatCard(aFailed, 'team-b', aFailedBreakdown, aq(zoneFields, `${zoneName} Failed`))}
             </div>
         </div>`;
         html += compBar('TD Rate', parseFloat(gTdPct), parseFloat(aTdPct), '%');
@@ -1012,6 +1363,8 @@ function renderTurnovers() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     const gIntLost = sumField(gf, 'interceptions_lost');
     const gIntGained = sumField(gf, 'interceptions_gained');
     const gFumLost = sumField(gf, 'fumbles_lost');
@@ -1023,21 +1376,21 @@ function renderTurnovers() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a')}
-        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b')}
+        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
+        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-4 gap-3">
-            ${statCard('INT Gained', gIntGained, '', 'team-a')}
-            ${statCard('INT Lost', gIntLost, '', 'team-a')}
-            ${statCard('Fum Gained', gFumGained, '', 'team-a')}
-            ${statCard('Fum Lost', gFumLost, '', 'team-a')}
+            ${statCard('INT Gained', gIntGained, '', 'team-a', gq(['interceptions_gained'], 'INT Gained'))}
+            ${statCard('INT Lost', gIntLost, '', 'team-a', gq(['interceptions_lost'], 'INT Lost'))}
+            ${statCard('Fum Gained', gFumGained, '', 'team-a', gq(['fumbles_gained'], 'Fum Gained'))}
+            ${statCard('Fum Lost', gFumLost, '', 'team-a', gq(['fumbles_lost'], 'Fum Lost'))}
         </div>
         <div class="grid grid-cols-4 gap-3">
-            ${statCard('INT Gained', aIntGained, '', 'team-b')}
-            ${statCard('INT Lost', aIntLost, '', 'team-b')}
-            ${statCard('Fum Gained', aFumGained, '', 'team-b')}
-            ${statCard('Fum Lost', aFumLost, '', 'team-b')}
+            ${statCard('INT Gained', aIntGained, '', 'team-b', aq(['interceptions_gained'], 'INT Gained'))}
+            ${statCard('INT Lost', aIntLost, '', 'team-b', aq(['interceptions_lost'], 'INT Lost'))}
+            ${statCard('Fum Gained', aFumGained, '', 'team-b', aq(['fumbles_gained'], 'Fum Gained'))}
+            ${statCard('Fum Lost', aFumLost, '', 'team-b', aq(['fumbles_lost'], 'Fum Lost'))}
         </div>
     </div>`;
     html += compBar('Turnovers Forced', gs.tof, as_.tof);
@@ -1199,6 +1552,8 @@ function renderPostTurnover() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
 
     const gPointsOff = sumField(gf, 'points_off_turnovers_for');
     const aPointsOff = sumField(af, 'points_off_turnovers_for');
@@ -1213,18 +1568,18 @@ function renderPostTurnover() {
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-5 gap-3">
-            ${statCard('TO Gained', gs.tof, '', 'team-a')}
-            ${statCard('TO Lost', gs.tol, '', 'team-a')}
-            ${statCard('Pts Off INT', gPointsOffInt, '', 'team-a')}
-            ${statCard('Pts Off FUM', gPointsOffFum, '', 'team-a')}
-            ${statCard('Pts Off TO', gPointsOff, '', 'team-a')}
+            ${statCard('TO Gained', gs.tof, '', 'team-a', gq(['turnovers_gained'], 'TO Gained'))}
+            ${statCard('TO Lost', gs.tol, '', 'team-a', gq(['turnovers_lost'], 'TO Lost'))}
+            ${statCard('Pts Off INT', gPointsOffInt, '', 'team-a', gq(['post_turnover_drives'], 'Pts Off INT'))}
+            ${statCard('Pts Off FUM', gPointsOffFum, '', 'team-a', gq(['post_turnover_drives'], 'Pts Off FUM'))}
+            ${statCard('Pts Off TO', gPointsOff, '', 'team-a', gq(['points_off_turnovers_for'], 'Pts Off TO'))}
         </div>
         <div class="grid grid-cols-5 gap-3">
-            ${statCard('TO Gained', as_.tof, '', 'team-b')}
-            ${statCard('TO Lost', as_.tol, '', 'team-b')}
-            ${statCard('Pts Off INT', aPointsOffInt, '', 'team-b')}
-            ${statCard('Pts Off FUM', aPointsOffFum, '', 'team-b')}
-            ${statCard('Pts Off TO', aPointsOff, '', 'team-b')}
+            ${statCard('TO Gained', as_.tof, '', 'team-b', aq(['turnovers_gained'], 'TO Gained'))}
+            ${statCard('TO Lost', as_.tol, '', 'team-b', aq(['turnovers_lost'], 'TO Lost'))}
+            ${statCard('Pts Off INT', aPointsOffInt, '', 'team-b', aq(['post_turnover_drives'], 'Pts Off INT'))}
+            ${statCard('Pts Off FUM', aPointsOffFum, '', 'team-b', aq(['post_turnover_drives'], 'Pts Off FUM'))}
+            ${statCard('Pts Off TO', aPointsOff, '', 'team-b', aq(['points_off_turnovers_for'], 'Pts Off TO'))}
         </div>
     </div>`;
     
@@ -1332,6 +1687,8 @@ function renderPenalties() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const gs = agg(gf), as_ = agg(af);
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     const getPenaltyDetails = (games) => games.flatMap(g => (g.penalty_details || []).map(p => ({
         ...p,
         game: g.game_number,
@@ -1387,14 +1744,14 @@ function renderPenalties() {
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a')}
-            ${statCard('Offense Pens', gaOffensePens, '', 'team-a')}
-            ${statCard('Defense Pens', gaDefensePens, '', 'team-a')}
+            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'))}
+            ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
+            ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b')}
-            ${statCard('Offense Pens', aaOffensePens, '', 'team-b')}
-            ${statCard('Defense Pens', aaDefensePens, '', 'team-b')}
+            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'))}
+            ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
+            ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
         </div>
     </div>`;
     html += compBar('Penalties/Game', gs.penpg, as_.penpg);
@@ -1971,6 +2328,87 @@ function filterPlayTree(tree, query) {
     }).filter(Boolean);
 }
 
+function inferPlayType(play) {
+    const desc = (play.description || '').toLowerCase();
+    if (/(pass|sacked|sack|intercepted|complete|incomplete)/.test(desc)) return 'pass';
+    if (/(rush|run)/.test(desc)) return 'rush';
+    return 'other';
+}
+
+function isTouchdown(play) {
+    return /touchdown/i.test(play.description || '');
+}
+
+function isBigPlay(play, type) {
+    const yards = Math.abs(Number(play.yards || 0));
+    if (!Number.isFinite(yards)) return false;
+    if (type === 'pass') return yards >= 20;
+    if (type === 'rush') return yards >= 15;
+    return yards >= 20;
+}
+
+function buildPlayId(teamKey, gameNumber, quarter, driveId, seq) {
+    return `${teamKey}-g${gameNumber}-q${quarter}-d${driveId}-s${seq}`;
+}
+
+function flattenPlayTree(game, teamKey, teamName, teamAbbr) {
+    let seq = 0;
+    const plays = [];
+    const quarterEnds = [];
+    (game.play_tree || []).forEach(q => {
+        (q.drives || []).forEach(d => {
+            (d.plays || []).forEach(p => {
+                const type = inferPlayType(p);
+                const id = buildPlayId(teamKey, game.game_number, p.quarter || q.quarter, d.drive_id, seq);
+                plays.push({
+                    ...p,
+                    id,
+                    seq,
+                    type,
+                    is_td: isTouchdown(p),
+                    is_big: isBigPlay(p, type),
+                    teamKey,
+                    teamName,
+                    teamAbbr,
+                    game_number: game.game_number,
+                    opponent: game.opponent,
+                    date: game.date,
+                    drive_id: d.drive_id
+                });
+                seq += 1;
+            });
+        });
+        quarterEnds.push({ quarter: q.quarter, count: seq });
+    });
+    return { plays, totalPlays: seq, quarterEnds };
+}
+
+function playMatchesQuery(play, query) {
+    if (!query) return true;
+    const hay = [
+        play.description,
+        play.offense,
+        play.down_distance,
+        play.spot,
+        play.clock
+    ].join(' ').toLowerCase();
+    return hay.includes(query.toLowerCase());
+}
+
+function playMatchesFilters(play, filters) {
+    if (filters.type !== 'all' && play.type !== filters.type) return false;
+    if (filters.scoring && !play.is_scoring) return false;
+    if (filters.turnover && !play.is_turnover) return false;
+    return true;
+}
+
+function playMarkerClass(play) {
+    if (play.is_td) return 'td';
+    if (play.is_turnover) return 'turnover';
+    if (play.is_big) return 'big';
+    return '';
+}
+
 function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
     const body = tree.map(q => {
         const drives = q.drives.map(d => {
@@ -1985,12 +2423,12 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
                     <span class="text-zinc-300">${p.description||''}</span>
                 </div>`).join('');
             return `<details class="glass rounded-lg p-3 mt-2">
-                <summary class="cursor-pointer text-xs text-zinc-400">Drive ${d.drive_id} · ${d.offense||''} · ${d.plays.length} plays</summary>
+                <summary class="cursor-pointer text-xs text-zinc-400" aria-label="Drive ${d.drive_id} details">Drive ${d.drive_id} · ${d.offense||''} · ${d.plays.length} plays</summary>
                 <div class="mt-2">${plays}</div>
             </details>`;
         }).join('');
         return `<details class="glass rounded-xl p-3 mt-3">
-            <summary class="cursor-pointer text-sm text-zinc-300">Quarter ${q.quarter}</summary>
+            <summary class="cursor-pointer text-sm text-zinc-300" aria-label="Quarter ${q.quarter} details">Quarter ${q.quarter}</summary>
             <div class="mt-2">${drives}</div>
         </details>`;
     }).join('');
@@ -2003,30 +2441,204 @@ function renderPlayTree(game, tree, primaryAbbr, primaryClass, secondaryClass) {
 function renderAllPlays() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
-    let html = `<div class="section-enter">`;
-    html += fourthDownNote();
-    html += `<div class="glass rounded-xl p-4 mb-4">
-        <div class="text-xs text-zinc-500 mb-2">Search all plays</div>
-        <input id="allPlaysSearch" class="w-full bg-zinc-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-white/20" placeholder="Filter by team, down/distance, spot, or description..." value="${allPlaysQuery}" oninput="updateAllPlaysQuery(this.value)">
-    </div>`;
+    const teamGroups = [];
+    if (allPlaysFilters.team === 'all' || allPlaysFilters.team === 'ga') {
+        teamGroups.push({ team: ga, games: gf, key: 'georgia', teamClass: 'team-a', altClass: 'team-b' });
+    }
+    if (allPlaysFilters.team === 'all' || allPlaysFilters.team === 'asu') {
+        teamGroups.push({ team: aa, games: af, key: 'asu', teamClass: 'team-b', altClass: 'team-a' });
+    }
 
-    const renderTeamColumn = (games, primaryAbbr, primaryClass, secondaryClass) => {
-        return games.map(g => {
-            const tree = filterPlayTree(g.play_tree || [], allPlaysQuery.trim());
-            return renderPlayTree(g, tree, primaryAbbr, primaryClass, secondaryClass);
-        }).join('');
+    const compiled = teamGroups.flatMap(group => {
+        return group.games.map(game => {
+            const meta = flattenPlayTree(game, group.key, group.team.name, group.team.abbr);
+            const filtered = meta.plays.filter(p => playMatchesQuery(p, allPlaysQuery.trim()) && playMatchesFilters(p, allPlaysFilters));
+            return { group, game, meta, filtered };
+        });
+    });
+
+    const selectedPlay = allPlaysSelected
+        ? compiled.flatMap(c => c.filtered).find(p => p.id === allPlaysSelected)
+        : null;
+
+    const renderBadgeRow = (play) => {
+        const badges = [];
+        if (play.is_td) badges.push('<span class="pbp-badge td">TD</span>');
+        if (play.is_turnover) badges.push('<span class="pbp-badge turnover">Turnover</span>');
+        if (play.is_big) badges.push('<span class="pbp-badge big">Big</span>');
+        return badges.length ? `<div class="flex flex-wrap gap-2">${badges.join('')}</div>` : '';
     };
 
-    html += `<div class="grid grid-cols-2 gap-4">
-        <div class="space-y-4">${renderTeamColumn(gf, ga.abbr, 'team-a', 'team-b')}</div>
-        <div class="space-y-4">${renderTeamColumn(af, aa.abbr, 'team-b', 'team-a')}</div>
+    const renderSelected = () => {
+        if (!selectedPlay) {
+            return `<div class="glass rounded-xl p-4 mb-4 text-xs text-zinc-500">Click a play marker or row to view full details.</div>`;
+        }
+        return `<div class="glass rounded-xl p-4 mb-4">
+            <div class="text-sm font-semibold text-white mb-2">Selected Play</div>
+            <div class="text-xs text-zinc-400 mb-2">G${selectedPlay.game_number} · vs ${selectedPlay.opponent || ''} ${selectedPlay.date ? '(' + selectedPlay.date + ')' : ''}</div>
+            <div class="text-sm text-zinc-200">${selectedPlay.description || 'No description available.'}</div>
+            <div class="mt-3 pbp-details-grid text-xs text-zinc-400">
+                <div><span class="text-zinc-500">Quarter:</span> Q${selectedPlay.quarter || ''} · ${selectedPlay.clock || ''}</div>
+                <div><span class="text-zinc-500">Down/Distance:</span> ${selectedPlay.down_distance || '—'}</div>
+                <div><span class="text-zinc-500">Spot:</span> ${selectedPlay.spot || '—'}</div>
+                <div><span class="text-zinc-500">Offense:</span> ${selectedPlay.offense || '—'}</div>
+                <div><span class="text-zinc-500">Type:</span> ${selectedPlay.type}</div>
+                <div><span class="text-zinc-500">Yards:</span> ${Number(selectedPlay.yards || 0)}</div>
+            </div>
+            <div class="mt-3">${renderBadgeRow(selectedPlay)}</div>
+        </div>`;
+    };
+
+    const renderTimeline = (meta, plays) => {
+        if (!meta.totalPlays) return `<div class="text-xs text-zinc-500">No play data.</div>`;
+        const dividers = meta.quarterEnds.slice(0, -1).map(q => {
+            const pct = (q.count / meta.totalPlays) * 100;
+            return `<div class="pbp-divider" style="left:${pct}%;"></div>
+                <div class="pbp-divider-label" style="left:${pct}%;">Q${q.quarter}</div>`;
+        }).join('');
+        const markers = plays.map(p => {
+            const pct = meta.totalPlays <= 1 ? 50 : (p.seq / (meta.totalPlays - 1)) * 100;
+            const cls = playMarkerClass(p);
+            const selected = p.id === allPlaysSelected ? 'selected' : '';
+            const label = `Q${p.quarter || ''} ${p.clock || ''} · ${p.offense || ''} · ${p.description || ''}`;
+            return `<button type="button" class="pbp-marker ${cls} ${selected}" style="left:${pct}%;"
+                title="${label.replace(/\"/g, '&quot;')}" onclick="selectAllPlaysPlay('${p.id}')"></button>`;
+        }).join('');
+        return `<div class="pbp-timeline mt-3">
+            <div class="pbp-timeline-track"></div>
+            ${dividers}
+            ${markers}
+        </div>`;
+    };
+
+    const renderTable = (plays, teamClass) => {
+        if (!plays.length) return `<div class="text-xs text-zinc-500 p-3">No plays match these filters.</div>`;
+        return `<div class="pbp-table text-xs">
+            <div class="pbp-table-head grid grid-cols-12 gap-2 px-3 py-2 text-zinc-500">
+                <div class="col-span-1">Q</div>
+                <div class="col-span-2">Clock</div>
+                <div class="col-span-2">Down</div>
+                <div class="col-span-2">Spot</div>
+                <div class="col-span-1">Off</div>
+                <div class="col-span-1">Type</div>
+                <div class="col-span-1 text-right">Yds</div>
+                <div class="col-span-2">Play</div>
+            </div>
+            ${plays.map(p => {
+                const desc = p.description || '';
+                const short = desc.length > 48 ? desc.slice(0, 45) + '...' : desc;
+                const open = p.id === allPlaysSelected ? 'open' : '';
+                return `<details class="pbp-row px-3 py-2" ${open}>
+                    <summary class="grid grid-cols-12 gap-2 items-center cursor-pointer" onclick="selectAllPlaysPlay('${p.id}')">
+                        <div class="col-span-1 text-zinc-400">Q${p.quarter || ''}</div>
+                        <div class="col-span-2 text-zinc-400">${p.clock || '—'}</div>
+                        <div class="col-span-2 text-zinc-400">${p.down_distance || '—'}</div>
+                        <div class="col-span-2 text-zinc-500">${p.spot || '—'}</div>
+                        <div class="col-span-1 ${p.offense === p.teamAbbr ? teamClass : 'text-zinc-400'}">${p.offense || '—'}</div>
+                        <div class="col-span-1 text-zinc-400">${p.type}</div>
+                        <div class="col-span-1 text-right text-zinc-400">${Number(p.yards || 0)}</div>
+                        <div class="col-span-2 text-zinc-200 truncate">${short || '—'}</div>
+                    </summary>
+                    <div class="mt-2 text-xs text-zinc-300">
+                        <div class="text-zinc-400 mb-2">${desc || 'No description available.'}</div>
+                        <div class="pbp-details-grid text-zinc-400">
+                            <div><span class="text-zinc-500">Drive:</span> ${p.drive_id || '—'}</div>
+                            <div><span class="text-zinc-500">Offense:</span> ${p.offense || '—'}</div>
+                            <div><span class="text-zinc-500">Down/Distance:</span> ${p.down_distance || '—'}</div>
+                            <div><span class="text-zinc-500">Spot:</span> ${p.spot || '—'}</div>
+                            <div><span class="text-zinc-500">Clock:</span> ${p.clock || '—'}</div>
+                            <div><span class="text-zinc-500">Yards:</span> ${Number(p.yards || 0)}</div>
+                        </div>
+                        <div class="mt-2">${renderBadgeRow(p)}</div>
+                    </div>
+                </details>`;
+            }).join('')}
+        </div>`;
+    };
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-xs text-zinc-500 mb-2">Search all plays</div>
+        <input id="allPlaysSearch" aria-label="Filter all plays" class="w-full bg-zinc-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-white/20" placeholder="Filter by description, down/distance, spot, or team..." value="${allPlaysQuery}" oninput="updateAllPlaysQuery(this.value)">
+        <div class="mt-3 space-y-2">
+            <div class="flex flex-wrap gap-2">
+                <span class="text-xs text-zinc-500 mr-1">Team</span>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.team==='all'?'active':''}" onclick="setAllPlaysTeam('all')">All</button>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.team==='ga'?'active':''}" onclick="setAllPlaysTeam('ga')">${ga.abbr}</button>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.team==='asu'?'active':''}" onclick="setAllPlaysTeam('asu')">${aa.abbr}</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="text-xs text-zinc-500 mr-1">Play Type</span>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.type==='all'?'active':''}" onclick="setAllPlaysType('all')">All</button>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.type==='rush'?'active':''}" onclick="setAllPlaysType('rush')">Rush</button>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.type==='pass'?'active':''}" onclick="setAllPlaysType('pass')">Pass</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="text-xs text-zinc-500 mr-1">Flags</span>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.scoring?'active':''}" onclick="toggleAllPlaysFlag('scoring')">Scoring Plays</button>
+                <button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${allPlaysFilters.turnover?'active':''}" onclick="toggleAllPlaysFlag('turnover')">Turnovers</button>
+            </div>
+        </div>
     </div>`;
+
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+            <span class="text-zinc-500">Timeline key:</span>
+            <span class="pbp-badge td">TD</span>
+            <span class="pbp-badge turnover">Turnover</span>
+            <span class="pbp-badge big">Big Play</span>
+        </div>
+    </div>`;
+
+    html += renderSelected();
+
+    if (!compiled.length) {
+        html += `<div class="text-xs text-zinc-500">No games available for this filter.</div>`;
+        html += `</div>`;
+        return html;
+    }
+
+    html += compiled.map(entry => {
+        const { group, game, meta, filtered } = entry;
+        return `<div class="glass rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <div class="text-sm font-semibold ${group.teamClass}">${group.team.name}</div>
+                    <div class="text-xs text-zinc-500">G${game.game_number} · vs ${game.opponent || ''} ${game.date ? '(' + game.date + ')' : ''}</div>
+                </div>
+                <div class="text-xs text-zinc-500">${filtered.length} plays</div>
+            </div>
+            ${renderTimeline(meta, filtered)}
+            <div class="mt-3">${renderTable(filtered, group.teamClass)}</div>
+        </div>`;
+    }).join('');
+
     html += `</div>`;
     return html;
 }
 
 function updateAllPlaysQuery(val) {
     allPlaysQuery = val;
+    renderTab();
+}
+
+function setAllPlaysTeam(val) {
+    allPlaysFilters.team = val;
+    renderTab();
+}
+
+function setAllPlaysType(val) {
+    allPlaysFilters.type = val;
+    renderTab();
+}
+
+function toggleAllPlaysFlag(flag) {
+    allPlaysFilters[flag] = !allPlaysFilters[flag];
+    renderTab();
+}
+
+function selectAllPlaysPlay(id) {
+    allPlaysSelected = id;
     renderTab();
 }
 
@@ -2134,7 +2746,7 @@ function showErrorState(message) {
     main.innerHTML = `<div class="state-card section-enter">
         <div class="text-sm font-semibold text-red-300">Unable to load data</div>
         <div class="text-xs text-zinc-400 mt-2">${message || 'Please check your connection and try again.'}</div>
-        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20" onclick="initApp()">Retry</button>
+        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20" aria-label="Retry loading data" onclick="initApp()">Retry</button>
     </div>`;
 }
 
@@ -2145,7 +2757,7 @@ function showEmptyState() {
     main.innerHTML = `<div class="state-card section-enter">
         <div class="text-sm font-semibold text-zinc-200">No data available</div>
         <div class="text-xs text-zinc-500 mt-2">The dataset is missing or malformed. Please verify data.json and try again.</div>
-        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" onclick="initApp()">Reload</button>
+        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" aria-label="Reload data" onclick="initApp()">Reload</button>
     </div>`;
 }
 
@@ -2210,6 +2822,7 @@ const renderers = {
 };
 
 let printState = null;
+let printMode = 'all';
 
 function renderAllTabsForPrint() {
     return TABS.map(t => {
@@ -2226,8 +2839,10 @@ function beforePrint() {
     if (!DATA || printState) return;
     const main = document.getElementById('mainContent');
     printState = { html: main.innerHTML, tab: currentTab };
-    main.innerHTML = renderAllTabsForPrint();
-    Object.values(renderers).forEach(r => { if (r.init) r.init(); });
+    if (printMode === 'all') {
+        main.innerHTML = renderAllTabsForPrint();
+        Object.values(renderers).forEach(r => { if (r.init) r.init(); });
+    }
 }
 
 function afterPrint() {
@@ -2249,22 +2864,25 @@ function renderTab() {
 
 function buildNav() {
     const nav = document.getElementById('tabNav');
-    nav.innerHTML = TABS.map(t =>
-        `<button class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent whitespace-nowrap ${t.id===currentTab?'active':''}" data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
+    nav.innerHTML = TABS.map((t, idx) =>
+        `<button id="tab-${t.id}" role="tab" aria-controls="mainContent" aria-selected="${t.id===currentTab?'true':'false'}" tabindex="${t.id===currentTab?0:-1}" class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent whitespace-nowrap ${t.id===currentTab?'active':''}" data-tab="${t.id}" data-index="${idx}" aria-label="${t.label} tab" onclick="switchTab('${t.id}', true)">${t.icon} ${t.label}</button>`
     ).join('');
 }
 
 function buildFilters() {
     const bar = document.getElementById('filterBar');
     bar.innerHTML = '<span class="text-xs text-zinc-500 mr-1">Filter:</span>' + FILTERS.map(f =>
-        `<button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${f.id===currentFilter?'active':''}" onclick="switchFilter('${f.id}')">${f.label}</button>`
+        `<button class="filter-chip px-2.5 py-1 rounded-md text-xs border border-white/10 ${f.id===currentFilter?'active':''}" aria-pressed="${f.id===currentFilter?'true':'false'}" aria-label="Filter ${f.label}" onclick="switchFilter('${f.id}')">${f.label}</button>`
     ).join('');
 }
 
-function switchTab(id) {
+function switchTab(id, focusTab = false) {
     currentTab = id;
     buildNav();
     renderTab();
+    announceTabChange(id);
+    if (focusTab) focusActiveTab();
+    updateHashState();
 }
 
 function updateHeader() {
@@ -2280,10 +2898,337 @@ function switchFilter(id) {
     buildFilters();
     updateHeader();
     renderTab();
+    updateHashState();
+}
+
+function closeMenus() {
+    document.getElementById('exportPanel')?.classList.add('hidden');
+    document.getElementById('sharePanel')?.classList.add('hidden');
+    document.getElementById('exportToggle')?.setAttribute('aria-expanded', 'false');
+    document.getElementById('shareToggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMenu(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const isOpen = !panel.classList.contains('hidden');
+    closeMenus();
+    if (!isOpen) {
+        panel.classList.remove('hidden');
+        if (panelId === 'exportPanel') document.getElementById('exportToggle')?.setAttribute('aria-expanded', 'true');
+        if (panelId === 'sharePanel') document.getElementById('shareToggle')?.setAttribute('aria-expanded', 'true');
+    }
+}
+
+function copyShareLink() {
+    const url = buildShareUrl();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+            closeMenus();
+        }).catch(() => {
+            fallbackCopy(url);
+            closeMenus();
+        });
+    } else {
+        fallbackCopy(url);
+        closeMenus();
+    }
+}
+
+function fallbackCopy(text) {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+}
+
+function exportCurrentViewPdf() {
+    printMode = 'current';
+    window.print();
+    setTimeout(() => { printMode = 'all'; }, 0);
+    closeMenus();
+}
+
+function downloadRawJson() {
+    if (!DATA) return;
+    const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    closeMenus();
+}
+
+function csvEscape(value) {
+    const str = (value ?? '').toString().replace(/\r?\n/g, ' ').trim();
+    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+    return str;
+}
+
+function tableToCsv(table) {
+    const rows = Array.from(table.querySelectorAll('tr'));
+    return rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('th,td')).map(cell => csvEscape(cell.textContent));
+        return cells.join(',');
+    }).join('\n');
+}
+
+function getTableTitle(table) {
+    const collapsible = table.closest('.collapsible-body');
+    if (collapsible && collapsible.previousElementSibling?.classList.contains('collapsible-toggle')) {
+        return collapsible.previousElementSibling.textContent.trim();
+    }
+    const tab = TABS.find(t => t.id === currentTab);
+    return tab ? tab.label : 'Export';
+}
+
+function exportCurrentTabCsv() {
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    const tables = Array.from(main.querySelectorAll('table'));
+    if (!tables.length) {
+        alert('No tables found in the current tab.');
+        closeMenus();
+        return;
+    }
+    let csv = '';
+    tables.forEach((table, idx) => {
+        if (tables.length > 1) {
+            if (idx > 0) csv += '\n\n';
+            csv += `${csvEscape(getTableTitle(table))}\n`;
+        }
+        csv += tableToCsv(table);
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const tabLabel = (TABS.find(t => t.id === currentTab)?.label || 'tab').toLowerCase().replace(/\s+/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `matchup-${tabLabel}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    closeMenus();
+}
+
+function shareToTwitter() {
+    const url = buildShareUrl();
+    const text = `Matchup analysis: ${document.getElementById('teamAName')?.textContent || ''} vs ${document.getElementById('teamBName')?.textContent || ''}`.trim();
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    closeMenus();
+}
+
+function shareViaEmail() {
+    const url = buildShareUrl();
+    const subject = `Matchup analysis: ${document.getElementById('teamAName')?.textContent || ''} vs ${document.getElementById('teamBName')?.textContent || ''}`.trim();
+    const body = `Here is the matchup view:\n${url}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    closeMenus();
+}
+
+let menusReady = false;
+
+function initMenus() {
+    if (menusReady) return;
+    menusReady = true;
+    const exportToggle = document.getElementById('exportToggle');
+    const shareToggle = document.getElementById('shareToggle');
+    exportToggle?.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleMenu('exportPanel');
+    });
+    shareToggle?.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleMenu('sharePanel');
+    });
+    document.addEventListener('click', closeMenus);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeMenus();
+    });
+}
+
+let keyboardControlsReady = false;
+let lastFocusedElement = null;
+
+function isTypingTarget(target) {
+    if (!target) return false;
+    const tag = target.tagName ? target.tagName.toLowerCase() : '';
+    return tag === 'input' || tag === 'textarea' || target.isContentEditable;
+}
+
+function getTabIndexById(id) {
+    return TABS.findIndex(t => t.id === id);
+}
+
+function focusActiveTab() {
+    const activeBtn = document.querySelector(`#tabNav [data-tab="${currentTab}"]`);
+    if (activeBtn) activeBtn.focus();
+}
+
+function focusTabByIndex(idx, focus = true) {
+    const target = TABS[idx];
+    if (!target) return;
+    switchTab(target.id, false);
+    if (focus) focusActiveTab();
+}
+
+function announceTabChange(id) {
+    const tab = TABS.find(t => t.id === id);
+    const announcer = document.getElementById('srAnnouncement');
+    const main = document.getElementById('mainContent');
+    if (main && tab) {
+        main.setAttribute('aria-label', `${tab.label} tab content`);
+        main.setAttribute('aria-labelledby', `tab-${tab.id}`);
+    }
+    if (announcer && tab) announcer.textContent = `${tab.label} tab selected.`;
+}
+
+function handleTabArrowNav(e) {
+    const tabNav = document.getElementById('tabNav');
+    const isInTabNav = document.activeElement && document.activeElement.closest && document.activeElement.closest('#tabNav');
+    if (!tabNav || !isInTabNav) return;
+    const currentIdx = getTabIndexById(currentTab);
+    if (currentIdx < 0) return;
+    if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        focusTabByIndex((currentIdx + 1) % TABS.length);
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        focusTabByIndex((currentIdx - 1 + TABS.length) % TABS.length);
+    }
+}
+
+function handleNumberShortcut(e) {
+    if (!/^[1-9]$/.test(e.key)) return;
+    const idx = Number(e.key) - 1;
+    if (idx < TABS.length) {
+        e.preventDefault();
+        focusTabByIndex(idx);
+    }
+}
+
+function focusSearchInput() {
+    const input = document.getElementById('allPlaysSearch');
+    if (!input) return false;
+    input.focus();
+    input.select();
+    return true;
+}
+
+function closeExpandedSections() {
+    document.querySelectorAll('.collapsible-body.open').forEach(body => {
+        body.classList.remove('open');
+        const btn = document.querySelector(`[aria-controls="${body.id}"]`);
+        if (btn) {
+            btn.setAttribute('aria-expanded', 'false');
+            const chevron = btn.querySelector('.chevron');
+            if (chevron) chevron.classList.remove('open');
+        }
+    });
+    document.querySelectorAll('details[open]').forEach(detail => {
+        detail.open = false;
+    });
+}
+
+function openKeyboardHelp() {
+    const modal = document.getElementById('kbdModal');
+    if (!modal) return;
+    lastFocusedElement = document.activeElement;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    const closeBtn = document.getElementById('kbdCloseBtn');
+    if (closeBtn) closeBtn.focus();
+}
+
+function closeKeyboardHelp() {
+    const modal = document.getElementById('kbdModal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        lastFocusedElement.focus();
+    }
+}
+
+function trapModalFocus(e) {
+    const modal = document.getElementById('kbdModal');
+    if (!modal || !modal.classList.contains('open')) return;
+    if (e.key !== 'Tab') return;
+    const focusable = modal.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+    }
+}
+
+function initKeyboardControls() {
+    if (keyboardControlsReady) return;
+    keyboardControlsReady = true;
+    const helpBtn = document.getElementById('kbdHelpBtn');
+    const closeBtn = document.getElementById('kbdCloseBtn');
+    const modal = document.getElementById('kbdModal');
+    helpBtn?.addEventListener('click', openKeyboardHelp);
+    closeBtn?.addEventListener('click', closeKeyboardHelp);
+    modal?.addEventListener('click', e => {
+        if ((e.target && e.target.dataset && e.target.dataset.close === 'kbd') || e.target === modal) {
+            closeKeyboardHelp();
+        }
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modal?.classList.contains('open')) {
+            e.preventDefault();
+            closeKeyboardHelp();
+            return;
+        }
+        trapModalFocus(e);
+    });
+    document.addEventListener('keydown', e => {
+        if (modal?.classList.contains('open')) return;
+        if (isTypingTarget(e.target)) {
+            if (e.key === 'Escape') closeExpandedSections();
+            return;
+        }
+        if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+            e.preventDefault();
+            openKeyboardHelp();
+            return;
+        }
+        if (e.key === '/') {
+            if (focusSearchInput()) e.preventDefault();
+            return;
+        }
+        if (e.key === 'Escape') {
+            closeExpandedSections();
+            return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            handleTabArrowNav(e);
+            return;
+        }
+        handleNumberShortcut(e);
+    });
 }
 
 // ===== INIT =====
 function initApp() {
+    initMenus();
+    initKeyboardControls();
     showLoadingState();
     fetch('data.json').then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -2294,6 +3239,7 @@ function initApp() {
             return;
         }
         DATA = d;
+        applyHashState();
         const ga = d.teams.georgia, aa = d.teams.asu;
         document.getElementById('teamAName').textContent = ga.name;
         document.getElementById('teamBName').textContent = aa.name;
@@ -2301,6 +3247,8 @@ function initApp() {
         buildFilters();
         updateHeader();
         renderTab();
+        announceTabChange(currentTab);
+        updateHashState();
 
         window.addEventListener('beforeprint', beforePrint);
         window.addEventListener('afterprint', afterPrint);
@@ -2319,7 +3267,7 @@ function initApp() {
 
 initApp();
 </script>
-<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" class="mobile-hide" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
+<a href="https://vtsportssolutions.com" target="_blank" rel="noopener" aria-label="VT Sports Solutions website" class="mobile-hide" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
   <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
   <img src="assets/vt-logo-text.png" alt="VT Sports Solutions" style="height:20px;">
 </a>
