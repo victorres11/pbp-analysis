@@ -34,6 +34,17 @@ CONFERENCE_IDS = {
 }
 
 CATEGORY_IDS = {
+    "FOURTH_DOWN": 26,
+    "TURNOVERS": 12,
+    "PENALTIES": 14,
+    "TIME_OF_POSSESSION": 15,
+    "SACKS": 20,
+    "TOTAL_OFFENSE": 10,
+    "TOTAL_DEFENSE": 10,
+    "RUSHING_OFFENSE": 1,
+    "RUSHING_DEFENSE": 1,
+    "PASSING_OFFENSE": 2,
+    "PASSING_DEFENSE": 2,
     "RED_ZONE": 27,
     "THIRD_DOWN": 25,
     "LONG_PLAYS": 30,
@@ -198,6 +209,18 @@ def parse_percent(value: str) -> Optional[float]:
         return None
     cleaned = str(value).strip().replace("%", "")
     if not cleaned:
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def parse_number(value: str) -> Optional[float]:
+    if value is None:
+        return None
+    cleaned = re.sub(r"[^0-9.+-]", "", str(value))
+    if not cleaned or cleaned in {"+", "-"}:
         return None
     try:
         return float(cleaned)
@@ -373,7 +396,7 @@ class CfbstatsScraper:
         year: int,
         teams: Dict[str, Dict[str, str]],
         split: str = "split01",
-    ) -> Dict[str, Dict[str, List[str]]]:
+    ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
         configs = [
             {
                 "key": "red_zone",
@@ -400,6 +423,102 @@ class CfbstatsScraper:
                 "offense": "offense",
             },
             {
+                "key": "fourth_down",
+                "label": "4th down conversion %",
+                "category": CATEGORY_IDS["FOURTH_DOWN"],
+                "stat_candidates": ["Conversion %", "Conv %", "Conv%", "Pct", "Pct.", "Pct%"],
+                "formatter": lambda v: f"{parse_percent(v):.2f}%" if parse_percent(v) is not None else v,
+                "offense": "offense",
+            },
+            {
+                "key": "turnover_margin",
+                "label": "turnover margin",
+                "category": CATEGORY_IDS["TURNOVERS"],
+                "stat_candidates": ["Margin", "TO Margin", "Margin/G", "+/-"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "penalties",
+                "label": "penalty yards/game",
+                "category": CATEGORY_IDS["PENALTIES"],
+                "stat_candidates": ["Yards/G", "Yds/G", "Yds/Gm", "Yards/Gm", "Penalty Yds/G", "Pen Yds/G"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "time_of_possession",
+                "label": "time of possession",
+                "category": CATEGORY_IDS["TIME_OF_POSSESSION"],
+                "stat_candidates": ["TOP", "Time", "Time of Possession"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "sacks_offense",
+                "label": "sacks allowed",
+                "category": CATEGORY_IDS["SACKS"],
+                "stat_candidates": ["Sacks", "Sack", "Sk"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "sacks_defense",
+                "label": "sacks",
+                "category": CATEGORY_IDS["SACKS"],
+                "stat_candidates": ["Sacks", "Sack", "Sk"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "defense",
+            },
+            {
+                "key": "total_offense",
+                "label": "total offense",
+                "category": CATEGORY_IDS["TOTAL_OFFENSE"],
+                "stat_candidates": ["Yards/G", "Yds/G", "Total", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "total_defense",
+                "label": "total defense",
+                "category": CATEGORY_IDS["TOTAL_DEFENSE"],
+                "stat_candidates": ["Yards/G", "Yds/G", "Total", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "defense",
+            },
+            {
+                "key": "rushing_offense",
+                "label": "rushing offense",
+                "category": CATEGORY_IDS["RUSHING_OFFENSE"],
+                "stat_candidates": ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "rushing_defense",
+                "label": "rushing defense",
+                "category": CATEGORY_IDS["RUSHING_DEFENSE"],
+                "stat_candidates": ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "defense",
+            },
+            {
+                "key": "passing_offense",
+                "label": "passing offense",
+                "category": CATEGORY_IDS["PASSING_OFFENSE"],
+                "stat_candidates": ["Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "passing_defense",
+                "label": "passing defense",
+                "category": CATEGORY_IDS["PASSING_DEFENSE"],
+                "stat_candidates": ["Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G", "Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "defense",
+            },
+            {
                 "key": "scoring_offense",
                 "label": "scoring offense",
                 "category": CATEGORY_IDS["SCORING"],
@@ -417,9 +536,11 @@ class CfbstatsScraper:
             },
         ]
 
-        badges: Dict[str, Dict[str, List[str]]] = {
+        badges: Dict[str, Dict[str, List[Dict[str, str]]]] = {
             team_id: {cfg["key"]: [] for cfg in configs} for team_id in teams
         }
+        for team_id in teams:
+            badges[team_id]["scoring_margin"] = []
         team_lookup = build_team_lookup(teams)
 
         by_conference: Dict[str, List[str]] = {}
@@ -449,6 +570,7 @@ class CfbstatsScraper:
                 # Check 'is None' because rank_col can be empty string ""
                 if team_col is None or rank_col is None or stat_col is None:
                     continue
+                total_ranked = sum(1 for row in leaderboard.rows if row.get(team_col))
                 for row in leaderboard.rows:
                     team_name = row.get(team_col, "")
                     team_id = team_lookup.get(normalize_team_name(team_name))
@@ -463,7 +585,91 @@ class CfbstatsScraper:
                     if not display_value:
                         continue
                     badges[team_id][cfg["key"]].append(
-                        f"Ranks {ordinal(rank)} in {conf} in {cfg['label']} ({display_value})"
+                        {
+                            "rank": rank,
+                            "conference": conf,
+                            "value": display_value,
+                            "label": cfg["label"],
+                            "total": total_ranked,
+                        }
                     )
+
+            scoring_offense = self.get_leaderboard(
+                year,
+                scope,
+                CATEGORY_IDS["SCORING"],
+                split=split,
+                offense="offense",
+            )
+            scoring_defense = self.get_leaderboard(
+                year,
+                scope,
+                CATEGORY_IDS["SCORING"],
+                split=split,
+                offense="defense",
+            )
+            if not scoring_offense or not scoring_defense:
+                continue
+            team_col_off = find_column(scoring_offense.headers, ["Team", "Name"])
+            stat_col_off = find_column(
+                scoring_offense.headers, ["Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"]
+            )
+            team_col_def = find_column(scoring_defense.headers, ["Team", "Name"])
+            stat_col_def = find_column(
+                scoring_defense.headers, ["Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"]
+            )
+            if not team_col_off or not stat_col_off or not team_col_def or not stat_col_def:
+                continue
+
+            offense_map: Dict[str, float] = {}
+            for row in scoring_offense.rows:
+                team_name = row.get(team_col_off, "")
+                value = parse_number(row.get(stat_col_off, ""))
+                if team_name and value is not None:
+                    offense_map[normalize_team_name(team_name)] = value
+
+            defense_map: Dict[str, float] = {}
+            for row in scoring_defense.rows:
+                team_name = row.get(team_col_def, "")
+                value = parse_number(row.get(stat_col_def, ""))
+                if team_name and value is not None:
+                    defense_map[normalize_team_name(team_name)] = value
+
+            margin_map: Dict[str, float] = {}
+            for name, off_ppg in offense_map.items():
+                def_ppg = defense_map.get(name)
+                if def_ppg is None:
+                    continue
+                margin_map[name] = off_ppg - def_ppg
+
+            if not margin_map:
+                continue
+
+            ranked = sorted(margin_map.items(), key=lambda item: item[1], reverse=True)
+            rank_lookup = {name: idx + 1 for idx, (name, _) in enumerate(ranked)}
+            total_ranked = len(ranked)
+
+            for team_id in team_ids:
+                info = teams.get(team_id, {})
+                candidates = [
+                    normalize_team_name(info.get("name")),
+                    normalize_team_name(info.get("abbr")),
+                ]
+                team_key = next((c for c in candidates if c in margin_map), None)
+                if not team_key:
+                    continue
+                margin_value = margin_map[team_key]
+                rank = rank_lookup.get(team_key)
+                if not rank:
+                    continue
+                badges[team_id]["scoring_margin"].append(
+                    {
+                        "rank": rank,
+                        "conference": conf,
+                        "value": f"{margin_value:+.1f}",
+                        "label": "scoring margin",
+                        "total": total_ranked,
+                    }
+                )
 
         return badges

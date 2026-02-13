@@ -1228,13 +1228,28 @@ def main():
 
     season_year = 2024  # Hardcode to 2024 season (games played fall 2024/early 2025)
     scraper = CfbstatsScraper()
-    cfbstats_badges = scraper.get_context_badges(
+    cfbstats_rankings = scraper.get_context_badges(
         season_year,
         {
             "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
             "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
         },
     )
+
+    def build_rankings(team_id):
+        rankings = {}
+        for key, entries in (cfbstats_rankings.get(team_id, {}) or {}).items():
+            if not entries:
+                continue
+            entry = entries[0]
+            rankings[key] = {
+                "rank": entry.get("rank"),
+                "conference": entry.get("conference"),
+                "value": entry.get("value"),
+                "label": entry.get("label"),
+                "total": entry.get("total"),
+            }
+        return rankings
     
     data = {
         "teams": {
@@ -1244,11 +1259,7 @@ def main():
                 "conference": "SEC",
                 "color": "#ef4444",
                 "cfbstats": {
-                    "red_zone_badges": cfbstats_badges.get("georgia", {}).get("red_zone", []),
-                    "third_down_badges": cfbstats_badges.get("georgia", {}).get("third_down", []),
-                    "explosive_badges": cfbstats_badges.get("georgia", {}).get("explosives", []),
-                    "scoring_offense_badges": cfbstats_badges.get("georgia", {}).get("scoring_offense", []),
-                    "scoring_defense_badges": cfbstats_badges.get("georgia", {}).get("scoring_defense", []),
+                    "rankings": build_rankings("georgia"),
                 },
                 "aggregates": georgia_agg,
                 "games": georgia_games,
@@ -1259,11 +1270,7 @@ def main():
                 "conference": "Big 12",
                 "color": "#f97316",
                 "cfbstats": {
-                    "red_zone_badges": cfbstats_badges.get("asu", {}).get("red_zone", []),
-                    "third_down_badges": cfbstats_badges.get("asu", {}).get("third_down", []),
-                    "explosive_badges": cfbstats_badges.get("asu", {}).get("explosives", []),
-                    "scoring_offense_badges": cfbstats_badges.get("asu", {}).get("scoring_offense", []),
-                    "scoring_defense_badges": cfbstats_badges.get("asu", {}).get("scoring_defense", []),
+                    "rankings": build_rankings("asu"),
                 },
                 "aggregates": asu_agg,
                 "games": asu_games,

@@ -1,0 +1,158 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Pen.",
+    "Yards",
+    "Pen./G",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Oklahoma",
+      "G": "13",
+      "Pen.": "69",
+      "Yards": "591",
+      "Pen./G": "5.3",
+      "Yards/G": "45.5"
+    },
+    {
+      "": "2",
+      "Name": "Auburn",
+      "G": "12",
+      "Pen.": "69",
+      "Yards": "592",
+      "Pen./G": "5.8",
+      "Yards/G": "49.3"
+    },
+    {
+      "": "3",
+      "Name": "LSU",
+      "G": "13",
+      "Pen.": "82",
+      "Yards": "645",
+      "Pen./G": "6.3",
+      "Yards/G": "49.6"
+    },
+    {
+      "": "4",
+      "Name": "Missouri",
+      "G": "13",
+      "Pen.": "73",
+      "Yards": "658",
+      "Pen./G": "5.6",
+      "Yards/G": "50.6"
+    },
+    {
+      "": "5",
+      "Name": "Texas",
+      "G": "16",
+      "Pen.": "102",
+      "Yards": "829",
+      "Pen./G": "6.4",
+      "Yards/G": "51.8"
+    },
+    {
+      "": "6",
+      "Name": "Kentucky",
+      "G": "12",
+      "Pen.": "75",
+      "Yards": "625",
+      "Pen./G": "6.3",
+      "Yards/G": "52.1"
+    },
+    {
+      "": "7",
+      "Name": "Georgia",
+      "G": "14",
+      "Pen.": "80",
+      "Yards": "751",
+      "Pen./G": "5.7",
+      "Yards/G": "53.6"
+    },
+    {
+      "": "8",
+      "Name": "Florida",
+      "G": "13",
+      "Pen.": "77",
+      "Yards": "702",
+      "Pen./G": "5.9",
+      "Yards/G": "54.0"
+    },
+    {
+      "": "9",
+      "Name": "Vanderbilt",
+      "G": "13",
+      "Pen.": "73",
+      "Yards": "707",
+      "Pen./G": "5.6",
+      "Yards/G": "54.4"
+    },
+    {
+      "": "10",
+      "Name": "South Carolina",
+      "G": "13",
+      "Pen.": "87",
+      "Yards": "754",
+      "Pen./G": "6.7",
+      "Yards/G": "58.0"
+    },
+    {
+      "": "11",
+      "Name": "Arkansas",
+      "G": "13",
+      "Pen.": "93",
+      "Yards": "778",
+      "Pen./G": "7.2",
+      "Yards/G": "59.8"
+    },
+    {
+      "": "12",
+      "Name": "Mississippi State",
+      "G": "12",
+      "Pen.": "82",
+      "Yards": "723",
+      "Pen./G": "6.8",
+      "Yards/G": "60.3"
+    },
+    {
+      "": "13",
+      "Name": "Texas A&M",
+      "G": "13",
+      "Pen.": "98",
+      "Yards": "862",
+      "Pen./G": "7.5",
+      "Yards/G": "66.3"
+    },
+    {
+      "": "14",
+      "Name": "Tennessee",
+      "G": "13",
+      "Pen.": "105",
+      "Yards": "869",
+      "Pen./G": "8.1",
+      "Yards/G": "66.8"
+    },
+    {
+      "": "15",
+      "Name": "Alabama",
+      "G": "13",
+      "Pen.": "95",
+      "Yards": "898",
+      "Pen./G": "7.3",
+      "Yards/G": "69.1"
+    },
+    {
+      "": "16",
+      "Name": "Ole Miss",
+      "G": "13",
+      "Pen.": "94",
+      "Yards": "936",
+      "Pen./G": "7.2",
+      "Yards/G": "72.0"
+    }
+  ],
+  "fetched_at": "2026-02-13T04:53:36.719879Z"
+}
