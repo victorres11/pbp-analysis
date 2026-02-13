@@ -387,7 +387,7 @@ class CfbstatsScraper:
                 "key": "third_down",
                 "label": "third down %",
                 "category": CATEGORY_IDS["THIRD_DOWN"],
-                "stat_candidates": ["Pct", "Pct.", "Conv %", "Conv%", "Pct%"],
+                "stat_candidates": ["Conversion %", "Pct", "Pct.", "Conv %", "Conv%", "Pct%"],
                 "formatter": lambda v: f"{parse_percent(v):.2f}%" if parse_percent(v) is not None else v,
                 "offense": "offense",
             },
