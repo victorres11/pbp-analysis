@@ -6,19 +6,127 @@
       "conference": "SEC",
       "color": "#ef4444",
       "cfbstats": {
-        "red_zone_badges": [
-          "Ranks 4th in SEC in red zone TD% (70.00%)"
-        ],
-        "third_down_badges": [
-          "Ranks 12th in SEC in third down % (39.20%)"
-        ],
-        "explosive_badges": [],
-        "scoring_offense_badges": [
-          "Ranks 5th in SEC in scoring offense (31.5 PPG)"
-        ],
-        "scoring_defense_badges": [
-          "Ranks 5th in SEC in scoring defense (31.5 PPG)"
-        ]
+        "rankings": {
+          "red_zone": {
+            "rank": 4,
+            "conference": "SEC",
+            "value": "70.00%",
+            "label": "red zone TD%",
+            "total": 16
+          },
+          "third_down": {
+            "rank": 12,
+            "conference": "SEC",
+            "value": "39.20%",
+            "label": "third down %",
+            "total": 16
+          },
+          "fourth_down": {
+            "rank": 1,
+            "conference": "SEC",
+            "value": "66.67%",
+            "label": "4th down conversion %",
+            "total": 16
+          },
+          "turnover_margin": {
+            "rank": 11,
+            "conference": "SEC",
+            "value": "-0.07",
+            "label": "turnover margin",
+            "total": 16
+          },
+          "penalties": {
+            "rank": 7,
+            "conference": "SEC",
+            "value": "53.6",
+            "label": "penalty yards/game",
+            "total": 16
+          },
+          "time_of_possession": {
+            "rank": 7,
+            "conference": "SEC",
+            "value": "421:14",
+            "label": "time of possession",
+            "total": 16
+          },
+          "sacks_offense": {
+            "rank": 5,
+            "conference": "SEC",
+            "value": "37.0",
+            "label": "sacks allowed",
+            "total": 16
+          },
+          "sacks_defense": {
+            "rank": 5,
+            "conference": "SEC",
+            "value": "37.0",
+            "label": "sacks",
+            "total": 16
+          },
+          "total_offense": {
+            "rank": 10,
+            "conference": "SEC",
+            "value": "405.4",
+            "label": "total offense",
+            "total": 16
+          },
+          "total_defense": {
+            "rank": 10,
+            "conference": "SEC",
+            "value": "405.4",
+            "label": "total defense",
+            "total": 16
+          },
+          "rushing_offense": {
+            "rank": 15,
+            "conference": "SEC",
+            "value": "124.43",
+            "label": "rushing offense",
+            "total": 16
+          },
+          "rushing_defense": {
+            "rank": 15,
+            "conference": "SEC",
+            "value": "124.43",
+            "label": "rushing defense",
+            "total": 16
+          },
+          "passing_offense": {
+            "rank": 3,
+            "conference": "SEC",
+            "value": "281.0",
+            "label": "passing offense",
+            "total": 16
+          },
+          "passing_defense": {
+            "rank": 3,
+            "conference": "SEC",
+            "value": "281.0",
+            "label": "passing defense",
+            "total": 16
+          },
+          "scoring_offense": {
+            "rank": 5,
+            "conference": "SEC",
+            "value": "31.5 PPG",
+            "label": "scoring offense",
+            "total": 16
+          },
+          "scoring_defense": {
+            "rank": 5,
+            "conference": "SEC",
+            "value": "31.5 PPG",
+            "label": "scoring defense",
+            "total": 16
+          },
+          "scoring_margin": {
+            "rank": 5,
+            "conference": "SEC",
+            "value": "+0.0",
+            "label": "scoring margin",
+            "total": 16
+          }
+        }
       },
       "aggregates": {
         "games": 13,
@@ -37618,19 +37726,127 @@
       "conference": "Big 12",
       "color": "#f97316",
       "cfbstats": {
-        "red_zone_badges": [
-          "Ranks 15th in Big 12 in red zone TD% (63.16%)"
-        ],
-        "third_down_badges": [
-          "Ranks 3rd in Big 12 in third down % (45.92%)"
-        ],
-        "explosive_badges": [],
-        "scoring_offense_badges": [
-          "Ranks 4th in Big 12 in scoring offense (32.9 PPG)"
-        ],
-        "scoring_defense_badges": [
-          "Ranks 4th in Big 12 in scoring defense (32.9 PPG)"
-        ]
+        "rankings": {
+          "red_zone": {
+            "rank": 15,
+            "conference": "Big 12",
+            "value": "63.16%",
+            "label": "red zone TD%",
+            "total": 16
+          },
+          "third_down": {
+            "rank": 3,
+            "conference": "Big 12",
+            "value": "45.92%",
+            "label": "third down %",
+            "total": 16
+          },
+          "fourth_down": {
+            "rank": 11,
+            "conference": "Big 12",
+            "value": "52.78%",
+            "label": "4th down conversion %",
+            "total": 16
+          },
+          "turnover_margin": {
+            "rank": 1,
+            "conference": "Big 12",
+            "value": "1.00",
+            "label": "turnover margin",
+            "total": 16
+          },
+          "penalties": {
+            "rank": 11,
+            "conference": "Big 12",
+            "value": "53.6",
+            "label": "penalty yards/game",
+            "total": 16
+          },
+          "time_of_possession": {
+            "rank": 1,
+            "conference": "Big 12",
+            "value": "456:42",
+            "label": "time of possession",
+            "total": 16
+          },
+          "sacks_offense": {
+            "rank": 6,
+            "conference": "Big 12",
+            "value": "24.0",
+            "label": "sacks allowed",
+            "total": 16
+          },
+          "sacks_defense": {
+            "rank": 6,
+            "conference": "Big 12",
+            "value": "24.0",
+            "label": "sacks",
+            "total": 16
+          },
+          "total_offense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "429.4",
+            "label": "total offense",
+            "total": 16
+          },
+          "total_defense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "429.4",
+            "label": "total defense",
+            "total": 16
+          },
+          "rushing_offense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "199.93",
+            "label": "rushing offense",
+            "total": 16
+          },
+          "rushing_defense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "199.93",
+            "label": "rushing defense",
+            "total": 16
+          },
+          "passing_offense": {
+            "rank": 10,
+            "conference": "Big 12",
+            "value": "229.5",
+            "label": "passing offense",
+            "total": 16
+          },
+          "passing_defense": {
+            "rank": 10,
+            "conference": "Big 12",
+            "value": "229.5",
+            "label": "passing defense",
+            "total": 16
+          },
+          "scoring_offense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "32.9 PPG",
+            "label": "scoring offense",
+            "total": 16
+          },
+          "scoring_defense": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "32.9 PPG",
+            "label": "scoring defense",
+            "total": 16
+          },
+          "scoring_margin": {
+            "rank": 4,
+            "conference": "Big 12",
+            "value": "+0.0",
+            "label": "scoring margin",
+            "total": 16
+          }
+        }
       },
       "aggregates": {
         "games": 13,
