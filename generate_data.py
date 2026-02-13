@@ -10,7 +10,7 @@ import sys
 import glob
 import types
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
 from collections import defaultdict
 
 # Add src to path to import pbp_parser without executing its __init__
@@ -107,18 +107,79 @@ def extract_header_info(pdf_path):
     text = extract_pdf_text(pdf_path)
     lines = text.split('\n')
     info = {'date': '', 'attendance': '', 'records': {}}
-    
-    for line in lines[:10]:
-        # Look for date pattern
-        date_match = re.search(r'\((\w+ \d+, \d{4})\)', line)
-        if date_match:
-            info['date'] = date_match.group(1)
-        
+
+    month_map = {
+        'JAN': 'Jan', 'JANUARY': 'Jan',
+        'FEB': 'Feb', 'FEBRUARY': 'Feb',
+        'MAR': 'Mar', 'MARCH': 'Mar',
+        'APR': 'Apr', 'APRIL': 'Apr',
+        'MAY': 'May',
+        'JUN': 'Jun', 'JUNE': 'Jun',
+        'JUL': 'Jul', 'JULY': 'Jul',
+        'AUG': 'Aug', 'AUGUST': 'Aug',
+        'SEP': 'Sep', 'SEPT': 'Sep', 'SEPTEMBER': 'Sep',
+        'OCT': 'Oct', 'OCTOBER': 'Oct',
+        'NOV': 'Nov', 'NOVEMBER': 'Nov',
+        'DEC': 'Dec', 'DECEMBER': 'Dec',
+    }
+
+    def normalize_date_text(raw):
+        if not raw:
+            return None
+        raw = raw.strip()
+        # Month name formats: "September 7, 2025", "Sep. 7, 2025", "Sept 7 2025"
+        month_re = (
+            r'(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|'
+            r'Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|'
+            r'Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+        )
+        m = re.search(rf'{month_re}\.?\s+(\d{{1,2}}),?\s+(\d{{4}})', raw, re.IGNORECASE)
+        if m:
+            month_raw = m.group(1)
+            day = int(m.group(2))
+            year = m.group(3)
+            key = month_raw.strip().upper().replace('.', '')
+            if key.startswith('SEPT'):
+                key = 'SEP'
+            month_abbr = month_map.get(key, month_raw[:3].title())
+            return f"{month_abbr} {day}, {year}"
+
+        # Numeric formats: "9/7/2025" or "09/07/25"
+        m = re.search(r'\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b', raw)
+        if m:
+            month_num = int(m.group(1))
+            day = int(m.group(2))
+            year = m.group(3)
+            if len(year) == 2:
+                year = f"20{year}"
+            if 1 <= month_num <= 12:
+                month_abbr = month_map.get(
+                    ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][month_num - 1],
+                    None
+                )
+                if month_abbr:
+                    return f"{month_abbr} {day}, {year}"
+        return None
+
+    def maybe_set_date(raw):
+        if info['date']:
+            return
+        normalized = normalize_date_text(raw)
+        if normalized:
+            info['date'] = normalized
+
+    for line in lines[:20]:
+        # Look for date pattern in parentheses or in the line itself.
+        paren_match = re.search(r'\(([^)]+)\)', line)
+        if paren_match:
+            maybe_set_date(paren_match.group(1))
+        maybe_set_date(line)
+
         # Look for records like "(8-4, 6-3)"
         record_matches = re.findall(r'(\w[\w\s.]+?)\s*\((\d+-\d+(?:,\s*\d+-\d+)?)\)', line)
         for team, record in record_matches:
             info['records'][team.strip()] = record
-    
+
     return info
 
 
@@ -1218,6 +1279,25 @@ def process_team_games(pdf_dir, team_identifier):
             'play_tree': play_tree,
         }
         games.append(game_data)
+
+    # Sort games by date before final game numbering.
+    def parse_game_date(date_str):
+        if not date_str:
+            return None
+        try:
+            return datetime.strptime(date_str, "%B %d, %Y").date()
+        except ValueError:
+            return None
+
+    dated_games = []
+    for idx, g in enumerate(games):
+        parsed_date = parse_game_date(g.get('date', ''))
+        dated_games.append((parsed_date is None, parsed_date or date.max, idx, g))
+
+    dated_games.sort(key=lambda item: (item[0], item[1], item[2]))
+    games = [g for _, _, _, g in dated_games]
+    for i, g in enumerate(games, 1):
+        g['game_number'] = i
     
     # Compute aggregates
     n = len(games) or 1

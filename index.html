@@ -1146,7 +1146,7 @@ function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
     let rows = games.map((g,i) => {
         const w = g.points_for > g.points_against;
-        const dateLabel = formatGameDate(g.date);
+        const dateLabel = formatGameDate(g.date || g.game_date);
         const opponentLabel = formatOpponentLabel(g.opponent, g.opponent_abbr);
         const gameKey = g.game_number || (i + 1);
         const outlierList = outliers[gameKey] || [];
