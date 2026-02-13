@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Texas Tech",
+      "G": "14",
+      "Rush Yards": "954",
+      "Pass Yards": "2662",
+      "Plays": "917",
+      "Total Yards": "3616",
+      "Yards/Play": "3.94",
+      "Yards/G": "258.3"
+    },
+    {
+      "": "2",
+      "Name": "Arizona",
+      "G": "13",
+      "Rush Yards": "1862",
+      "Pass Yards": "2149",
+      "Plays": "858",
+      "Total Yards": "4011",
+      "Yards/Play": "4.67",
+      "Yards/G": "308.5"
+    },
+    {
+      "": "3",
+      "Name": "BYU",
+      "G": "14",
+      "Rush Yards": "1718",
+      "Pass Yards": "2936",
+      "Plays": "912",
+      "Total Yards": "4654",
+      "Yards/Play": "5.10",
+      "Yards/G": "332.4"
+    },
+    {
+      "": "4",
+      "Name": "UCF",
+      "G": "12",
+      "Rush Yards": "1808",
+      "Pass Yards": "2221",
+      "Plays": "795",
+      "Total Yards": "4029",
+      "Yards/Play": "5.07",
+      "Yards/G": "335.8"
+    },
+    {
+      "": "5",
+      "Name": "Houston",
+      "G": "13",
+      "Rush Yards": "1677",
+      "Pass Yards": "2845",
+      "Plays": "855",
+      "Total Yards": "4522",
+      "Yards/Play": "5.29",
+      "Yards/G": "347.8"
+    },
+    {
+      "": "6",
+      "Name": "Iowa State",
+      "G": "12",
+      "Rush Yards": "1656",
+      "Pass Yards": "2622",
+      "Plays": "760",
+      "Total Yards": "4278",
+      "Yards/Play": "5.63",
+      "Yards/G": "356.5"
+    },
+    {
+      "": "7",
+      "Name": "Arizona State",
+      "G": "13",
+      "Rush Yards": "1612",
+      "Pass Yards": "3035",
+      "Plays": "906",
+      "Total Yards": "4647",
+      "Yards/Play": "5.13",
+      "Yards/G": "357.5"
+    },
+    {
+      "": "8",
+      "Name": "Utah",
+      "G": "13",
+      "Rush Yards": "2355",
+      "Pass Yards": "2312",
+      "Plays": "873",
+      "Total Yards": "4667",
+      "Yards/Play": "5.35",
+      "Yards/G": "359.0"
+    },
+    {
+      "": "9",
+      "Name": "TCU",
+      "G": "13",
+      "Rush Yards": "1730",
+      "Pass Yards": "3193",
+      "Plays": "891",
+      "Total Yards": "4923",
+      "Yards/Play": "5.53",
+      "Yards/G": "378.7"
+    },
+    {
+      "": "10",
+      "Name": "Kansas State",
+      "G": "12",
+      "Rush Yards": "1965",
+      "Pass Yards": "2669",
+      "Plays": "875",
+      "Total Yards": "4634",
+      "Yards/Play": "5.30",
+      "Yards/G": "386.2"
+    },
+    {
+      "": "11",
+      "Name": "Kansas",
+      "G": "12",
+      "Rush Yards": "2077",
+      "Pass Yards": "2569",
+      "Plays": "793",
+      "Total Yards": "4646",
+      "Yards/Play": "5.86",
+      "Yards/G": "387.2"
+    },
+    {
+      "": "12",
+      "Name": "Baylor",
+      "G": "12",
+      "Rush Yards": "2366",
+      "Pass Yards": "2339",
+      "Plays": "826",
+      "Total Yards": "4705",
+      "Yards/Play": "5.70",
+      "Yards/G": "392.1"
+    },
+    {
+      "": "13",
+      "Name": "Cincinnati",
+      "G": "13",
+      "Rush Yards": "2324",
+      "Pass Yards": "2866",
+      "Plays": "926",
+      "Total Yards": "5190",
+      "Yards/Play": "5.60",
+      "Yards/G": "399.2"
+    },
+    {
+      "": "14",
+      "Name": "West Virginia",
+      "G": "12",
+      "Rush Yards": "1725",
+      "Pass Yards": "3185",
+      "Plays": "869",
+      "Total Yards": "4910",
+      "Yards/Play": "5.65",
+      "Yards/G": "409.2"
+    },
+    {
+      "": "15",
+      "Name": "Oklahoma State",
+      "G": "12",
+      "Rush Yards": "1991",
+      "Pass Yards": "3029",
+      "Plays": "798",
+      "Total Yards": "5020",
+      "Yards/Play": "6.29",
+      "Yards/G": "418.3"
+    },
+    {
+      "": "16",
+      "Name": "Colorado",
+      "G": "12",
+      "Rush Yards": "2670",
+      "Pass Yards": "2438",
+      "Plays": "832",
+      "Total Yards": "5108",
+      "Yards/Play": "6.14",
+      "Yards/G": "425.7"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:48.734188Z"
+}

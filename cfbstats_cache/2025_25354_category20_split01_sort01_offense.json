@@ -1,0 +1,141 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Sacks",
+    "Sack Yards",
+    "Sacks/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Texas Tech",
+      "G": "14",
+      "Sacks": "41.0",
+      "Sack Yards": "301",
+      "Sacks/G": "2.93"
+    },
+    {
+      "": "2",
+      "Name": "Utah",
+      "G": "13",
+      "Sacks": "34.0",
+      "Sack Yards": "252",
+      "Sacks/G": "2.62"
+    },
+    {
+      "": "2",
+      "Name": "Arizona State",
+      "G": "13",
+      "Sacks": "34.0",
+      "Sack Yards": "243",
+      "Sacks/G": "2.62"
+    },
+    {
+      "": "4",
+      "Name": "BYU",
+      "G": "14",
+      "Sacks": "30.0",
+      "Sack Yards": "229",
+      "Sacks/G": "2.14"
+    },
+    {
+      "": "5",
+      "Name": "Kansas State",
+      "G": "12",
+      "Sacks": "28.0",
+      "Sack Yards": "211",
+      "Sacks/G": "2.33"
+    },
+    {
+      "": "5",
+      "Name": "West Virginia",
+      "G": "12",
+      "Sacks": "28.0",
+      "Sack Yards": "186",
+      "Sacks/G": "2.33"
+    },
+    {
+      "": "5",
+      "Name": "Houston",
+      "G": "13",
+      "Sacks": "28.0",
+      "Sack Yards": "175",
+      "Sacks/G": "2.15"
+    },
+    {
+      "": "8",
+      "Name": "UCF",
+      "G": "12",
+      "Sacks": "27.0",
+      "Sack Yards": "156",
+      "Sacks/G": "2.25"
+    },
+    {
+      "": "9",
+      "Name": "Kansas",
+      "G": "12",
+      "Sacks": "25.0",
+      "Sack Yards": "144",
+      "Sacks/G": "2.08"
+    },
+    {
+      "": "10",
+      "Name": "TCU",
+      "G": "13",
+      "Sacks": "23.0",
+      "Sack Yards": "144",
+      "Sacks/G": "1.77"
+    },
+    {
+      "": "10",
+      "Name": "Cincinnati",
+      "G": "13",
+      "Sacks": "23.0",
+      "Sack Yards": "118",
+      "Sacks/G": "1.77"
+    },
+    {
+      "": "12",
+      "Name": "Oklahoma State",
+      "G": "12",
+      "Sacks": "22.0",
+      "Sack Yards": "118",
+      "Sacks/G": "1.83"
+    },
+    {
+      "": "13",
+      "Name": "Arizona",
+      "G": "13",
+      "Sacks": "21.0",
+      "Sack Yards": "133",
+      "Sacks/G": "1.62"
+    },
+    {
+      "": "14",
+      "Name": "Iowa State",
+      "G": "12",
+      "Sacks": "13.0",
+      "Sack Yards": "82",
+      "Sacks/G": "1.08"
+    },
+    {
+      "": "14",
+      "Name": "Colorado",
+      "G": "12",
+      "Sacks": "13.0",
+      "Sack Yards": "77",
+      "Sacks/G": "1.08"
+    },
+    {
+      "": "16",
+      "Name": "Baylor",
+      "G": "12",
+      "Sacks": "12.0",
+      "Sack Yards": "67",
+      "Sacks/G": "1.00"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:47.737050Z"
+}

@@ -1,0 +1,141 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Attempts",
+    "Conversions",
+    "Conversion %"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Tennessee",
+      "G": "13",
+      "Attempts": "17",
+      "Conversions": "13",
+      "Conversion %": "76.47"
+    },
+    {
+      "": "2",
+      "Name": "Georgia",
+      "G": "14",
+      "Attempts": "20",
+      "Conversions": "15",
+      "Conversion %": "75.00"
+    },
+    {
+      "": "3",
+      "Name": "Texas A&M",
+      "G": "13",
+      "Attempts": "17",
+      "Conversions": "12",
+      "Conversion %": "70.59"
+    },
+    {
+      "": "4",
+      "Name": "Ole Miss",
+      "G": "15",
+      "Attempts": "31",
+      "Conversions": "21",
+      "Conversion %": "67.74"
+    },
+    {
+      "": "5",
+      "Name": "LSU",
+      "G": "13",
+      "Attempts": "13",
+      "Conversions": "8",
+      "Conversion %": "61.54"
+    },
+    {
+      "": "6",
+      "Name": "Alabama",
+      "G": "15",
+      "Attempts": "36",
+      "Conversions": "22",
+      "Conversion %": "61.11"
+    },
+    {
+      "": "7",
+      "Name": "Missouri",
+      "G": "13",
+      "Attempts": "22",
+      "Conversions": "13",
+      "Conversion %": "59.09"
+    },
+    {
+      "": "8",
+      "Name": "Oklahoma",
+      "G": "13",
+      "Attempts": "14",
+      "Conversions": "8",
+      "Conversion %": "57.14"
+    },
+    {
+      "": "9",
+      "Name": "Arkansas",
+      "G": "12",
+      "Attempts": "17",
+      "Conversions": "9",
+      "Conversion %": "52.94"
+    },
+    {
+      "": "9",
+      "Name": "Texas",
+      "G": "13",
+      "Attempts": "17",
+      "Conversions": "9",
+      "Conversion %": "52.94"
+    },
+    {
+      "": "11",
+      "Name": "Vanderbilt",
+      "G": "13",
+      "Attempts": "19",
+      "Conversions": "10",
+      "Conversion %": "52.63"
+    },
+    {
+      "": "12",
+      "Name": "Kentucky",
+      "G": "12",
+      "Attempts": "21",
+      "Conversions": "11",
+      "Conversion %": "52.38"
+    },
+    {
+      "": "13",
+      "Name": "Auburn",
+      "G": "12",
+      "Attempts": "23",
+      "Conversions": "12",
+      "Conversion %": "52.17"
+    },
+    {
+      "": "14",
+      "Name": "South Carolina",
+      "G": "12",
+      "Attempts": "32",
+      "Conversions": "16",
+      "Conversion %": "50.00"
+    },
+    {
+      "": "15",
+      "Name": "Mississippi State",
+      "G": "13",
+      "Attempts": "29",
+      "Conversions": "13",
+      "Conversion %": "44.83"
+    },
+    {
+      "": "16",
+      "Name": "Florida",
+      "G": "12",
+      "Attempts": "19",
+      "Conversions": "8",
+      "Conversion %": "42.11"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:40.768471Z"
+}

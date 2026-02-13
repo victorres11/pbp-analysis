@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Oklahoma",
+      "G": "13",
+      "Rush Yards": "1005",
+      "Pass Yards": "2538",
+      "Plays": "827",
+      "Total Yards": "3543",
+      "Yards/Play": "4.28",
+      "Yards/G": "272.5"
+    },
+    {
+      "": "2",
+      "Name": "Missouri",
+      "G": "13",
+      "Rush Yards": "1350",
+      "Pass Yards": "2255",
+      "Plays": "797",
+      "Total Yards": "3605",
+      "Yards/Play": "4.52",
+      "Yards/G": "277.3"
+    },
+    {
+      "": "3",
+      "Name": "Alabama",
+      "G": "15",
+      "Rush Yards": "1903",
+      "Pass Yards": "2549",
+      "Plays": "905",
+      "Total Yards": "4452",
+      "Yards/Play": "4.92",
+      "Yards/G": "296.8"
+    },
+    {
+      "": "4",
+      "Name": "Georgia",
+      "G": "14",
+      "Rush Yards": "1141",
+      "Pass Yards": "3031",
+      "Plays": "847",
+      "Total Yards": "4172",
+      "Yards/Play": "4.93",
+      "Yards/G": "298.0"
+    },
+    {
+      "": "5",
+      "Name": "Texas A&M",
+      "G": "13",
+      "Rush Yards": "1700",
+      "Pass Yards": "2296",
+      "Plays": "787",
+      "Total Yards": "3996",
+      "Yards/Play": "5.08",
+      "Yards/G": "307.4"
+    },
+    {
+      "": "6",
+      "Name": "LSU",
+      "G": "13",
+      "Rush Yards": "1613",
+      "Pass Yards": "2660",
+      "Plays": "847",
+      "Total Yards": "4273",
+      "Yards/Play": "5.04",
+      "Yards/G": "328.7"
+    },
+    {
+      "": "7",
+      "Name": "Auburn",
+      "G": "12",
+      "Rush Yards": "1192",
+      "Pass Yards": "2758",
+      "Plays": "798",
+      "Total Yards": "3950",
+      "Yards/Play": "4.95",
+      "Yards/G": "329.2"
+    },
+    {
+      "": "8",
+      "Name": "Texas",
+      "G": "13",
+      "Rush Yards": "1351",
+      "Pass Yards": "3054",
+      "Plays": "895",
+      "Total Yards": "4405",
+      "Yards/Play": "4.92",
+      "Yards/G": "338.8"
+    },
+    {
+      "": "9",
+      "Name": "Ole Miss",
+      "G": "15",
+      "Rush Yards": "2236",
+      "Pass Yards": "2984",
+      "Plays": "997",
+      "Total Yards": "5220",
+      "Yards/Play": "5.24",
+      "Yards/G": "348.0"
+    },
+    {
+      "": "10",
+      "Name": "South Carolina",
+      "G": "12",
+      "Rush Yards": "1640",
+      "Pass Yards": "2596",
+      "Plays": "806",
+      "Total Yards": "4236",
+      "Yards/Play": "5.26",
+      "Yards/G": "353.0"
+    },
+    {
+      "": "11",
+      "Name": "Vanderbilt",
+      "G": "13",
+      "Rush Yards": "1406",
+      "Pass Yards": "3242",
+      "Plays": "840",
+      "Total Yards": "4648",
+      "Yards/Play": "5.53",
+      "Yards/G": "357.5"
+    },
+    {
+      "": "12",
+      "Name": "Kentucky",
+      "G": "12",
+      "Rush Yards": "1611",
+      "Pass Yards": "2879",
+      "Plays": "798",
+      "Total Yards": "4490",
+      "Yards/Play": "5.63",
+      "Yards/G": "374.2"
+    },
+    {
+      "": "13",
+      "Name": "Florida",
+      "G": "12",
+      "Rush Yards": "1847",
+      "Pass Yards": "2675",
+      "Plays": "798",
+      "Total Yards": "4522",
+      "Yards/Play": "5.67",
+      "Yards/G": "376.8"
+    },
+    {
+      "": "14",
+      "Name": "Tennessee",
+      "G": "13",
+      "Rush Yards": "1981",
+      "Pass Yards": "3182",
+      "Plays": "929",
+      "Total Yards": "5163",
+      "Yards/Play": "5.56",
+      "Yards/G": "397.2"
+    },
+    {
+      "": "15",
+      "Name": "Mississippi State",
+      "G": "13",
+      "Rush Yards": "2422",
+      "Pass Yards": "2899",
+      "Plays": "893",
+      "Total Yards": "5321",
+      "Yards/Play": "5.96",
+      "Yards/G": "409.3"
+    },
+    {
+      "": "16",
+      "Name": "Arkansas",
+      "G": "12",
+      "Rush Yards": "2231",
+      "Pass Yards": "2871",
+      "Plays": "814",
+      "Total Yards": "5102",
+      "Yards/Play": "6.27",
+      "Yards/G": "425.2"
+    }
+  ],
+  "fetched_at": "2026-02-13T18:32:42.723011Z"
+}

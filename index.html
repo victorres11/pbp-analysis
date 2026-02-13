@@ -1164,11 +1164,30 @@ function parseScheduleDate(dateStr) {
 
 function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
+    const byeWeeks = team.bye_weeks || [];
     const rows = [];
     let prevDate = null;
+    let byeInserted = new Set();
     games.forEach((g, i) => {
         const currentDate = parseScheduleDate(g.date || g.game_date);
-        if (prevDate && currentDate) {
+        // Insert bye week rows from NCAA schedule API data
+        if (byeWeeks.length > 0) {
+            // Check if a bye week falls between the previous game and this one
+            // Use game index as a rough week proxy when schedule weeks aren't available
+            const gameWeek = g.week || (i + 1);
+            byeWeeks.forEach(bw => {
+                if (!byeInserted.has(bw) && prevDate && currentDate) {
+                    const gapDays = Math.round((currentDate - prevDate) / 86400000);
+                    if (gapDays > 10) {
+                        byeInserted.add(bw);
+                        rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
+                            <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${bw})</td>
+                        </tr>`);
+                    }
+                }
+            });
+        } else if (prevDate && currentDate) {
+            // Fallback: infer from date gaps if no bye_weeks data
             const gapDays = Math.round((currentDate - prevDate) / 86400000);
             if (gapDays > 7) {
                 rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
