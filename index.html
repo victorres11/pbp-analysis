@@ -814,6 +814,16 @@ function renderExplosiveLeaders(title, leaders, teamClass) {
         </div>`;
     }
     const fmt = (n) => n ? `${n}+ yards` : '—';
+    const formatExplosiveLine = (player) => {
+        const parts = [];
+        if (player.rush > 0) {
+            parts.push(`${player.rush} rush explosives (${fmt(player.rushMax)})`);
+        }
+        if (player.pass > 0) {
+            parts.push(`${player.pass} pass explosives (${fmt(player.passMax)})`);
+        }
+        return parts.length ? parts.join(', ') : 'No explosives';
+    };
     return `<div class="glass rounded-xl p-4">
         <div class="flex items-center justify-between mb-3">
             <div class="text-sm text-zinc-300 font-medium">${title}</div>
@@ -824,7 +834,7 @@ function renderExplosiveLeaders(title, leaders, teamClass) {
                 <div class="flex items-start justify-between gap-3 border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
                     <div class="font-semibold ${teamClass}">${p.name}</div>
                     <div class="text-zinc-400 text-right">
-                        ${p.rush} rush explosives (${fmt(p.rushMax)}), ${p.pass} pass explosives (${fmt(p.passMax)})
+                        ${formatExplosiveLine(p)}
                     </div>
                 </div>
             `).join('')}
@@ -2259,15 +2269,17 @@ function renderPostTurnover() {
         <div class="glass rounded-xl p-4">${chartContainer('postToPerGameChart', '260px')}</div>
     </div>`;
 
-    // Post-turnover drive tables
-    const renderPostTurnoverTable = (games, teamName, ourTeam) => {
+    // Post-turnover drive tables (collapsed by default)
+    const renderPostTurnoverTable = games => {
         const drives = games.flatMap(g => {
             return (g.post_turnover_drives || []).map(d => ({...d, game: g.game_number, opponent: g.opponent}));
         });
 
-        if (!drives.length) return `<div class="text-zinc-500 text-xs p-4">No post-turnover drives recorded.</div>`;
+        if (!drives.length) {
+            return { count: 0, content: `<div class="text-zinc-500 text-xs p-4">No post-turnover drives recorded.</div>` };
+        }
 
-        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+        const table = `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
             <th class="py-2 px-2 text-left text-zinc-500">G#</th>
             <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
             <th class="py-2 px-2 text-left text-zinc-500">Q</th>
@@ -2290,17 +2302,16 @@ function renderPostTurnover() {
             <td class="py-2 px-2">${d.points_scored || 0}</td>
             <td class="py-2 px-2 text-zinc-400">${d.turnover_description}</td>
         </tr>`).join('')}</tbody></table>`;
+
+        return { count: drives.length, content: table };
     };
 
+    const gPostTo = renderPostTurnoverTable(gf);
+    const aPostTo = renderPostTurnoverTable(af);
+
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-medium text-white mb-2">${ga.name} Post-Turnover Drives</h4>
-            ${renderPostTurnoverTable(gf, ga.name, 'UGA')}
-        </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-medium text-white mb-2">${aa.name} Post-Turnover Drives</h4>
-            ${renderPostTurnoverTable(af, aa.name, 'ASU')}
-        </div>
+        ${collapsible(`${ga.name} Post-Turnover Drives`, gPostTo.count, gPostTo.content)}
+        ${collapsible(`${aa.name} Post-Turnover Drives`, aPostTo.count, aPostTo.content)}
     </div>`;
 
     html += `</div>`;

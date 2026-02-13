@@ -1,0 +1,22 @@
+{
+  "teams": {
+    "georgia": {
+      "name": "Georgia",
+      "abbr": "UGA",
+      "conference": "SEC",
+      "primary_color": "#ef4444",
+      "secondary_color": "#000000",
+      "logo_url": "",
+      "espn_id": "61"
+    },
+    "asu": {
+      "name": "Arizona State",
+      "abbr": "ASU",
+      "conference": "Big 12",
+      "primary_color": "#f97316",
+      "secondary_color": "#ffc627",
+      "logo_url": "",
+      "espn_id": "9"
+    }
+  }
+}
