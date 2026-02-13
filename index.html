@@ -943,7 +943,7 @@ function renderStatBadge(rank, total, reverse=false, conference='') {
     else if (adjustedRank > Math.ceil(total * 0.75)) cls = 'bad';
     else if (adjustedRank > Math.ceil(total * 0.5)) cls = 'low';
     const confLabel = conference ? ` in ${conference}` : '';
-    return `<span class="rank-badge ${cls}">${ordinal(rank)}${confLabel}</span>`;
+    return `<span class="rank-badge ${cls}">${ordinal(adjustedRank)}${confLabel}</span>`;
 }
 
 const RANKING_META = {
