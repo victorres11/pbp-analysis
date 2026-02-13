@@ -47,6 +47,11 @@
         .context-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); font-size: 0.72rem; color: #e4e4e7; }
         .context-badge.team-a-badge { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); }
         .context-badge.team-b-badge { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.08); }
+        .rank-badge { display: inline-flex; align-items: center; padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid transparent; font-size: 0.62rem; letter-spacing: 0.02em; text-transform: uppercase; }
+        .rank-badge.good { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.12); color: #86efac; }
+        .rank-badge.mid { border-color: rgba(148,163,184,0.35); background: rgba(148,163,184,0.12); color: #e2e8f0; }
+        .rank-badge.low { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.12); color: #fdba74; }
+        .rank-badge.bad { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.12); color: #fca5a5; }
         .section-enter { animation: sectionEnter 0.4s ease-out; }
         @keyframes sectionEnter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .schedule-row:hover { background: rgba(255,255,255,0.04); }
@@ -885,33 +890,103 @@ function compBar(label, valA, valB, unit='') {
     </div>`;
 }
 
-function statCard(label, value, sub, teamClass, quality) {
-    const infoQuality = quality || { pct: null, missing: [], missingCounts: {}, label, note: 'Quality not available' };
-    const infoIcon = qualityInfoIcon(`${label} data`, infoQuality);
-    const warningIcon = quality ? qualityWarningIcon(`${label} data`, quality) : '';
+function ordinal(n) {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '';
+    const mod100 = num % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+    const mod10 = num % 10;
+    const suffix = mod10 === 1 ? 'st' : (mod10 === 2 ? 'nd' : (mod10 === 3 ? 'rd' : 'th'));
+    return `${num}${suffix}`;
+}
+
+function renderStatBadge(rank, total, reverse=false, conference='') {
+    if (!rank || !total) return '';
+    const adjustedRank = reverse ? (total - rank + 1) : rank;
+    let cls = 'mid';
+    if (adjustedRank <= 3) cls = 'good';
+    else if (adjustedRank > Math.ceil(total * 0.75)) cls = 'bad';
+    else if (adjustedRank > Math.ceil(total * 0.5)) cls = 'low';
+    const confLabel = conference ? ` in ${conference}` : '';
+    return `<span class="rank-badge ${cls}">${ordinal(rank)}${confLabel}</span>`;
+}
+
+const RANKING_META = {
+    fourth_down: { reverse: false },
+    turnover_margin: { reverse: false },
+    penalties: { reverse: true },
+    time_of_possession: { reverse: false },
+    sacks_offense: { reverse: true },
+    sacks_defense: { reverse: false },
+    total_offense: { reverse: false },
+    total_defense: { reverse: true },
+    rushing_offense: { reverse: false },
+    rushing_defense: { reverse: true },
+    passing_offense: { reverse: false },
+    passing_defense: { reverse: true },
+    scoring_margin: { reverse: false },
+    scoring_offense: { reverse: false },
+    scoring_defense: { reverse: true },
+    third_down: { reverse: false },
+    red_zone: { reverse: false },
+    explosives: { reverse: false },
+};
+
+function getRanking(team, key) {
+    return (team && team.cfbstats && team.cfbstats.rankings && team.cfbstats.rankings[key]) || null;
+}
+
+function buildStatBadge(team, key) {
+    const entry = getRanking(team, key);
+    if (!entry) return '';
+    const meta = RANKING_META[key] || {};
+    return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+}
+
+function formatRankingLabel(entry) {
+    if (!entry) return '';
+    const value = entry.value ? ` (${entry.value})` : '';
+    const label = entry.label ? ` in ${entry.label}` : '';
+    const conf = entry.conference ? ` in ${entry.conference}` : '';
+    return `${ordinal(entry.rank)}${conf}${label}${value}`;
+}
+
+function statCard(label, value, sub, teamClass, quality, badge='') {
+    const showQuality = quality !== null && quality !== undefined;
+    const infoQuality = showQuality ? (quality || { pct: null, missing: [], missingCounts: {}, label, note: 'Quality not available' }) : null;
+    const infoIcon = showQuality ? qualityInfoIcon(`${label} data`, infoQuality) : '';
+    const warningIcon = showQuality && quality ? qualityWarningIcon(`${label} data`, quality) : '';
     return `<div class="stat-card glass rounded-xl p-4 text-center">
         <div class="text-xs text-zinc-500 flex items-center justify-center gap-1">
             <span>${label}</span>${warningIcon}${infoIcon}
         </div>
-        <div class="text-2xl font-bold ${teamClass} mt-1">${value}</div>
+        <div class="text-2xl font-bold ${teamClass} mt-1 flex items-center justify-center gap-2">
+            <span>${value}</span>
+            ${badge || ''}
+        </div>
         ${sub ? `<div class="text-xs text-zinc-500 mt-1">${sub}</div>` : ''}
     </div>`;
 }
 
 function renderContextBadges(team, badgeClass, badgeKey, emptyText = 'No conference context available.') {
-    const badges = (team.cfbstats && team.cfbstats[badgeKey]) || [];
+    const entry = getRanking(team, badgeKey);
+    const badges = entry ? (Array.isArray(entry) ? entry : [entry]) : [];
     if (!badges.length) {
         return `<div class="text-zinc-500 text-xs">${emptyText}</div>`;
     }
-    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${b}</span>`).join('')}</div>`;
+    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${formatRankingLabel(b)}</span>`).join('')}</div>`;
 }
 
 function renderContextBadgeGroup(team, badgeClass, badgeKeys, emptyText) {
-    const badges = badgeKeys.flatMap(key => (team.cfbstats && team.cfbstats[key]) || []);
+    const badges = badgeKeys.flatMap(key => {
+        const entry = getRanking(team, key);
+        if (!entry) return [];
+        return Array.isArray(entry) ? entry : [entry];
+    });
     if (!badges.length) {
         return `<div class="text-zinc-500 text-xs">${emptyText}</div>`;
     }
-    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${b}</span>`).join('')}</div>`;
+    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${formatRankingLabel(b)}</span>`).join('')}</div>`;
 }
 
 function classifyRedZoneFailure(play) {
@@ -1091,11 +1166,46 @@ function renderOverview() {
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
-                ${renderContextBadgeGroup(ga, 'team-a-badge', ['scoring_offense_badges', 'scoring_defense_badges', 'third_down_badges'], 'No scoring or third down rankings available.')}
+                ${renderContextBadgeGroup(ga, 'team-a-badge', ['scoring_offense', 'scoring_defense', 'third_down'], 'No scoring or third down rankings available.')}
             </div>
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
-                ${renderContextBadgeGroup(aa, 'team-b-badge', ['scoring_offense_badges', 'scoring_defense_badges', 'third_down_badges'], 'No scoring or third down rankings available.')}
+                ${renderContextBadgeGroup(aa, 'team-b-badge', ['scoring_offense', 'scoring_defense', 'third_down'], 'No scoring or third down rankings available.')}
+            </div>
+        </div>
+    </div>`;
+    const rankingCard = (team, label, key, teamClass) => {
+        const entry = getRanking(team, key);
+        const value = entry && entry.value ? entry.value : '—';
+        return statCard(label, value, '', teamClass, null, buildStatBadge(team, key));
+    };
+    html += `<div class="glass rounded-xl p-4 mb-6">
+        <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
+        <div class="text-xs text-zinc-400 mb-3">Season-long team ranks (CFBStats)</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-3">
+                ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a')}
+                ${rankingCard(ga, 'Time of Possession', 'time_of_possession', 'team-a')}
+                ${rankingCard(ga, 'Total Offense Yds/G', 'total_offense', 'team-a')}
+                ${rankingCard(ga, 'Total Defense Yds/G', 'total_defense', 'team-a')}
+                ${rankingCard(ga, 'Rushing Off Yds/G', 'rushing_offense', 'team-a')}
+                ${rankingCard(ga, 'Rushing Def Yds/G', 'rushing_defense', 'team-a')}
+                ${rankingCard(ga, 'Passing Off Yds/G', 'passing_offense', 'team-a')}
+                ${rankingCard(ga, 'Passing Def Yds/G', 'passing_defense', 'team-a')}
+                ${rankingCard(ga, 'Sacks Allowed', 'sacks_offense', 'team-a')}
+                ${rankingCard(ga, 'Sacks (Defense)', 'sacks_defense', 'team-a')}
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                ${rankingCard(aa, 'Scoring Margin', 'scoring_margin', 'team-b')}
+                ${rankingCard(aa, 'Time of Possession', 'time_of_possession', 'team-b')}
+                ${rankingCard(aa, 'Total Offense Yds/G', 'total_offense', 'team-b')}
+                ${rankingCard(aa, 'Total Defense Yds/G', 'total_defense', 'team-b')}
+                ${rankingCard(aa, 'Rushing Off Yds/G', 'rushing_offense', 'team-b')}
+                ${rankingCard(aa, 'Rushing Def Yds/G', 'rushing_defense', 'team-b')}
+                ${rankingCard(aa, 'Passing Off Yds/G', 'passing_offense', 'team-b')}
+                ${rankingCard(aa, 'Passing Def Yds/G', 'passing_defense', 'team-b')}
+                ${rankingCard(aa, 'Sacks Allowed', 'sacks_offense', 'team-b')}
+                ${rankingCard(aa, 'Sacks (Defense)', 'sacks_defense', 'team-b')}
             </div>
         </div>
     </div>`;
@@ -1103,11 +1213,11 @@ function renderOverview() {
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a', gq(['points_for','points_against'], 'Record'))}
-            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
+            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b', aq(['points_for','points_against'], 'Record'))}
-            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
+            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
         </div>
     </div>`;
 
@@ -1548,11 +1658,11 @@ function renderExplosives() {
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
-                ${renderContextBadges(ga, 'team-a-badge', 'explosive_badges', 'No explosive plays ranking available.')}
+                ${renderContextBadges(ga, 'team-a-badge', 'explosives', 'No explosive plays ranking available.')}
             </div>
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
-                ${renderContextBadges(aa, 'team-b-badge', 'explosive_badges', 'No explosive plays ranking available.')}
+                ${renderContextBadges(aa, 'team-b-badge', 'explosives', 'No explosive plays ranking available.')}
             </div>
         </div>
     </div>`;
@@ -1861,11 +1971,11 @@ function renderRedzone() {
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
-                ${renderContextBadges(ga, 'team-a-badge', 'red_zone_badges', 'No red zone ranking available.')}
+                ${renderContextBadges(ga, 'team-a-badge', 'red_zone', 'No red zone ranking available.')}
             </div>
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
-                ${renderContextBadges(aa, 'team-b-badge', 'red_zone_badges', 'No red zone ranking available.')}
+                ${renderContextBadges(aa, 'team-b-badge', 'red_zone', 'No red zone ranking available.')}
             </div>
         </div>
     </div>`;
@@ -1916,8 +2026,8 @@ function renderTurnovers() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
-        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'))}
+        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
+        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-4 gap-3">
@@ -2336,12 +2446,12 @@ function renderPenalties() {
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'))}
+            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'))}
             ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
             ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'))}
+            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'))}
             ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
             ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
         </div>
@@ -2693,12 +2803,12 @@ function renderFourthDown() {
         <div class="grid grid-cols-3 gap-3">
             ${statCard('4th Att', gaAtt, '', 'team-a', gq(['4th_down_attempts'], '4th Att'))}
             ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a', gq(['4th_down_conversions'], '4th Conv'))}
-            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'))}
+            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(ga, 'fourth_down'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('4th Att', aaAtt, '', 'team-b', aq(['4th_down_attempts'], '4th Att'))}
             ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b', aq(['4th_down_conversions'], '4th Conv'))}
-            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'))}
+            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(aa, 'fourth_down'))}
         </div>
     </div>`;
     html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
