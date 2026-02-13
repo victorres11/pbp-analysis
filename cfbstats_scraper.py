@@ -2,7 +2,7 @@
 """
 cfbstats.com leaderboard scraper with simple file caching.
 
-Proof-of-concept support is focused on red zone (category 27).
+Supports conference context badges for red zone, third down, explosives, and scoring.
 """
 
 from __future__ import annotations
@@ -31,6 +31,13 @@ CONFERENCE_IDS = {
     "Pac-12": "905",
     "SEC": "911",
     "Sun Belt": "818",
+}
+
+CATEGORY_IDS = {
+    "RED_ZONE": 27,
+    "THIRD_DOWN": 25,
+    "LONG_PLAYS": 30,
+    "SCORING": 9,
 }
 
 DEFAULT_TEAM_ALIASES = {
@@ -63,6 +70,21 @@ def ordinal(value: int) -> str:
     else:
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
     return f"{value}{suffix}"
+
+
+def format_ppg(value: str) -> str:
+    if value is None:
+        return ""
+    cleaned = str(value).strip()
+    if not cleaned:
+        return ""
+    if re.search(r"(ppg|/g|pts/g)", cleaned, re.IGNORECASE):
+        return cleaned
+    try:
+        num = float(cleaned)
+        return f"{num:.1f} PPG"
+    except ValueError:
+        return cleaned
 
 
 class LeaderboardTableParser(HTMLParser):
@@ -331,3 +353,101 @@ class CfbstatsScraper:
 
         return badges
 
+    def get_context_badges(
+        self,
+        year: int,
+        teams: Dict[str, Dict[str, str]],
+        split: str = "split01",
+    ) -> Dict[str, Dict[str, List[str]]]:
+        configs = [
+            {
+                "key": "red_zone",
+                "label": "red zone TD%",
+                "category": CATEGORY_IDS["RED_ZONE"],
+                "stat_candidates": ["TD %", "TD%", "TD Pct", "TD%"],
+                "formatter": lambda v: f"{parse_percent(v):.2f}%" if parse_percent(v) is not None else v,
+                "offense": "offense",
+            },
+            {
+                "key": "third_down",
+                "label": "third down %",
+                "category": CATEGORY_IDS["THIRD_DOWN"],
+                "stat_candidates": ["Pct", "Pct.", "Conv %", "Conv%", "Pct%"],
+                "formatter": lambda v: f"{parse_percent(v):.2f}%" if parse_percent(v) is not None else v,
+                "offense": "offense",
+            },
+            {
+                "key": "explosives",
+                "label": "explosive plays (20+)",
+                "category": CATEGORY_IDS["LONG_PLAYS"],
+                "stat_candidates": ["20+", "20", "20+ Plays", "20+ Yds", "20+Yds"],
+                "formatter": lambda v: str(v).strip() if v is not None else "",
+                "offense": "offense",
+            },
+            {
+                "key": "scoring_offense",
+                "label": "scoring offense",
+                "category": CATEGORY_IDS["SCORING"],
+                "stat_candidates": ["Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
+                "formatter": format_ppg,
+                "offense": "offense",
+            },
+            {
+                "key": "scoring_defense",
+                "label": "scoring defense",
+                "category": CATEGORY_IDS["SCORING"],
+                "stat_candidates": ["Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"],
+                "formatter": format_ppg,
+                "offense": "defense",
+            },
+        ]
+
+        badges: Dict[str, Dict[str, List[str]]] = {
+            team_id: {cfg["key"]: [] for cfg in configs} for team_id in teams
+        }
+        team_lookup = build_team_lookup(teams)
+
+        by_conference: Dict[str, List[str]] = {}
+        for team_id, info in teams.items():
+            conf = info.get("conference")
+            if not conf:
+                continue
+            by_conference.setdefault(conf, []).append(team_id)
+
+        for conf, team_ids in by_conference.items():
+            scope = CONFERENCE_IDS.get(conf)
+            if not scope:
+                continue
+            for cfg in configs:
+                leaderboard = self.get_leaderboard(
+                    year,
+                    scope,
+                    cfg["category"],
+                    split=split,
+                    offense=cfg["offense"],
+                )
+                if not leaderboard:
+                    continue
+                team_col = find_column(leaderboard.headers, ["Team"])
+                rank_col = find_column(leaderboard.headers, ["Rank", "Rk", "#"])
+                stat_col = find_column(leaderboard.headers, cfg["stat_candidates"])
+                if not team_col or not rank_col or not stat_col:
+                    continue
+                for row in leaderboard.rows:
+                    team_name = row.get(team_col, "")
+                    team_id = team_lookup.get(normalize_team_name(team_name))
+                    if not team_id or team_id not in team_ids:
+                        continue
+                    try:
+                        rank = int(re.sub(r"[^0-9]", "", row.get(rank_col, "")))
+                    except ValueError:
+                        continue
+                    stat_value = row.get(stat_col, "")
+                    display_value = cfg["formatter"](stat_value)
+                    if not display_value:
+                        continue
+                    badges[team_id][cfg["key"]].append(
+                        f"Ranks {ordinal(rank)} in {conf} in {cfg['label']} ({display_value})"
+                    )
+
+        return badges

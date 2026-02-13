@@ -8,13 +8,17 @@ import json
 import re
 import sys
 import glob
+import types
 from pathlib import Path
 from datetime import date
 from collections import defaultdict
 
-# Add src to path to import pbp_parser
+# Add src to path to import pbp_parser without executing its __init__
 repo_root = Path(__file__).parent.parent / "pbp-parser"
 sys.path.insert(0, str(repo_root / "src"))
+pbp_pkg = types.ModuleType("pbp_parser")
+pbp_pkg.__path__ = [str(repo_root / "src" / "pbp_parser")]
+sys.modules.setdefault("pbp_parser", pbp_pkg)
 
 from pbp_parser.parse import parse_pdf
 from pbp_parser.pdf_text import extract_pdf_text
@@ -22,6 +26,41 @@ from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
 
 from cfbstats_scraper import CfbstatsScraper
+
+NAME_PATTERN = re.compile(
+    r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
+    r"[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+)?"
+)
+PASS_RECEIVER_RE = re.compile(r"\bto\s+(" + NAME_PATTERN.pattern + r")", re.IGNORECASE)
+RUSH_PLAYER_RE = re.compile(r"(" + NAME_PATTERN.pattern + r")\s+(?:rush|run)\b", re.IGNORECASE)
+
+
+def normalize_player_name(raw):
+    if not raw:
+        return None
+    cleaned = re.sub(r'\s+', ' ', raw.strip())
+    if ',' not in cleaned:
+        return cleaned
+    last, first = cleaned.split(',', 1)
+    last = last.strip()
+    first = first.strip()
+    if not first:
+        return cleaned
+    return f"{first} {last}".strip()
+
+
+def extract_explosive_player(desc, play_type):
+    if not desc:
+        return None
+    if play_type == 'pass':
+        m = PASS_RECEIVER_RE.search(desc)
+        if m:
+            return normalize_player_name(m.group(1))
+        return None
+    m = RUSH_PLAYER_RE.search(desc)
+    if m:
+        return normalize_player_name(m.group(1))
+    return None
 
 def extract_scores_from_pdf(pdf_path):
     """Extract final scores from SCORE BY QUARTERS section of PBP PDF."""
@@ -153,6 +192,47 @@ def extract_field_goal_yards(desc):
             return int(m.group(1))
         except ValueError:
             return None
+    return None
+
+
+def extract_punt_yards(desc):
+    u = (desc or '').upper()
+    if 'PUNT' not in u:
+        return None
+    patterns = [
+        r'PUNT(?:ED|S)?\s+(-?\d{1,3})\s+YARD',
+        r'PUNT(?:ED|S)?\s+(-?\d{1,3})\s+YDS?',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, u)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def extract_return_yards(desc):
+    u = (desc or '').upper()
+    if 'RETURN' not in u:
+        return None
+    patterns = [
+        r'RETURN(?:ED)?\s+(-?\d{1,3})\s+YARD',
+        r'RETURN(?:ED)?\s+(-?\d{1,3})\s+YDS?',
+        r'RETURN\s+FOR\s+LOSS\s+OF\s+(\d{1,3})\s+YARD',
+        r'RETURN\s+FOR\s+LOSS\s+OF\s+(\d{1,3})\s+YDS?',
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, u)
+        if m:
+            try:
+                yards = int(m.group(1))
+            except ValueError:
+                return None
+            if 'LOSS' in pattern:
+                return -yards
+            return yards
     return None
 
 
@@ -390,6 +470,21 @@ def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
     return our_ints_lost, our_fumbles_lost, our_ints_gained, our_fumbles_gained
 
 
+def compute_turnover_totals(plays, our_abbr, opp_abbr):
+    """Compute total turnovers gained/lost from play data."""
+    lost = 0
+    gained = 0
+    for p in plays:
+        if not p.is_turnover:
+            continue
+        lost_by = p.offense or '?'
+        if lost_by == our_abbr:
+            lost += 1
+        elif lost_by == opp_abbr:
+            gained += 1
+    return lost, gained
+
+
 def parse_penalty_details(plays, our_abbr, opp_abbr):
     """Extract detailed penalty information from plays."""
     penalty_details = []
@@ -453,7 +548,17 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         
         # Determine offense or defense
         # If the penalized team is the offense team, it's an offensive penalty
-        offense_or_defense = 'offense' if penalized_team == p.offense else 'defense'
+        if penalized_team and p.offense:
+            offense_or_defense = 'offense' if penalized_team == p.offense else 'defense'
+        else:
+            offense_or_defense = 'unknown'
+
+        # Differentiate holding by side when possible
+        if penalty_type == 'Holding':
+            if offense_or_defense == 'offense':
+                penalty_type = 'Offensive Holding'
+            elif offense_or_defense == 'defense':
+                penalty_type = 'Defensive Holding'
         
         penalty_details.append({
             'type': penalty_type,
@@ -479,7 +584,10 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         'punt_return_long': 0,
         'punts': 0,
         'punt_yards': 0,
+        'punt_net_yards': 0,
+        'punt_long': 0,
         'punts_inside_20': 0,
+        'punt_touchbacks': 0,
         'field_goals_made': 0,
         'field_goals_attempts': 0,
         'field_goal_long': 0,
@@ -503,13 +611,27 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
 
         if p.offense == our_abbr:
             # Our punts
-            if is_punt and 'RETURN' not in desc:
+            if is_punt:
                 stats['punts'] += 1
-                if p.yards is not None:
-                    stats['punt_yards'] += p.yards
-                # Check for inside 20
-                if 'INSIDE 20' in desc or re.search(r'(OUT OF BOUNDS|DOWNED|FAIR CATCH).*?(\d+)', desc):
-                    # Try to determine if ball ended inside 20
+                gross = extract_punt_yards(desc)
+                if gross is None and p.yards is not None:
+                    gross = p.yards
+                if gross is None:
+                    gross = 0
+                stats['punt_yards'] += gross
+                stats['punt_long'] = max(stats['punt_long'], gross)
+                touchback = 'TOUCHBACK' in desc
+                if touchback:
+                    stats['punt_touchbacks'] += 1
+                return_yards = extract_return_yards(desc) if 'RETURN' in desc else 0
+                net = gross
+                if return_yards is not None:
+                    net -= return_yards
+                if touchback:
+                    net = max(net - 20, 0)
+                stats['punt_net_yards'] += net
+                # Check for inside 20 (exclude touchbacks)
+                if not touchback and ('INSIDE 20' in desc or re.search(r'(OUT OF BOUNDS|DOWNED|FAIR CATCH).*?(\d+)', desc)):
                     spot_match = re.search(r'AT\s+[A-Z]*(\d+)', desc)
                     if spot_match and int(spot_match.group(1)) <= 20:
                         stats['punts_inside_20'] += 1
@@ -571,8 +693,10 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     
     if stats['punts'] > 0:
         stats['punt_avg'] = round(stats['punt_yards'] / stats['punts'], 1)
+        stats['punt_net_avg'] = round(stats['punt_net_yards'] / stats['punts'], 1)
     else:
         stats['punt_avg'] = 0.0
+        stats['punt_net_avg'] = 0.0
     
     if stats['field_goals_attempts'] > 0:
         stats['field_goal_pct'] = round(stats['field_goals_made'] / stats['field_goals_attempts'] * 100, 1)
@@ -647,10 +771,6 @@ def process_team_games(pdf_dir, team_identifier):
         our_stats = g.team_stats.get(our_abbr, None)
         opp_stats = g.team_stats.get(opp_abbr, None)
         
-        # Count turnovers from team_stats
-        our_turnovers_lost = our_stats.turnovers if our_stats and our_stats.turnovers else 0
-        opp_turnovers_lost = opp_stats.turnovers if opp_stats and opp_stats.turnovers else 0
-        
         # Count penalties from plays
         our_penalties = 0
         opp_penalties = 0
@@ -680,11 +800,15 @@ def process_team_games(pdf_dir, team_identifier):
                         our_explosive_passes += 1
                     else:
                         our_explosive_rushes += 1
-                    our_explosive_details.append({
+                    player = extract_explosive_player(p.description or '', play_type)
+                    detail = {
                         'description': p.description or '',
                         'yards': p.yards,
                         'type': play_type
-                    })
+                    }
+                    if player:
+                        detail['player'] = player
+                    our_explosive_details.append(detail)
         
         # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
         # Track trips, TDs, FGs, and failed attempts for each zone
@@ -983,6 +1107,7 @@ def process_team_games(pdf_dir, team_identifier):
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
+        turnovers_lost, turnovers_gained = compute_turnover_totals(g.plays, our_abbr, opp_abbr)
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -1000,8 +1125,8 @@ def process_team_games(pdf_dir, team_identifier):
             'explosive_rushes': our_explosive_rushes,
             'explosive_passes': our_explosive_passes,
             'explosive_details': our_explosive_details,
-            'turnovers_lost': our_turnovers_lost,
-            'turnovers_gained': opp_turnovers_lost,
+            'turnovers_lost': turnovers_lost,
+            'turnovers_gained': turnovers_gained,
             'interceptions_lost': ints_lost,
             'fumbles_lost': fum_lost,
             'interceptions_gained': ints_gained,
@@ -1092,7 +1217,7 @@ def main():
 
     season_year = infer_season_year([asu_dir, georgia_dir])
     scraper = CfbstatsScraper()
-    cfbstats_badges = scraper.get_red_zone_badges(
+    cfbstats_badges = scraper.get_context_badges(
         season_year,
         {
             "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
@@ -1108,7 +1233,11 @@ def main():
                 "conference": "SEC",
                 "color": "#ef4444",
                 "cfbstats": {
-                    "red_zone_badges": cfbstats_badges.get("georgia", []),
+                    "red_zone_badges": cfbstats_badges.get("georgia", {}).get("red_zone", []),
+                    "third_down_badges": cfbstats_badges.get("georgia", {}).get("third_down", []),
+                    "explosive_badges": cfbstats_badges.get("georgia", {}).get("explosives", []),
+                    "scoring_offense_badges": cfbstats_badges.get("georgia", {}).get("scoring_offense", []),
+                    "scoring_defense_badges": cfbstats_badges.get("georgia", {}).get("scoring_defense", []),
                 },
                 "aggregates": georgia_agg,
                 "games": georgia_games,
@@ -1119,7 +1248,11 @@ def main():
                 "conference": "Big 12",
                 "color": "#f97316",
                 "cfbstats": {
-                    "red_zone_badges": cfbstats_badges.get("asu", []),
+                    "red_zone_badges": cfbstats_badges.get("asu", {}).get("red_zone", []),
+                    "third_down_badges": cfbstats_badges.get("asu", {}).get("third_down", []),
+                    "explosive_badges": cfbstats_badges.get("asu", {}).get("explosives", []),
+                    "scoring_offense_badges": cfbstats_badges.get("asu", {}).get("scoring_offense", []),
+                    "scoring_defense_badges": cfbstats_badges.get("asu", {}).get("scoring_defense", []),
                 },
                 "aggregates": asu_agg,
                 "games": asu_games,

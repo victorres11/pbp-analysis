@@ -403,6 +403,144 @@ function agg(games) {
     };
 }
 
+function average(values) {
+    const nums = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+    if (!nums.length) return null;
+    return nums.reduce((s, v) => s + v, 0) / nums.length;
+}
+
+function stddev(values) {
+    const mean = average(values);
+    if (mean === null) return null;
+    const nums = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+    if (nums.length < 2) return 0;
+    const variance = nums.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / (nums.length - 1);
+    return Math.sqrt(variance);
+}
+
+function findOutliers(values, threshold = 1.7, limit = 2) {
+    const mean = average(values);
+    const sd = stddev(values);
+    if (mean === null || sd === null || sd === 0) return [];
+    const outliers = [];
+    values.forEach((v, i) => {
+        if (typeof v !== 'number' || Number.isNaN(v)) return;
+        const z = (v - mean) / sd;
+        if (Math.abs(z) >= threshold) outliers.push({ index: i, value: v, z });
+    });
+    outliers.sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+    return outliers.slice(0, limit);
+}
+
+function formatSigned(value, digits = 1) {
+    if (value === null || value === undefined || Number.isNaN(value)) return '—';
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(digits)}`;
+}
+
+function formatPct(value) {
+    if (value === null || value === undefined || Number.isNaN(value)) return '—';
+    return `${value.toFixed(1)}%`;
+}
+
+function gameLabel(game, index) {
+    if (!game) return `G${index + 1}`;
+    const date = game.date ? ` (${game.date})` : '';
+    return `G${index + 1} vs ${game.opponent}${date}`;
+}
+
+function lastN(games, n) {
+    if (!games.length) return [];
+    return games.slice(Math.max(games.length - n, 0));
+}
+
+function calcRzPct(game) {
+    if (!game || !game.red_zone_trips) return null;
+    return ((game.red_zone_tds + game.red_zone_fgs) / game.red_zone_trips) * 100;
+}
+
+function trendDelta(games, extractor, n = 3) {
+    const season = average(games.map(extractor));
+    const recentGames = lastN(games, n);
+    const recent = average(recentGames.map(extractor));
+    if (season === null || recent === null) return null;
+    return { season, recent, delta: recent - season, span: recentGames.length };
+}
+
+function bestWorstPerformances(games) {
+    if (!games.length) return { best: null, worst: null };
+    const margins = games.map(g => g.points_for - g.points_against);
+    let bestIdx = 0;
+    let worstIdx = 0;
+    margins.forEach((m, i) => {
+        if (m > margins[bestIdx]) bestIdx = i;
+        if (m < margins[worstIdx]) worstIdx = i;
+    });
+    return { best: { index: bestIdx, margin: margins[bestIdx] }, worst: { index: worstIdx, margin: margins[worstIdx] } };
+}
+
+function weekOverWeekSummary(games) {
+    if (games.length < 2) return null;
+    const latest = games[games.length - 1];
+    const prev = games[games.length - 2];
+    const toMargin = g => g.turnovers_gained - g.turnovers_lost;
+    return {
+        latest,
+        prev,
+        deltas: {
+            points_for: latest.points_for - prev.points_for,
+            points_against: latest.points_against - prev.points_against,
+            margin: (latest.points_for - latest.points_against) - (prev.points_for - prev.points_against),
+            explosives: latest.explosives - prev.explosives,
+            tom: toMargin(latest) - toMargin(prev),
+            rz: (calcRzPct(latest) ?? 0) - (calcRzPct(prev) ?? 0),
+            penalties: latest.penalties - prev.penalties,
+        }
+    };
+}
+
+function buildNotableStats(games) {
+    const notable = [];
+    if (!games.length) return notable;
+    const last5 = lastN(games, 5);
+    const last3 = lastN(games, 3);
+    if (last5.length >= 3) {
+        const scored30 = last5.filter(g => g.points_for >= 30).length;
+        notable.push(`Scored 30+ in ${scored30}/${last5.length} recent games.`);
+        const allowed20 = last5.filter(g => g.points_against <= 20).length;
+        notable.push(`Held opponents to ≤20 in ${allowed20}/${last5.length} recent games.`);
+    }
+    const zeroTO = last5.filter(g => g.turnovers_lost === 0).length;
+    if (last5.length) notable.push(`Zero-turnover outings: ${zeroTO}/${last5.length} recently.`);
+    const explSeason = average(games.map(g => g.explosives));
+    const explRecent = average(last3.map(g => g.explosives));
+    if (explSeason !== null && explRecent !== null) {
+        const delta = explRecent - explSeason;
+        const direction = delta >= 0 ? 'up' : 'down';
+        notable.push(`Explosives trend ${direction}: ${explRecent.toFixed(1)} last 3 vs ${explSeason.toFixed(1)} season.`);
+    }
+    const rzSeason = average(games.map(calcRzPct));
+    const rzRecent = average(last3.map(calcRzPct));
+    if (rzSeason !== null && rzRecent !== null) {
+        const delta = rzRecent - rzSeason;
+        const direction = delta >= 0 ? 'up' : 'down';
+        notable.push(`Red zone finish ${direction}: ${formatPct(rzRecent)} last 3 vs ${formatPct(rzSeason)} season.`);
+    }
+    return notable.slice(0, 4);
+}
+
+function buildOutlierNotes(games, label, extractor) {
+    const values = games.map(extractor);
+    const outliers = findOutliers(values, 1.7, 2);
+    return outliers.map(o => ({
+        label,
+        index: o.index,
+        value: o.value,
+        z: o.z,
+        game: games[o.index],
+    }));
+}
+
 const EXPECTED_GAME_PATHS = [
     'conference', 'date', 'game_number', 'opponent', 'opponent_abbr', 'is_power4',
     'points_for', 'points_against', 'explosives', 'explosive_rushes', 'explosive_passes', 'explosive_details',
@@ -415,10 +553,11 @@ const EXPECTED_GAME_PATHS = [
     'post_turnover_drives', 'points_off_turnovers_for', 'points_off_turnovers_against',
     '4th_down_attempts', '4th_down_conversions',
     'play_tree',
-    'special_teams.punts', 'special_teams.punt_yards', 'special_teams.punts_inside_20',
-    'special_teams.punt_return_long', 'special_teams.field_goals_made', 'special_teams.field_goals_attempts',
+    'special_teams.punts', 'special_teams.punt_yards', 'special_teams.punt_net_yards',
+    'special_teams.punt_long', 'special_teams.punts_inside_20', 'special_teams.punt_touchbacks',
+    'special_teams.field_goals_made', 'special_teams.field_goals_attempts', 'special_teams.field_goal_long',
     'special_teams.kickoff_return_avg', 'special_teams.kickoff_return_long',
-    'special_teams.punt_return_avg',
+    'special_teams.punt_return_avg', 'special_teams.punt_return_long',
 ];
 
 function hasPath(obj, path) {
@@ -584,9 +723,12 @@ function sumField(games, field) {
     return games.reduce((s,g) => s + (g[field] || 0), 0);
 }
 
-function sumPostTurnoverPoints(game, type) {
+function sumPostTurnoverPoints(game, type, teamAbbr) {
     const drives = (game && game.post_turnover_drives) || [];
     return drives.reduce((s,d) => {
+        if (teamAbbr && d.recovered_by !== teamAbbr) {
+            return s;
+        }
         if (!type || d.turnover_type === type) {
             return s + (d.points_scored || 0);
         }
@@ -594,8 +736,8 @@ function sumPostTurnoverPoints(game, type) {
     }, 0);
 }
 
-function sumPostTurnoverPointsByType(games, type) {
-    return games.reduce((s,g) => s + sumPostTurnoverPoints(g, type), 0);
+function sumPostTurnoverPointsByType(games, type, teamAbbr) {
+    return games.reduce((s,g) => s + sumPostTurnoverPoints(g, type, teamAbbr), 0);
 }
 
 function sumSpecial(games, field) {
@@ -617,12 +759,96 @@ function normalizePlayerName(raw) {
     return name;
 }
 
+const EXPLOSIVE_NAME_PATTERN = "[A-Za-z][A-Za-z.'-]*(?:\\s+[A-Za-z][A-Za-z.'-]*)*(?:\\s+Jr\\.)?(?:\\s+III|\\s+II|\\s+IV)?\\s*,\\s*[A-Za-z0-9.'-]+(?:\\s+[A-Za-z0-9.'-]+)?";
+const EXPLOSIVE_PASS_RE = new RegExp(`\\bto\\s+(${EXPLOSIVE_NAME_PATTERN})`, 'i');
+const EXPLOSIVE_RUSH_RE = new RegExp(`(${EXPLOSIVE_NAME_PATTERN})\\s+(?:rush|run)\\b`, 'i');
+
+function extractExplosivePlayer(desc, playType) {
+    if (!desc || typeof desc !== 'string') return '';
+    const source = desc.replace(/\s+/g, ' ').trim();
+    if (playType === 'pass') {
+        const m = source.match(EXPLOSIVE_PASS_RE);
+        return m ? normalizePlayerName(m[1]) : '';
+    }
+    const m = source.match(EXPLOSIVE_RUSH_RE);
+    return m ? normalizePlayerName(m[1]) : '';
+}
+
+function buildExplosiveLeaders(games) {
+    const players = new Map();
+    games.forEach(g => {
+        (g.explosive_details || []).forEach(e => {
+            const name = (e.player && normalizePlayerName(e.player)) || extractExplosivePlayer(e.description || '', e.type || '');
+            if (!name) return;
+            if (!players.has(name)) {
+                players.set(name, { name, rush: 0, pass: 0, rushMax: 0, passMax: 0, totalYards: 0 });
+            }
+            const entry = players.get(name);
+            const yards = Number.isFinite(e.yards) ? e.yards : 0;
+            if (e.type === 'rush') {
+                entry.rush += 1;
+                entry.rushMax = Math.max(entry.rushMax, yards);
+            } else {
+                entry.pass += 1;
+                entry.passMax = Math.max(entry.passMax, yards);
+            }
+            entry.totalYards += yards;
+        });
+    });
+    return Array.from(players.values())
+        .map(p => ({ ...p, total: p.rush + p.pass }))
+        .sort((a, b) => (b.total - a.total) || (b.totalYards - a.totalYards) || a.name.localeCompare(b.name))
+        .slice(0, 5);
+}
+
+function renderExplosiveLeaders(title, leaders, teamClass) {
+    if (!leaders.length) {
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-sm text-zinc-300 font-medium mb-2">${title}</div>
+            <div class="text-xs text-zinc-500">No explosive play player data found.</div>
+        </div>`;
+    }
+    const fmt = (n) => n ? `${n}+ yards` : '—';
+    return `<div class="glass rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="text-sm text-zinc-300 font-medium">${title}</div>
+            <div class="text-xs text-zinc-500">Top 5 players</div>
+        </div>
+        <div class="space-y-2 text-xs">
+            ${leaders.map(p => `
+                <div class="flex items-start justify-between gap-3 border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
+                    <div class="font-semibold ${teamClass}">${p.name}</div>
+                    <div class="text-zinc-400 text-right">
+                        ${p.rush} rush explosives (${fmt(p.rushMax)}), ${p.pass} pass explosives (${fmt(p.passMax)})
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>`;
+}
+
 function getTurnoverType(desc) {
     if (!desc || typeof desc !== 'string') return '';
     const upper = desc.toUpperCase();
     if (upper.includes('INTERCEPT')) return 'INT';
     if (upper.includes('FUMBLE') || upper.includes('FUMBLED')) return 'FUM';
     return '';
+}
+
+function buildTurnoverTypeLookup(game) {
+    const lookup = {};
+    (game.post_turnover_drives || []).forEach(d => {
+        if (d.turnover_description && d.turnover_type) {
+            lookup[d.turnover_description] = d.turnover_type;
+        }
+    });
+    return lookup;
+}
+
+function resolveTurnoverType(play, lookup) {
+    if (play && play.turnover_type) return play.turnover_type;
+    if (lookup && play && play.description && lookup[play.description]) return lookup[play.description];
+    return getTurnoverType(play && play.description ? play.description : '');
 }
 
 function extractTurnoverPlaymaker(desc) {
@@ -632,7 +858,10 @@ function extractTurnoverPlaymaker(desc) {
     if (type === 'INT') {
         match = desc.match(/intercepted by (.+?)(?: at | return |,|\.|$)/i);
     } else if (type === 'FUM') {
-        match = desc.match(/forced by (.+?)(?: recovered| at |,|\.|$)/i);
+        match = desc.match(/recovered by (.+?)(?: at |,|\.|$)/i);
+        if (!match || !match[1]) {
+            match = desc.match(/forced by (.+?)(?: recovered| at |,|\.|$)/i);
+        }
     }
     if (!match || !match[1]) return '';
     return normalizePlayerName(match[1]);
@@ -669,10 +898,18 @@ function statCard(label, value, sub, teamClass, quality) {
     </div>`;
 }
 
-function renderContextBadges(team, badgeClass) {
-    const badges = (team.cfbstats && team.cfbstats.red_zone_badges) || [];
+function renderContextBadges(team, badgeClass, badgeKey, emptyText = 'No conference context available.') {
+    const badges = (team.cfbstats && team.cfbstats[badgeKey]) || [];
     if (!badges.length) {
-        return `<div class="text-zinc-500 text-xs">No conference context available.</div>`;
+        return `<div class="text-zinc-500 text-xs">${emptyText}</div>`;
+    }
+    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${b}</span>`).join('')}</div>`;
+}
+
+function renderContextBadgeGroup(team, badgeClass, badgeKeys, emptyText) {
+    const badges = badgeKeys.flatMap(key => (team.cfbstats && team.cfbstats[key]) || []);
+    if (!badges.length) {
+        return `<div class="text-zinc-500 text-xs">${emptyText}</div>`;
     }
     return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${b}</span>`).join('')}</div>`;
 }
@@ -848,6 +1085,20 @@ function renderOverview() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += renderQualityScoreCard(ga, aa, gQuality, aQuality);
+    html += `<div class="glass rounded-xl p-4 mb-6">
+        <div class="text-sm text-zinc-300 font-medium mb-1">Conference Context</div>
+        <div class="text-xs text-zinc-400 mb-3">Scoring offense/defense and third down rankings</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadgeGroup(ga, 'team-a-badge', ['scoring_offense_badges', 'scoring_defense_badges', 'third_down_badges'], 'No scoring or third down rankings available.')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadgeGroup(aa, 'team-b-badge', ['scoring_offense_badges', 'scoring_defense_badges', 'third_down_badges'], 'No scoring or third down rankings available.')}
+            </div>
+        </div>
+    </div>`;
     // Stat cards
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
@@ -880,10 +1131,143 @@ function renderOverview() {
 }
 
 function renderTrends() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+
+    const trendCard = (title, extractor, unit = '', invert = false) => {
+        const gTrend = trendDelta(gf, extractor);
+        const aTrend = trendDelta(af, extractor);
+        const teamLine = (team, trend, teamClass) => {
+            if (!trend) return `<div class="text-sm text-zinc-500">${team}: Not enough data</div>`;
+            const goodDelta = invert ? trend.delta < 0 : trend.delta > 0;
+            const deltaClass = trend.delta === 0 ? 'text-zinc-300' : (goodDelta ? 'text-emerald-300' : 'text-rose-300');
+            return `<div class="flex items-center justify-between text-sm">
+                <span class="${teamClass} font-medium">${team}</span>
+                <span class="${deltaClass}">${formatSigned(trend.delta, 1)}${unit} vs season</span>
+            </div>
+            <div class="text-xs text-zinc-500">${trend.recent.toFixed(1)}${unit} avg last ${trend.span}</div>`;
+        };
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${title}</div>
+            <div class="mt-3 space-y-2">
+                ${teamLine(ga.name, gTrend, 'team-a')}
+                ${teamLine(aa.name, aTrend, 'team-b')}
+            </div>
+        </div>`;
+    };
+
+    const listLines = (items) => items.map(item => `
+        <div class="flex gap-2 text-sm text-zinc-200">
+            <span class="text-zinc-500">•</span><span>${item}</span>
+        </div>`).join('');
+
+    const deltaPill = (value, unit = '', invert = false) => {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+            return `<span class="text-zinc-500">—</span>`;
+        }
+        const good = invert ? value < 0 : value > 0;
+        const neutral = value === 0;
+        const cls = neutral ? 'text-zinc-300 border-white/10 bg-white/5' : (good ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' : 'text-rose-300 border-rose-500/30 bg-rose-500/10');
+        const digits = Math.abs(value) >= 10 ? 0 : 1;
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${cls}">${formatSigned(value, digits)}${unit}</span>`;
+    };
+
+    const wowCard = (team, summary, games) => {
+        if (!summary) return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${team} Week-over-Week</div>
+            <div class="mt-3 text-sm text-zinc-500">Not enough games for a week-over-week comparison.</div>
+        </div>`;
+        const latestLabel = gameLabel(summary.latest, games.length - 1);
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${team} Week-over-Week</div>
+            <div class="mt-2 text-xs text-zinc-500">Latest: ${latestLabel}</div>
+            <div class="mt-3 space-y-2 text-sm">
+                <div class="flex items-center justify-between"><span class="text-zinc-400">Points scored</span>${deltaPill(summary.deltas.points_for, '')}</div>
+                <div class="flex items-center justify-between"><span class="text-zinc-400">Points allowed</span>${deltaPill(summary.deltas.points_against, '', true)}</div>
+                <div class="flex items-center justify-between"><span class="text-zinc-400">Point margin</span>${deltaPill(summary.deltas.margin, '')}</div>
+                <div class="flex items-center justify-between"><span class="text-zinc-400">Explosives</span>${deltaPill(summary.deltas.explosives, '')}</div>
+                <div class="flex items-center justify-between"><span class="text-zinc-400">TO margin</span>${deltaPill(summary.deltas.tom, '')}</div>
+                <div class="flex items-center justify-between"><span class="text-zinc-400">RZ efficiency</span>${deltaPill(summary.deltas.rz, '%')}</div>
+            </div>
+        </div>`;
+    };
+
+    const bestWorstCard = (teamName, games, teamClass) => {
+        const bw = bestWorstPerformances(games);
+        if (!bw.best || !bw.worst) return '';
+        const bestGame = games[bw.best.index];
+        const worstGame = games[bw.worst.index];
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${teamName} Best / Worst</div>
+            <div class="mt-3 space-y-2 text-sm">
+                <div><span class="${teamClass} font-medium">Best</span>: ${formatSigned(bw.best.margin, 0)} margin — ${gameLabel(bestGame, bw.best.index)} (${bestGame.points_for}-${bestGame.points_against})</div>
+                <div><span class="text-zinc-400 font-medium">Worst</span>: ${formatSigned(bw.worst.margin, 0)} margin — ${gameLabel(worstGame, bw.worst.index)} (${worstGame.points_for}-${worstGame.points_against})</div>
+            </div>
+        </div>`;
+    };
+
+    const outlierCard = (teamName, games) => {
+        if (!games.length) return '';
+        const candidates = [
+            ...buildOutlierNotes(games, 'Points scored', g => g.points_for),
+            ...buildOutlierNotes(games, 'Points allowed', g => g.points_against),
+            ...buildOutlierNotes(games, 'Explosives', g => g.explosives),
+            ...buildOutlierNotes(games, 'TO margin', g => g.turnovers_gained - g.turnovers_lost),
+            ...buildOutlierNotes(games, 'Red zone %', calcRzPct),
+            ...buildOutlierNotes(games, 'Penalties', g => g.penalties),
+        ];
+        if (!candidates.length) return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${teamName} Outliers</div>
+            <div class="mt-3 text-sm text-zinc-500">No major spikes or drops detected.</div>
+        </div>`;
+        candidates.sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+        const top = candidates.slice(0, 3);
+        const lines = top.map(o => {
+            const direction = o.z >= 0 ? 'spike' : 'dip';
+            const valueLabel = o.label.includes('%') ? formatPct(o.value) : o.value;
+            return `${o.label} ${direction}: ${valueLabel} — ${gameLabel(o.game, o.index)} (z ${formatSigned(o.z, 1)})`;
+        });
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${teamName} Outliers</div>
+            <div class="mt-3 space-y-1">${listLines(lines)}</div>
+        </div>`;
+    };
+
+    const notableCard = (teamName, games) => {
+        const notable = buildNotableStats(games);
+        if (!notable.length) return '';
+        return `<div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 uppercase tracking-wider">${teamName} Notable Stats</div>
+            <div class="mt-3 space-y-1">${listLines(notable)}</div>
+        </div>`;
+    };
+
     return `<div class="section-enter space-y-4">
         <div class="glass rounded-xl p-4">
             <div class="text-sm text-zinc-300 font-medium mb-1">Season Trends</div>
-            <div class="text-xs text-zinc-500">Hover any point to see opponent details. Toggle series via the legend.</div>
+            <div class="text-xs text-zinc-500">Hover any point to see opponent details. Toggle series via the legend. Highlights call out momentum, outliers, and best/worst games.</div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            ${trendCard('Points Scored Trend', g => g.points_for, ' pts')}
+            ${trendCard('Points Allowed Trend', g => g.points_against, ' pts', true)}
+            ${trendCard('Explosives Trend', g => g.explosives)}
+            ${trendCard('TO Margin Trend', g => g.turnovers_gained - g.turnovers_lost)}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${notableCard(ga.name, gf)}
+            ${notableCard(aa.name, af)}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${wowCard(ga.name, weekOverWeekSummary(gf), gf)}
+            ${wowCard(aa.name, weekOverWeekSummary(af), af)}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${bestWorstCard(ga.name, gf, 'team-a')}
+            ${bestWorstCard(aa.name, af, 'team-b')}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${outlierCard(ga.name, gf)}
+            ${outlierCard(aa.name, af)}
         </div>
         <div class="glass rounded-xl p-4">
             <div class="text-sm text-zinc-300 font-medium mb-2">Points Scored vs Allowed</div>
@@ -968,6 +1352,21 @@ function initTrendsCharts() {
         emphasis: { focus: 'series' },
     });
 
+    const outlierMarkPoint = (data, color, limit = 1) => {
+        const outliers = findOutliers(data, 1.7, limit);
+        if (!outliers.length) return undefined;
+        return {
+            symbol: 'diamond',
+            symbolSize: 12,
+            label: { show: true, formatter: '!', color: '#0f0f13', fontWeight: 700 },
+            data: outliers.map(o => ({
+                coord: [xLabels[o.index], o.value],
+                value: o.value,
+                itemStyle: { color },
+            })),
+        };
+    };
+
     const pointsChart = safeInitChart('trendPoints');
     if (pointsChart) safeSetOption(pointsChart, 'trendPoints', {
         ...baseOption,
@@ -976,10 +1375,10 @@ function initTrendsCharts() {
             `${aa.name} Scored`, `${aa.name} Allowed`
         ]},
         series: [
-            makeLine(`${ga.name} Scored`, seriesData(gf, g => g.points_for), '#ef4444', 0.16),
-            makeLine(`${ga.name} Allowed`, seriesData(gf, g => g.points_against), '#fca5a5', 0.08),
-            makeLine(`${aa.name} Scored`, seriesData(af, g => g.points_for), '#f97316', 0.16),
-            makeLine(`${aa.name} Allowed`, seriesData(af, g => g.points_against), '#fdba74', 0.08),
+            { ...makeLine(`${ga.name} Scored`, seriesData(gf, g => g.points_for), '#ef4444', 0.16), markPoint: outlierMarkPoint(seriesData(gf, g => g.points_for), '#ef4444') },
+            { ...makeLine(`${ga.name} Allowed`, seriesData(gf, g => g.points_against), '#fca5a5', 0.08), markPoint: outlierMarkPoint(seriesData(gf, g => g.points_against), '#fca5a5') },
+            { ...makeLine(`${aa.name} Scored`, seriesData(af, g => g.points_for), '#f97316', 0.16), markPoint: outlierMarkPoint(seriesData(af, g => g.points_for), '#f97316') },
+            { ...makeLine(`${aa.name} Allowed`, seriesData(af, g => g.points_against), '#fdba74', 0.08), markPoint: outlierMarkPoint(seriesData(af, g => g.points_against), '#fdba74') },
         ],
     });
 
@@ -988,8 +1387,8 @@ function initTrendsCharts() {
         ...baseOption,
         legend: { ...baseOption.legend, data: [`${ga.name} Explosives`, `${aa.name} Explosives`] },
         series: [
-            makeLine(`${ga.name} Explosives`, seriesData(gf, g => g.explosives), '#ef4444', 0.12),
-            makeLine(`${aa.name} Explosives`, seriesData(af, g => g.explosives), '#f97316', 0.12),
+            { ...makeLine(`${ga.name} Explosives`, seriesData(gf, g => g.explosives), '#ef4444', 0.12), markPoint: outlierMarkPoint(seriesData(gf, g => g.explosives), '#ef4444') },
+            { ...makeLine(`${aa.name} Explosives`, seriesData(af, g => g.explosives), '#f97316', 0.12), markPoint: outlierMarkPoint(seriesData(af, g => g.explosives), '#f97316') },
         ],
     });
 
@@ -999,8 +1398,8 @@ function initTrendsCharts() {
         legend: { ...baseOption.legend, data: [`${ga.name} Margin`, `${aa.name} Margin`] },
         yAxis: { ...baseOption.yAxis, splitLine: baseOption.yAxis.splitLine },
         series: [
-            makeLine(`${ga.name} Margin`, seriesData(gf, g => g.turnovers_gained - g.turnovers_lost), '#ef4444', 0),
-            makeLine(`${aa.name} Margin`, seriesData(af, g => g.turnovers_gained - g.turnovers_lost), '#f97316', 0),
+            { ...makeLine(`${ga.name} Margin`, seriesData(gf, g => g.turnovers_gained - g.turnovers_lost), '#ef4444', 0), markPoint: outlierMarkPoint(seriesData(gf, g => g.turnovers_gained - g.turnovers_lost), '#ef4444') },
+            { ...makeLine(`${aa.name} Margin`, seriesData(af, g => g.turnovers_gained - g.turnovers_lost), '#f97316', 0), markPoint: outlierMarkPoint(seriesData(af, g => g.turnovers_gained - g.turnovers_lost), '#f97316') },
         ],
     });
 
@@ -1010,8 +1409,8 @@ function initTrendsCharts() {
         legend: { ...baseOption.legend, data: [`${ga.name} RZ%`, `${aa.name} RZ%`] },
         yAxis: { ...baseOption.yAxis, max: 100, min: 0 },
         series: [
-            makeLine(`${ga.name} RZ%`, seriesData(gf, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#ef4444', 0.14),
-            makeLine(`${aa.name} RZ%`, seriesData(af, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#f97316', 0.14),
+            { ...makeLine(`${ga.name} RZ%`, seriesData(gf, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#ef4444', 0.14), markPoint: outlierMarkPoint(seriesData(gf, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#ef4444') },
+            { ...makeLine(`${aa.name} RZ%`, seriesData(af, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#f97316', 0.14), markPoint: outlierMarkPoint(seriesData(af, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#f97316') },
         ],
     });
 
@@ -1020,8 +1419,8 @@ function initTrendsCharts() {
         ...baseOption,
         legend: { ...baseOption.legend, data: [`${ga.name} Penalties`, `${aa.name} Penalties`] },
         series: [
-            makeLine(`${ga.name} Penalties`, seriesData(gf, g => g.penalties), '#ef4444', 0.1),
-            makeLine(`${aa.name} Penalties`, seriesData(af, g => g.penalties), '#f97316', 0.1),
+            { ...makeLine(`${ga.name} Penalties`, seriesData(gf, g => g.penalties), '#ef4444', 0.1), markPoint: outlierMarkPoint(seriesData(gf, g => g.penalties), '#ef4444') },
+            { ...makeLine(`${aa.name} Penalties`, seriesData(af, g => g.penalties), '#f97316', 0.1), markPoint: outlierMarkPoint(seriesData(af, g => g.penalties), '#f97316') },
         ],
     });
 
@@ -1068,6 +1467,41 @@ function renderExplosives() {
     const gs = agg(gf), as_ = agg(af);
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
+    const computeExplosivesAllowed = (game, teamAbbr) => {
+        const playTree = game.play_tree || [];
+        let total = 0;
+        let rush = 0;
+        let pass = 0;
+        let plays = 0;
+        let drives = 0;
+        playTree.forEach(q => {
+            (q.drives || []).forEach(d => {
+                const dPlays = d.plays || [];
+                const defDrive = d.offense && d.offense !== teamAbbr;
+                let driveHasPlay = false;
+                dPlays.forEach(p => {
+                    if (!p || !p.offense || p.offense === teamAbbr || p.is_no_play) return;
+                    plays += 1;
+                    driveHasPlay = true;
+                    const yards = p.yards;
+                    if (yards === undefined || yards === null) return;
+                    const desc = (p.description || '').toUpperCase();
+                    const isPass = desc.includes('PASS') || desc.includes('COMPLETE') || desc.includes('CAUGHT');
+                    const threshold = isPass ? 20 : 15;
+                    if (yards >= threshold) {
+                        total += 1;
+                        if (isPass) {
+                            pass += 1;
+                        } else {
+                            rush += 1;
+                        }
+                    }
+                });
+                if (defDrive && driveHasPlay) drives += 1;
+            });
+        });
+        return { total, rush, pass, plays, drives };
+    };
     const gExplRush = sumField(gf, 'explosive_rushes');
     const gExplPass = sumField(gf, 'explosive_passes');
     const aExplRush = sumField(af, 'explosive_rushes');
@@ -1076,19 +1510,51 @@ function renderExplosives() {
     const gExplPassPg = (gExplPass / (gf.length || 1)).toFixed(1);
     const aExplRushPg = (aExplRush / (af.length || 1)).toFixed(1);
     const aExplPassPg = (aExplPass / (af.length || 1)).toFixed(1);
+    const gLeaders = buildExplosiveLeaders(gf);
+    const aLeaders = buildExplosiveLeaders(af);
 
-    const pickField = (games, fields) => fields.find(f => games.some(g => g[f] !== undefined && g[f] !== null));
-    const defGames = gf.concat(af);
-    const defTotalField = pickField(defGames, ['explosives_allowed', 'explosives_against', 'explosives_def']);
-    const defRushField = pickField(defGames, ['explosive_rushes_allowed', 'explosive_rushes_against', 'explosive_rushes_def']);
-    const defPassField = pickField(defGames, ['explosive_passes_allowed', 'explosive_passes_against', 'explosive_passes_def']);
-    const hasDefExpl = !!(defTotalField || defRushField || defPassField);
+    const gDefStats = gf.map(g => computeExplosivesAllowed(g, ga.abbr));
+    const aDefStats = af.map(g => computeExplosivesAllowed(g, aa.abbr));
+    const sumDef = (arr, key) => arr.reduce((s, d) => s + (d[key] || 0), 0);
+    const gDefTotal = sumDef(gDefStats, 'total');
+    const aDefTotal = sumDef(aDefStats, 'total');
+    const gDefRush = sumDef(gDefStats, 'rush');
+    const aDefRush = sumDef(aDefStats, 'rush');
+    const gDefPass = sumDef(gDefStats, 'pass');
+    const aDefPass = sumDef(aDefStats, 'pass');
+    const gDefPlays = sumDef(gDefStats, 'plays');
+    const aDefPlays = sumDef(aDefStats, 'plays');
+    const gDefDrives = sumDef(gDefStats, 'drives');
+    const aDefDrives = sumDef(aDefStats, 'drives');
+    const gDefTotalPg = (gDefTotal / (gf.length || 1)).toFixed(1);
+    const aDefTotalPg = (aDefTotal / (af.length || 1)).toFixed(1);
+    const gDefRushPg = (gDefRush / (gf.length || 1)).toFixed(1);
+    const aDefRushPg = (aDefRush / (af.length || 1)).toFixed(1);
+    const gDefPassPg = (gDefPass / (gf.length || 1)).toFixed(1);
+    const aDefPassPg = (aDefPass / (af.length || 1)).toFixed(1);
+    const gDefRate = gDefPlays ? ((gDefTotal / gDefPlays) * 100).toFixed(1) : '0.0';
+    const aDefRate = aDefPlays ? ((aDefTotal / aDefPlays) * 100).toFixed(1) : '0.0';
+    const gDefPerDrive = gDefDrives ? (gDefTotal / gDefDrives).toFixed(2) : '0.00';
+    const aDefPerDrive = aDefDrives ? (aDefTotal / aDefDrives).toFixed(2) : '0.00';
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="glass rounded-xl p-4 mb-4">
         <div class="text-sm text-zinc-300 font-medium">Definition</div>
         <div class="text-xs text-zinc-400 mt-1">Explosive plays: rushes of 15+ yards or passes of 20+ yards</div>
+    </div>`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium mb-3">Conference Context</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadges(ga, 'team-a-badge', 'explosive_badges', 'No explosive plays ranking available.')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadges(aa, 'team-b-badge', 'explosive_badges', 'No explosive plays ranking available.')}
+            </div>
+        </div>
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a', gq(['explosives'], 'Total Explosives'))}
@@ -1104,45 +1570,48 @@ function renderExplosives() {
             ${statCard('Explosive Passes', aExplPass, aExplPassPg+'/game', 'team-b', aq(['explosive_passes'], 'Explosive Passes'))}
         </div>
     </div>`;
-    if (hasDefExpl) {
-        const gDefTotal = defTotalField ? sumField(gf, defTotalField) : 0;
-        const aDefTotal = defTotalField ? sumField(af, defTotalField) : 0;
-        const gDefTotalPg = defTotalField ? (gDefTotal / (gf.length || 1)).toFixed(1) : '0.0';
-        const aDefTotalPg = defTotalField ? (aDefTotal / (af.length || 1)).toFixed(1) : '0.0';
-        const gDefRush = defRushField ? sumField(gf, defRushField) : 0;
-        const aDefRush = defRushField ? sumField(af, defRushField) : 0;
-        const gDefPass = defPassField ? sumField(gf, defPassField) : 0;
-        const aDefPass = defPassField ? sumField(af, defPassField) : 0;
-        const gDefRushPg = defRushField ? (gDefRush / (gf.length || 1)).toFixed(1) : '0.0';
-        const aDefRushPg = defRushField ? (aDefRush / (af.length || 1)).toFixed(1) : '0.0';
-        const gDefPassPg = defPassField ? (gDefPass / (gf.length || 1)).toFixed(1) : '0.0';
-        const aDefPassPg = defPassField ? (aDefPass / (af.length || 1)).toFixed(1) : '0.0';
-
-        html += `<div class="glass rounded-xl p-4 mb-4">
-            <div class="text-sm text-zinc-300 font-medium">Defensive Explosives Allowed</div>
-            <div class="text-xs text-zinc-400 mt-1">Explosives conceded by the defense (if tracked)</div>
-        </div>`;
-        if (defTotalField) {
-            html += `<div class="grid grid-cols-2 gap-4 mb-4">
-                ${statCard('Explosives Allowed', gDefTotal, gDefTotalPg+'/game', 'team-a', gq([defTotalField], 'Explosives Allowed'))}
-                ${statCard('Explosives Allowed', aDefTotal, aDefTotalPg+'/game', 'team-b', aq([defTotalField], 'Explosives Allowed'))}
-            </div>`;
-        }
-        if (defRushField || defPassField) {
-            html += `<div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="grid grid-cols-2 gap-3">
-                    ${defRushField ? statCard('Explosive Rushes Allowed', gDefRush, gDefRushPg+'/game', 'team-a', gq([defRushField], 'Explosive Rushes Allowed')) : ''}
-                    ${defPassField ? statCard('Explosive Passes Allowed', gDefPass, gDefPassPg+'/game', 'team-a', gq([defPassField], 'Explosive Passes Allowed')) : ''}
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    ${defRushField ? statCard('Explosive Rushes Allowed', aDefRush, aDefRushPg+'/game', 'team-b', aq([defRushField], 'Explosive Rushes Allowed')) : ''}
-                    ${defPassField ? statCard('Explosive Passes Allowed', aDefPass, aDefPassPg+'/game', 'team-b', aq([defPassField], 'Explosive Passes Allowed')) : ''}
-                </div>
-            </div>`;
-        }
-    }
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        ${renderExplosiveLeaders('Georgia Explosive Leaders', gLeaders, 'team-a')}
+        ${renderExplosiveLeaders('Arizona State Explosive Leaders', aLeaders, 'team-b')}
+    </div>`;
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium">Defensive Explosives Allowed</div>
+        <div class="text-xs text-zinc-400 mt-1">Explosives conceded by the defense (derived from opponent plays)</div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        ${statCard('Explosives Allowed', gDefTotal, gDefTotalPg+'/game', 'team-a', gq(['play_tree'], 'Explosives Allowed', 'Derived from opponent plays.'))}
+        ${statCard('Explosives Allowed', aDefTotal, aDefTotalPg+'/game', 'team-b', aq(['play_tree'], 'Explosives Allowed', 'Derived from opponent plays.'))}
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes Allowed', gDefRush, gDefRushPg+'/game', 'team-a', gq(['play_tree'], 'Explosive Rushes Allowed', 'Derived from opponent plays.'))}
+            ${statCard('Explosive Passes Allowed', gDefPass, gDefPassPg+'/game', 'team-a', gq(['play_tree'], 'Explosive Passes Allowed', 'Derived from opponent plays.'))}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes Allowed', aDefRush, aDefRushPg+'/game', 'team-b', aq(['play_tree'], 'Explosive Rushes Allowed', 'Derived from opponent plays.'))}
+            ${statCard('Explosive Passes Allowed', aDefPass, aDefPassPg+'/game', 'team-b', aq(['play_tree'], 'Explosive Passes Allowed', 'Derived from opponent plays.'))}
+        </div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rate Allowed', gDefRate+'%', `${gDefTotal}/${gDefPlays || 0} plays`, 'team-a', gq(['play_tree'], 'Explosive Rate Allowed', 'Explosive plays divided by opponent plays.'))}
+            ${statCard('Explosives/Drive Allowed', gDefPerDrive, `${gDefTotal}/${gDefDrives || 0} drives`, 'team-a', gq(['play_tree'], 'Explosives/Drive Allowed', 'Explosive plays divided by opponent drives.'))}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rate Allowed', aDefRate+'%', `${aDefTotal}/${aDefPlays || 0} plays`, 'team-b', aq(['play_tree'], 'Explosive Rate Allowed', 'Explosive plays divided by opponent plays.'))}
+            ${statCard('Explosives/Drive Allowed', aDefPerDrive, `${aDefTotal}/${aDefDrives || 0} drives`, 'team-b', aq(['play_tree'], 'Explosives/Drive Allowed', 'Explosive plays divided by opponent drives.'))}
+        </div>
+    </div>`;
+    html += compBar('Explosives Allowed/Game', parseFloat(gDefTotalPg), parseFloat(aDefTotalPg));
     html += compBar('Explosives/Game', gs.explpg, as_.explpg);
-    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('explChart')}</div>`;
+    html += `<div class="glass rounded-xl p-4 mt-4">
+        <div class="text-sm text-zinc-300 font-medium mb-2">Explosive Plays Trend (Rush/Pass)</div>
+        ${chartContainer('explChart')}
+    </div>`;
+    html += `<div class="glass rounded-xl p-4 mt-4">
+        <div class="text-sm text-zinc-300 font-medium mb-2">Explosives Gained vs Allowed</div>
+        ${chartContainer('explCompareChart')}
+    </div>`;
 
     // Helper to render explosive plays table with grouping
     const renderExplTable = (games, teamClass) => {
@@ -1198,7 +1667,28 @@ function renderExplosives() {
 }
 
 function initExplosivesCharts() {
-    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const computeExplosivesAllowed = (game, teamAbbr) => {
+        const playTree = game.play_tree || [];
+        let total = 0;
+        playTree.forEach(q => {
+            (q.drives || []).forEach(d => {
+                (d.plays || []).forEach(p => {
+                    if (!p || !p.offense || p.offense === teamAbbr || p.is_no_play) return;
+                    const yards = p.yards;
+                    if (yards === undefined || yards === null) return;
+                    const desc = (p.description || '').toUpperCase();
+                    const isPass = desc.includes('PASS') || desc.includes('COMPLETE') || desc.includes('CAUGHT');
+                    const threshold = isPass ? 20 : 15;
+                    if (yards >= threshold) total += 1;
+                });
+            });
+        });
+        return total;
+    };
+    const gDefAllowed = gf.map(g => computeExplosivesAllowed(g, ga.abbr));
+    const aDefAllowed = af.map(g => computeExplosivesAllowed(g, aa.abbr));
     const c = safeInitChart('explChart');
     if (!c) return;
     safeSetOption(c, 'explChart', {
@@ -1211,7 +1701,7 @@ function initExplosivesCharts() {
                 const aGame = af[i];
                 let tip = '';
                 params.forEach(p => {
-                    const g = p.seriesName === 'Georgia' ? gGame : aGame;
+                    const g = p.seriesName.startsWith(ga.name) ? gGame : aGame;
                     tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
                     if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
                 });
@@ -1228,7 +1718,40 @@ function initExplosivesCharts() {
             { name: 'Arizona State Pass', type: 'line', stack: 'Arizona State', data: af.map(g => g.explosive_passes), itemStyle: { color: '#f97316' }, lineStyle: { color: '#f97316', type: 'dashed' }, areaStyle: { opacity: 0.25 }, smooth: true }
         ]
     });
-    window.addEventListener('resize', () => c.resize());
+    const compare = safeInitChart('explCompareChart');
+    if (compare) {
+        safeSetOption(compare, 'explCompareChart', {
+            backgroundColor: 'transparent',
+            tooltip: { 
+                trigger: 'axis',
+                formatter: (params) => {
+                    const i = params[0].dataIndex;
+                    const gGame = gf[i];
+                    const aGame = af[i];
+                    let tip = '';
+                    params.forEach(p => {
+                        const g = p.seriesName.startsWith(ga.name) ? gGame : aGame;
+                        tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                        if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
+                    });
+                    return tip;
+                }
+            },
+            legend: { data: [`${ga.name} Gained`, `${ga.name} Allowed`, `${aa.name} Gained`, `${aa.name} Allowed`], textStyle: { color: '#a1a1aa' } },
+            xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
+            yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+            series: [
+                { name: `${ga.name} Gained`, type: 'line', data: gf.map(g => g.explosives), itemStyle: { color: '#ef4444' }, lineStyle: { color: '#ef4444' }, smooth: true },
+                { name: `${ga.name} Allowed`, type: 'line', data: gDefAllowed, itemStyle: { color: '#fca5a5' }, lineStyle: { color: '#fca5a5', type: 'dashed' }, smooth: true },
+                { name: `${aa.name} Gained`, type: 'line', data: af.map(g => g.explosives), itemStyle: { color: '#f97316' }, lineStyle: { color: '#f97316' }, smooth: true },
+                { name: `${aa.name} Allowed`, type: 'line', data: aDefAllowed, itemStyle: { color: '#fdba74' }, lineStyle: { color: '#fdba74', type: 'dashed' }, smooth: true }
+            ]
+        });
+    }
+    window.addEventListener('resize', () => {
+        c.resize();
+        if (compare) compare.resize();
+    });
 }
 
 function renderRedzone() {
@@ -1245,16 +1768,16 @@ function renderRedzone() {
         const gTrips = gStats[`${zoneKey}_trips`] || 0;
         const gTds = gStats[`${zoneKey}_tds`] || 0;
         const gFgs = gStats[`${zoneKey}_fgs`] || 0;
-        const gFailed = gStats[`${zoneKey}_failed`] || 0;
         const gFailedBreakdown = computeFailedBreakdown(games_g, zoneKey);
+        const gFailed = Object.values(gFailedBreakdown).reduce((s, v) => s + v, 0);
         const gTdPct = gTrips > 0 ? ((gTds / gTrips) * 100).toFixed(1) : '0.0';
         const gScorePct = gTrips > 0 ? (((gTds + gFgs) / gTrips) * 100).toFixed(1) : '0.0';
 
         const aTrips = aStats[`${zoneKey}_trips`] || 0;
         const aTds = aStats[`${zoneKey}_tds`] || 0;
         const aFgs = aStats[`${zoneKey}_fgs`] || 0;
-        const aFailed = aStats[`${zoneKey}_failed`] || 0;
         const aFailedBreakdown = computeFailedBreakdown(games_a, zoneKey);
+        const aFailed = Object.values(aFailedBreakdown).reduce((s, v) => s + v, 0);
         const aTdPct = aTrips > 0 ? ((aTds / aTrips) * 100).toFixed(1) : '0.0';
         const aScorePct = aTrips > 0 ? (((aTds + aFgs) / aTrips) * 100).toFixed(1) : '0.0';
 
@@ -1338,11 +1861,11 @@ function renderRedzone() {
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
-                ${renderContextBadges(ga, 'team-a-badge')}
+                ${renderContextBadges(ga, 'team-a-badge', 'red_zone_badges', 'No red zone ranking available.')}
             </div>
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
-                ${renderContextBadges(aa, 'team-b-badge')}
+                ${renderContextBadges(aa, 'team-b-badge', 'red_zone_badges', 'No red zone ranking available.')}
             </div>
         </div>
     </div>`;
@@ -1420,18 +1943,37 @@ function renderTurnovers() {
 
     const renderPlaymakers = (games, teamAbbr, teamClass) => {
         const counts = {};
-        games.flatMap(g => (g.play_tree||[])).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.is_turnover))).forEach(p => {
-            if (!p.offense || p.offense === teamAbbr) return;
-            const name = extractTurnoverPlaymaker(p.description || '');
-            if (!name) return;
-            counts[name] = (counts[name] || 0) + 1;
+        games.forEach(g => {
+            const typeLookup = buildTurnoverTypeLookup(g);
+            (g.play_tree || []).forEach(q => {
+                q.drives.forEach(d => {
+                    d.plays.filter(p => p.is_turnover).forEach(p => {
+                        if (!p.offense || p.offense === teamAbbr) return;
+                        const name = extractTurnoverPlaymaker(p.description || '');
+                        if (!name) return;
+                        const type = resolveTurnoverType(p, typeLookup);
+                        if (!counts[name]) counts[name] = {int: 0, fum: 0, other: 0, total: 0};
+                        if (type === 'INT') counts[name].int += 1;
+                        else if (type === 'FUM') counts[name].fum += 1;
+                        else counts[name].other += 1;
+                        counts[name].total += 1;
+                    });
+                });
+            });
         });
-        const top = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0,5);
+        const top = Object.entries(counts).sort((a,b) => b[1].total - a[1].total).slice(0,5);
         if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No turnover playmakers found.</div>`;
+        const formatBreakdown = row => {
+            const parts = [];
+            if (row.int) parts.push(`${row.int} INT${row.int > 1 ? 's' : ''}`);
+            if (row.fum) parts.push(`${row.fum} fumble ${row.fum === 1 ? 'recovery' : 'recoveries'}`);
+            if (row.other) parts.push(`${row.other} TO`);
+            return parts.join(', ') || '0';
+        };
         return `<div class="space-y-2">
             ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
                 <span class="${teamClass}">${i+1}. ${t[0]}</span>
-                <span class="text-zinc-500">${t[1]}</span>
+                <span class="text-zinc-500">${formatBreakdown(t[1])}</span>
             </div>`).join('')}
         </div>`;
     };
@@ -1576,10 +2118,10 @@ function renderPostTurnover() {
     const aPointsOff = sumField(af, 'points_off_turnovers_for');
     const gPointsAllowed = sumField(gf, 'points_off_turnovers_against');
     const aPointsAllowed = sumField(af, 'points_off_turnovers_against');
-    const gPointsOffInt = sumPostTurnoverPointsByType(gf, 'INT');
-    const gPointsOffFum = sumPostTurnoverPointsByType(gf, 'FUM');
-    const aPointsOffInt = sumPostTurnoverPointsByType(af, 'INT');
-    const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM');
+    const gPointsOffInt = sumPostTurnoverPointsByType(gf, 'INT', ga.abbr);
+    const gPointsOffFum = sumPostTurnoverPointsByType(gf, 'FUM', ga.abbr);
+    const aPointsOffInt = sumPostTurnoverPointsByType(af, 'INT', aa.abbr);
+    const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
@@ -1658,16 +2200,16 @@ function renderPostTurnover() {
 function initPostTurnoverCharts() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
-    const gPointsOffInt = sumPostTurnoverPointsByType(gf, 'INT');
-    const gPointsOffFum = sumPostTurnoverPointsByType(gf, 'FUM');
-    const aPointsOffInt = sumPostTurnoverPointsByType(af, 'INT');
-    const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM');
+    const gPointsOffInt = sumPostTurnoverPointsByType(gf, 'INT', ga.abbr);
+    const gPointsOffFum = sumPostTurnoverPointsByType(gf, 'FUM', ga.abbr);
+    const aPointsOffInt = sumPostTurnoverPointsByType(af, 'INT', aa.abbr);
+    const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
     const maxGames = Math.max(gf.length, af.length);
     const labels = Array.from({length: maxGames}, (_,i) => `G${i+1}`);
-    const gIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'INT'));
-    const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM'));
-    const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT'));
-    const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM'));
+    const gIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'INT', ga.abbr));
+    const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM', ga.abbr));
+    const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT', aa.abbr));
+    const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM', aa.abbr));
     const totalsChart = safeInitChart('postToTotalsChart');
     if (totalsChart) safeSetOption(totalsChart, 'postToTotalsChart', {
         backgroundColor: 'transparent',
@@ -1706,6 +2248,8 @@ function renderPenalties() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
+    const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
+    const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
     const getPenaltyDetails = (games) => games.flatMap(g => (g.penalty_details || []).map(p => ({
         ...p,
         game: g.game_number,
@@ -1717,6 +2261,20 @@ function renderPenalties() {
     const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
     const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
+    const classifyPenalty = (p) => {
+        const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
+        if (text.includes('holding')) {
+            if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
+            if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
+            return 'Holding';
+        }
+        if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
+        if (text.includes('false start')) return 'False Start';
+        if (text.includes('offside')) return 'Offsides/Offside';
+        if (text.includes('illegal formation')) return 'Illegal Formation';
+        if (text.includes('unsportsmanlike')) return 'Unsportsmanlike';
+        return 'Other';
+    };
     const extractPenaltyNames = (desc) => {
         if (!desc || typeof desc !== 'string') return [];
         const penaltyIdx = desc.toUpperCase().indexOf('PENALTY');
@@ -1739,6 +2297,23 @@ function renderPenalties() {
                 return part;
             })
             .filter(name => name.length >= 3);
+    };
+    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+    const renderPenaltyTypeList = (details, side, teamClass) => {
+        const filtered = details.filter(p => (p.offense_or_defense || 'unknown') === side);
+        if (!filtered.length) return `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
+        const counts = filtered.reduce((acc, p) => {
+            const bucket = classifyPenalty(p);
+            acc[bucket] = (acc[bucket] || 0) + 1;
+            return acc;
+        }, {});
+        const rows = typeBuckets.filter(t => counts[t]).map(t => (
+            `<div class="flex items-center justify-between text-xs">
+                <span class="text-zinc-300">${t}</span>
+                <span class="${teamClass}">${counts[t]}</span>
+            </div>`
+        )).join('');
+        return rows || `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
     };
     const renderOffenders = (details, teamClass) => {
         const counts = {};
@@ -1787,6 +2362,68 @@ function renderPenalties() {
             ${renderOffenders(aaDetails, 'team-b')}
         </div>
     </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${ga.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Offense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(gaDetails, 'offense', 'team-a')}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Defense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(gaDetails, 'defense', 'team-a')}</div>
+                </div>
+            </div>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${aa.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Offense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(aaDetails, 'offense', 'team-b')}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Defense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(aaDetails, 'defense', 'team-b')}</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    const sortPenalties = (details) => details.slice().sort((a, b) => {
+        if ((a.game || 0) !== (b.game || 0)) return (a.game || 0) - (b.game || 0);
+        if ((a.quarter || 0) !== (b.quarter || 0)) return (a.quarter || 0) - (b.quarter || 0);
+        return (a.clock || '').localeCompare(b.clock || '');
+    });
+    const renderPenaltyDetailsTable = (details, teamClass) => {
+        if (!details.length) return `<div class="text-zinc-500 text-xs p-4">No penalty details found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Quarter</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Side</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Accepted</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+        </tr></thead><tbody>${sortPenalties(details).map(p => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${p.game}</td>
+            <td class="py-1 px-2">${p.opponent||''}</td>
+            <td class="py-1 px-2">${p.quarter}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.clock||''}</td>
+            <td class="py-1 px-2 text-zinc-400">${(p.offense_or_defense || 'unknown').replace(/^\w/, c => c.toUpperCase())}</td>
+            <td class="py-1 px-2 ${teamClass}">${classifyPenalty(p)}</td>
+            <td class="py-1 px-2 text-right text-zinc-400">${p.yards || 0}</td>
+            <td class="py-1 px-2 text-zinc-400">${p.accepted ? 'Yes' : 'No'}</td>
+            <td class="py-1 px-2 text-zinc-300">${(p.description||'').substring(0,100)}</td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible(`${ga.name} Penalty Details`, gaDetails.length, renderPenaltyDetailsTable(gaDetails, 'team-a'))}
+        ${collapsible(`${aa.name} Penalty Details`, aaDetails.length, renderPenaltyDetailsTable(aaDetails, 'team-b'))}
+    </div>`;
 
     // Penalty play details
     const renderPenaltyTable = (games, teamClass) => {
@@ -1830,6 +2467,8 @@ function renderPenalties() {
 function initPenaltyCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
+    const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
     const getPenaltyDetails = (games) => games.flatMap(g => (g.penalty_details || []).map(p => ({
         ...p,
         game: g.game_number,
@@ -1837,8 +2476,12 @@ function initPenaltyCharts() {
     })));
     const classifyPenalty = (p) => {
         const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
+        if (text.includes('holding')) {
+            if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
+            if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
+            return 'Holding';
+        }
         if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
-        if (text.includes('holding')) return 'Holding';
         if (text.includes('false start')) return 'False Start';
         if (text.includes('offside')) return 'Offsides/Offside';
         if (text.includes('illegal formation')) return 'Illegal Formation';
@@ -1847,7 +2490,7 @@ function initPenaltyCharts() {
     };
     const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
     const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
-    const typeBuckets = ['Pass Interference', 'Holding', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
     const countByType = (details) => details.reduce((acc, p) => {
         const bucket = classifyPenalty(p);
         acc[bucket] = (acc[bucket] || 0) + 1;
@@ -2183,23 +2826,29 @@ function renderSpecialTeams() {
     // Aggregate special teams data
     const gPunts = sumSpecial(gf, 'punts');
     const gPuntYds = sumSpecial(gf, 'punt_yards');
+    const gPuntNetYds = sumSpecial(gf, 'punt_net_yards');
     const gPuntAvg = gPunts ? (gPuntYds / gPunts).toFixed(1) : '0.0';
     const gPuntInside20 = sumSpecial(gf, 'punts_inside_20');
-    const gPuntLong = maxSpecial(gf, 'punt_return_long');
+    const gPuntTouchbacks = sumSpecial(gf, 'punt_touchbacks');
     
     const aPunts = sumSpecial(af, 'punts');
     const aPuntYds = sumSpecial(af, 'punt_yards');
+    const aPuntNetYds = sumSpecial(af, 'punt_net_yards');
     const aPuntAvg = aPunts ? (aPuntYds / aPunts).toFixed(1) : '0.0';
     const aPuntInside20 = sumSpecial(af, 'punts_inside_20');
-    const aPuntLong = maxSpecial(af, 'punt_return_long');
+    const aPuntTouchbacks = sumSpecial(af, 'punt_touchbacks');
     
     const gFgMade = sumSpecial(gf, 'field_goals_made');
     const gFgAtt = sumSpecial(gf, 'field_goals_attempts');
     const gFgPct = gFgAtt ? (gFgMade / gFgAtt * 100).toFixed(1) : '0.0';
+    const gFgMissed = gFgAtt - gFgMade;
+    const gFgLong = maxSpecial(gf, 'field_goal_long');
     
     const aFgMade = sumSpecial(af, 'field_goals_made');
     const aFgAtt = sumSpecial(af, 'field_goals_attempts');
     const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
+    const aFgMissed = aFgAtt - aFgMade;
+    const aFgLong = maxSpecial(af, 'field_goal_long');
     
     const gKoRetAvg = sumSpecial(gf, 'kickoff_return_avg') / gf.length;
     const gKoRetLong = maxSpecial(gf, 'kickoff_return_long');
@@ -2217,27 +2866,39 @@ function renderSpecialTeams() {
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Punt Avg', gPuntAvg, gPunts + ' punts', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Punt Avg'))}
+            ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
+            ${statCard('Gross Yds', gPuntYds, '', 'team-a', gq(['special_teams.punt_yards'], 'Gross Yds'))}
+            ${statCard('Net Yds', gPuntNetYds, '', 'team-a', gq(['special_teams.punt_net_yards'], 'Net Yds'))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
             ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'))}
-            ${statCard('Longest', gPuntLong || '—', '', 'team-a', gq(['special_teams.punt_return_long'], 'Punt Long'))}
+            ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Punt Avg', aPuntAvg, aPunts + ' punts', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Punt Avg'))}
+            ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
+            ${statCard('Gross Yds', aPuntYds, '', 'team-b', aq(['special_teams.punt_yards'], 'Gross Yds'))}
+            ${statCard('Net Yds', aPuntNetYds, '', 'team-b', aq(['special_teams.punt_net_yards'], 'Net Yds'))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
             ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'))}
-            ${statCard('Longest', aPuntLong || '—', '', 'team-b', aq(['special_teams.punt_return_long'], 'Punt Long'))}
+            ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
     </div></div>`;
     
     // Field Goals section
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Field Goals</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
-        <div class="grid grid-cols-2 gap-3">
-            ${statCard('FG %', gFgPct + '%', gFgMade + '/' + gFgAtt, 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
-            ${statCard('Longest', '—', 'N/A', 'team-a', gq([], 'FG Long', 'Not tracked'))}
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
+            ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
+            ${statCard('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCard('Longest', gFgLong || '—', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
-        <div class="grid grid-cols-2 gap-3">
-            ${statCard('FG %', aFgPct + '%', aFgMade + '/' + aFgAtt, 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
-            ${statCard('Longest', '—', 'N/A', 'team-b', aq([], 'FG Long', 'Not tracked'))}
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
+            ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
+            ${statCard('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCard('Longest', aFgLong || '—', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
     </div></div>`;
     
@@ -2260,7 +2921,11 @@ function renderSpecialTeams() {
     
     html += compBar('Punt Avg', Number(gPuntAvg), Number(aPuntAvg));
     html += compBar('FG %', Number(gFgPct), Number(aFgPct), '%');
-    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('stChart')}</div>`;
+    html += `<div class="glass rounded-xl p-4 mt-4">
+        <div class="text-sm font-medium text-white mb-1">Return Yards by Game</div>
+        <div class="text-xs text-zinc-500 mb-3">Kickoff + punt return yards</div>
+        ${chartContainer('stChart')}
+    </div>`;
 
     const renderStTable = (games, teamClass) => {
         return `<div class="glass rounded-xl overflow-hidden mt-4">
@@ -2311,7 +2976,7 @@ function initSpecialTeamsCharts() {
                 let tip = '';
                 params.forEach(p => {
                     const g = p.seriesName === 'Georgia' ? gGame : aGame;
-                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value} yds<br/>`;
                     if (g) tip += `vs ${g.opponent} ${g.date ? '(' + g.date + ')' : ''}<br/>`;
                 });
                 return tip;
@@ -2319,7 +2984,7 @@ function initSpecialTeamsCharts() {
         },
         legend: { data: ['Georgia', 'Arizona State'], textStyle: { color: '#a1a1aa' } },
         xAxis: { type: 'category', data: gf.map((g,i) => 'G'+(i+1)), axisLabel: { color: '#71717a' } },
-        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a', formatter: '{value} yds' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
         series: [
             { name: 'Georgia', type: 'bar', data: gf.map(g => {
                 const st = g.special_teams || {};
@@ -2684,6 +3349,9 @@ function renderGlossary() {
             title: 'Defense',
             items: [
                 { term: 'Opponent PPG', def: 'Average points allowed per game.' },
+                { term: 'Explosives Allowed', def: 'Explosive plays conceded by the defense.' },
+                { term: 'Explosive Rate Allowed', def: 'Explosives allowed divided by opponent plays.' },
+                { term: 'Explosives/Drive Allowed', def: 'Explosives allowed divided by opponent drives.' },
                 { term: 'Turnovers Forced', def: 'Total takeaways (INT + fumble recoveries).' },
                 { term: 'INT Gained', def: 'Interceptions recorded by the defense.' },
                 { term: 'Fumbles Gained', def: 'Opponent fumbles recovered by the defense.' },
@@ -2695,6 +3363,7 @@ function renderGlossary() {
             items: [
                 { term: 'Punt Avg', def: 'Total punt yards divided by punts.' },
                 { term: 'Inside 20', def: 'Punts downed inside the opponent 20.' },
+                { term: 'Inside 20%', def: 'Inside-20 punts divided by total punts.' },
                 { term: 'FG %', def: 'Field goals made divided by attempts.' },
                 { term: 'FG Made/Att', def: 'Field goals made and attempted.' },
                 { term: 'KO Ret Avg/Long', def: 'Kickoff return average and longest return.' },
