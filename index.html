@@ -230,6 +230,11 @@ function collapsible(title, count, content) {
     </div>`;
 }
 
+function fourthDownNote() {
+    if (currentTab !== '4thdown') return '';
+    return `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+}
+
 // ===== TAB RENDERERS =====
 
 function renderOverview() {
@@ -238,7 +243,7 @@ function renderOverview() {
     const gs = agg(gf), as_ = agg(af);
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     // Stat cards
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
@@ -308,7 +313,7 @@ function renderExplosives() {
     const gs = agg(gf), as_ = agg(af);
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="glass rounded-xl p-4 mb-4">
         <div class="text-sm text-zinc-300 font-medium">Definition</div>
         <div class="text-xs text-zinc-400 mt-1">Explosive plays: rushes of 15+ yards or passes of 20+ yards</div>
@@ -500,7 +505,7 @@ function renderRedzone() {
     };
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += renderZoneSection('Green Zone', '(30 yards & in)', gs, as_, 'green_zone', gf, af);
     html += `<div class="border-t-2 border-zinc-700 my-6"></div>`;
     html += renderZoneSection('Red Zone', '(20 yards & in)', gs, as_, 'red_zone', gf, af);
@@ -542,7 +547,7 @@ function renderTurnovers() {
     const aFumLost = sumField(af, 'fumbles_lost');
     const aFumGained = sumField(af, 'fumbles_gained');
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a')}
         ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b')}
@@ -690,7 +695,7 @@ function renderPostTurnover() {
     const aPointsAllowed = sumField(af, 'points_off_turnovers_against');
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
             ${statCard('TO Gained', gs.tof, '', 'team-a')}
@@ -852,7 +857,7 @@ function renderPenalties() {
     };
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a')}
         ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b')}
@@ -1024,7 +1029,7 @@ function renderMiddle8() {
     const aaAgainst = sumField(af, 'middle8_points_against');
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Middle 8 PF', gaFor, '', 'team-a')}
@@ -1128,7 +1133,7 @@ function renderFourthDown() {
     const aaPct = aaAtt ? (aaConv/aaAtt*100).toFixed(1) : '0.0';
 
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
             ${statCard('4th Att', gaAtt, '', 'team-a')}
@@ -1463,7 +1468,7 @@ function renderAllPlays() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     let html = `<div class="section-enter">`;
-    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm text-zinc-400"><strong class="text-white">Note:</strong> This data includes only 4th down conversion attempts ("going for it"), not punts or field goals.</div></div>`;
+    html += fourthDownNote();
     html += `<div class="glass rounded-xl p-4 mb-4">
         <div class="text-xs text-zinc-500 mb-2">Search all plays</div>
         <input id="allPlaysSearch" class="w-full bg-zinc-900/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-white/20" placeholder="Filter by team, down/distance, spot, or description..." value="${allPlaysQuery}" oninput="updateAllPlaysQuery(this.value)">
