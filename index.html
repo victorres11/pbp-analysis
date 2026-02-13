@@ -29,7 +29,7 @@
         .dq-tooltip:hover .dq-tooltip-content { opacity: 1; transform: translate(-50%, -8px); pointer-events: auto; }
         .dq-icon { width: 14px; height: 14px; border-radius: 999px; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; font-weight: 700; }
         .dq-info { opacity: 0.4; transition: opacity 0.2s ease; }
-        .dq-warning { font-size: 0.7rem; line-height: 1; margin-left: 2px; }
+        .dq-warning { font-size: 0.7rem; line-height: 1; margin-left: 2px; opacity: 0.7; font-weight: 700; }
         .dq-outlier { font-size: 0.65rem; padding: 0.12rem 0.35rem; border-radius: 999px; border: 1px solid rgba(244,114,182,0.4); color: #f9a8d4; background: rgba(244,114,182,0.14); }
         .nav-pill { transition: all 0.15s ease; }
         .nav-pill:hover { background: rgba(255,255,255,0.08); }
@@ -120,6 +120,8 @@
         .kbd-key { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.75rem; padding: 0.2rem 0.45rem; border-radius: 6px; background: rgba(255,255,255,0.12); color: #fafafa; border: 1px solid rgba(255,255,255,0.2); }
         .kbd-close { margin-top: 0.75rem; width: 100%; border-radius: 999px; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-weight: 600; background: rgba(255,255,255,0.08); color: #f4f4f5; border: 1px solid rgba(255,255,255,0.12); }
         .kbd-close:hover { background: rgba(255,255,255,0.16); }
+        :root { --touch-target: 44px; }
+        #mainContent { scroll-margin-top: 6rem; }
 
         @media (max-width: 768px) {
             body { font-size: 16px; }
@@ -155,6 +157,19 @@
             .team-header .vs-badge { font-size: 1.75rem; }
 
             .pbp-details-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (pointer: coarse) {
+            button, .filter-chip, .nav-pill, summary, .menu-button, .menu-item, .kbd-help-btn, .collapsible-toggle { min-height: var(--touch-target); }
+            .menu-button, .menu-item { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+            .filter-chip, .nav-pill, summary { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+            .kbd-help-btn { width: var(--touch-target); height: var(--touch-target); }
+            .pbp-marker { width: var(--touch-target); height: var(--touch-target); background: transparent; border: none; }
+            .pbp-marker::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; border-radius: 999px; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.35); background: #71717a; }
+            .pbp-marker.td::after { background: #22c55e; border-color: rgba(34,197,94,0.9); }
+            .pbp-marker.turnover::after { background: #ef4444; border-color: rgba(239,68,68,0.9); }
+            .pbp-marker.big::after { background: #f59e0b; border-color: rgba(245,158,11,0.9); }
+            .pbp-marker.selected::after { box-shadow: 0 0 0 5px rgba(255,255,255,0.12); }
         }
 
         @media print {
@@ -241,7 +256,7 @@
             <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
             <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
             <div class="mt-1 flex items-center justify-end gap-2">
-                <span class="dq-badge dq-neutral" id="teamAQuality">Data —</span>
+                <span class="dq-tooltip" id="teamAQuality"></span>
             </div>
         </div>
         <div class="text-4xl font-black vs-badge">VS</div>
@@ -249,7 +264,7 @@
             <h1 class="text-3xl font-extrabold team-b" id="teamBName">Arizona State</h1>
             <p class="text-sm text-zinc-400" id="teamBRecord">5-7 · Big 12</p>
             <div class="mt-1 flex items-center justify-start gap-2">
-                <span class="dq-badge dq-neutral" id="teamBQuality">Data —</span>
+                <span class="dq-tooltip" id="teamBQuality"></span>
             </div>
         </div>
     </div>
@@ -403,7 +418,7 @@ const EXPECTED_GAME_PATHS = [
     'special_teams.punts', 'special_teams.punt_yards', 'special_teams.punts_inside_20',
     'special_teams.punt_return_long', 'special_teams.field_goals_made', 'special_teams.field_goals_attempts',
     'special_teams.kickoff_return_avg', 'special_teams.kickoff_return_long',
-    'special_teams.punt_return_avg', 'special_teams.punt_return_long',
+    'special_teams.punt_return_avg',
 ];
 
 function hasPath(obj, path) {
@@ -473,7 +488,7 @@ function makeQuality(games) {
 function qualityTooltipHtml(title, quality) {
     const pct = quality.pct === null ? '—' : `${quality.pct}%`;
     const label = qualityLabel(quality.pct);
-    const missingSummary = quality.missing.length ? summarizeMissing(quality.missingCounts, 4).join(', ') : 'No missing fields detected.';
+    const missingSummary = quality.missing.length ? `Missing: ${summarizeMissing(quality.missingCounts, 4).join(', ')}` : 'No missing fields detected.';
     const note = quality.note ? `<div class="text-xs text-zinc-500 mt-1">${quality.note}</div>` : '';
     return `
         <div class="text-xs font-semibold text-white mb-1">${title}</div>
@@ -513,7 +528,7 @@ function computeTeamQuality(games) {
 function computeOutlierMap(games, fields = ['points_for', 'points_against', 'explosives'], threshold = 2) {
     const stats = {};
     fields.forEach(field => {
-        const vals = games.map(g => (hasPath(g, field) ? g[field] : null)).filter(v => v !== null && v !== undefined);
+        const vals = games.map(g => (hasPath(g, field) ? g[field] : null)).filter(v => Number.isFinite(v));
         const mean = vals.length ? vals.reduce((s,v) => s + v, 0) / vals.length : 0;
         const variance = vals.length > 1 ? vals.reduce((s,v) => s + Math.pow(v - mean, 2), 0) / vals.length : 0;
         const stdev = Math.sqrt(variance);
@@ -525,9 +540,11 @@ function computeOutlierMap(games, fields = ['points_for', 'points_against', 'exp
         fields.forEach(field => {
             const { mean, stdev } = stats[field];
             if (!stdev || !hasPath(g, field)) return;
-            const z = (g[field] - mean) / stdev;
+            const val = g[field];
+            if (!Number.isFinite(val)) return;
+            const z = (val - mean) / stdev;
             if (Math.abs(z) >= threshold) {
-                const label = `${formatFieldLabel(field)} ${g[field]} (${z.toFixed(1)} sd)`;
+                const label = `${formatFieldLabel(field)} ${val} (${z.toFixed(1)} sd)`;
                 if (!outliers[key]) outliers[key] = [];
                 outliers[key].push(label);
             }
@@ -537,8 +554,8 @@ function computeOutlierMap(games, fields = ['points_for', 'points_against', 'exp
 }
 
 function renderQualityScoreCard(ga, aa, gQuality, aQuality) {
-    const gMissing = gQuality.missing.length ? summarizeMissing(gQuality.missingCounts, 5).join(', ') : 'No missing fields detected.';
-    const aMissing = aQuality.missing.length ? summarizeMissing(aQuality.missingCounts, 5).join(', ') : 'No missing fields detected.';
+    const gMissing = gQuality.missing.length ? `Missing: ${summarizeMissing(gQuality.missingCounts, 5).join(', ')}` : 'No missing fields detected.';
+    const aMissing = aQuality.missing.length ? `Missing: ${summarizeMissing(aQuality.missingCounts, 5).join(', ')}` : 'No missing fields detected.';
     return `<div class="glass rounded-xl p-4 mb-6">
         <div class="flex items-center justify-between mb-3">
             <div class="text-sm font-semibold text-white">Data quality</div>
@@ -550,14 +567,14 @@ function renderQualityScoreCard(ga, aa, gQuality, aQuality) {
                     <span class="text-sm font-medium team-a">${ga.name}</span>
                     ${qualityBadge(gQuality, 'Data')}
                 </div>
-                <div class="text-xs text-zinc-500 mt-2">Missing: ${gMissing}</div>
+                <div class="text-xs text-zinc-500 mt-2">${gMissing}</div>
             </div>
             <div class="rounded-lg border border-white/5 p-3">
                 <div class="flex items-center justify-between">
                     <span class="text-sm font-medium team-b">${aa.name}</span>
                     ${qualityBadge(aQuality, 'Data')}
                 </div>
-                <div class="text-xs text-zinc-500 mt-2">Missing: ${aMissing}</div>
+                <div class="text-xs text-zinc-500 mt-2">${aMissing}</div>
             </div>
         </div>
     </div>`;
@@ -1913,6 +1930,8 @@ function renderSimpleTab(title, msg) {
 function renderMiddle8() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     const gaFor = sumField(gf, 'middle8_points_for');
     const gaAgainst = sumField(gf, 'middle8_points_against');
     const aaFor = sumField(af, 'middle8_points_for');
@@ -1922,14 +1941,14 @@ function renderMiddle8() {
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Middle 8 PF', gaFor, '', 'team-a')}
-            ${statCard('Middle 8 PA', gaAgainst, '', 'team-a')}
-            ${statCard('Middle 8 Diff', gaFor-gaAgainst, '', 'team-a')}
+            ${statCard('Middle 8 PF', gaFor, '', 'team-a', gq(['middle8_points_for'], 'Middle 8 PF'))}
+            ${statCard('Middle 8 PA', gaAgainst, '', 'team-a', gq(['middle8_points_against'], 'Middle 8 PA'))}
+            ${statCard('Middle 8 Diff', gaFor-gaAgainst, '', 'team-a', gq(['middle8_points_for','middle8_points_against'], 'Middle 8 Diff'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Middle 8 PF', aaFor, '', 'team-b')}
-            ${statCard('Middle 8 PA', aaAgainst, '', 'team-b')}
-            ${statCard('Middle 8 Diff', aaFor-aaAgainst, '', 'team-b')}
+            ${statCard('Middle 8 PF', aaFor, '', 'team-b', aq(['middle8_points_for'], 'Middle 8 PF'))}
+            ${statCard('Middle 8 PA', aaAgainst, '', 'team-b', aq(['middle8_points_against'], 'Middle 8 PA'))}
+            ${statCard('Middle 8 Diff', aaFor-aaAgainst, '', 'team-b', aq(['middle8_points_for','middle8_points_against'], 'Middle 8 Diff'))}
         </div>
     </div>`;
     html += compBar('Middle 8 Point Diff', gaFor-gaAgainst, aaFor-aaAgainst);
@@ -2016,6 +2035,8 @@ function initMiddle8Charts() {
 
 function renderFourthDown() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     const gaAtt = sumField(gf, '4th_down_attempts');
     const gaConv = sumField(gf, '4th_down_conversions');
     const aaAtt = sumField(af, '4th_down_attempts');
@@ -2027,14 +2048,14 @@ function renderFourthDown() {
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('4th Att', gaAtt, '', 'team-a')}
-            ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a')}
-            ${statCard('Conv %', gaPct, '', 'team-a')}
+            ${statCard('4th Att', gaAtt, '', 'team-a', gq(['4th_down_attempts'], '4th Att'))}
+            ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a', gq(['4th_down_conversions'], '4th Conv'))}
+            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('4th Att', aaAtt, '', 'team-b')}
-            ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b')}
-            ${statCard('Conv %', aaPct, '', 'team-b')}
+            ${statCard('4th Att', aaAtt, '', 'team-b', aq(['4th_down_attempts'], '4th Att'))}
+            ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b', aq(['4th_down_conversions'], '4th Conv'))}
+            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'))}
         </div>
     </div>`;
     html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
@@ -2156,6 +2177,8 @@ function initFourthDownCharts() {
 
 function renderSpecialTeams() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
     
     // Aggregate special teams data
     const gPunts = sumSpecial(gf, 'punts');
@@ -2194,14 +2217,14 @@ function renderSpecialTeams() {
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Punt Avg', gPuntAvg, gPunts + ' punts', 'team-a')}
-            ${statCard('Inside 20', gPuntInside20, '', 'team-a')}
-            ${statCard('Longest', gPuntLong || '—', '', 'team-a')}
+            ${statCard('Punt Avg', gPuntAvg, gPunts + ' punts', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Punt Avg'))}
+            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Longest', gPuntLong || '—', '', 'team-a', gq(['special_teams.punt_return_long'], 'Punt Long'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Punt Avg', aPuntAvg, aPunts + ' punts', 'team-b')}
-            ${statCard('Inside 20', aPuntInside20, '', 'team-b')}
-            ${statCard('Longest', aPuntLong || '—', '', 'team-b')}
+            ${statCard('Punt Avg', aPuntAvg, aPunts + ' punts', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Punt Avg'))}
+            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Longest', aPuntLong || '—', '', 'team-b', aq(['special_teams.punt_return_long'], 'Punt Long'))}
         </div>
     </div></div>`;
     
@@ -2209,12 +2232,12 @@ function renderSpecialTeams() {
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Field Goals</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('FG %', gFgPct + '%', gFgMade + '/' + gFgAtt, 'team-a')}
-            ${statCard('Longest', '—', 'N/A', 'team-a')}
+            ${statCard('FG %', gFgPct + '%', gFgMade + '/' + gFgAtt, 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCard('Longest', '—', 'N/A', 'team-a', gq([], 'FG Long', 'Not tracked'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
-            ${statCard('FG %', aFgPct + '%', aFgMade + '/' + aFgAtt, 'team-b')}
-            ${statCard('Longest', '—', 'N/A', 'team-b')}
+            ${statCard('FG %', aFgPct + '%', aFgMade + '/' + aFgAtt, 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCard('Longest', '—', 'N/A', 'team-b', aq([], 'FG Long', 'Not tracked'))}
         </div>
     </div></div>`;
     
@@ -2222,16 +2245,16 @@ function renderSpecialTeams() {
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Returns</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-4 gap-3">
-            ${statCard('KO Ret Avg', gKoRetAvg.toFixed(1), '', 'team-a')}
-            ${statCard('KO Long', gKoRetLong, '', 'team-a')}
-            ${statCard('PR Avg', gPrRetAvg.toFixed(1), '', 'team-a')}
-            ${statCard('PR Long', gPrRetLong, '', 'team-a')}
+            ${statCard('KO Ret Avg', gKoRetAvg.toFixed(1), '', 'team-a', gq(['special_teams.kickoff_return_avg'], 'KO Ret Avg'))}
+            ${statCard('KO Long', gKoRetLong, '', 'team-a', gq(['special_teams.kickoff_return_long'], 'KO Long'))}
+            ${statCard('PR Avg', gPrRetAvg.toFixed(1), '', 'team-a', gq(['special_teams.punt_return_avg'], 'PR Avg'))}
+            ${statCard('PR Long', gPrRetLong, '', 'team-a', gq(['special_teams.punt_return_long'], 'PR Long'))}
         </div>
         <div class="grid grid-cols-4 gap-3">
-            ${statCard('KO Ret Avg', aKoRetAvg.toFixed(1), '', 'team-b')}
-            ${statCard('KO Long', aKoRetLong, '', 'team-b')}
-            ${statCard('PR Avg', aPrRetAvg.toFixed(1), '', 'team-b')}
-            ${statCard('PR Long', aPrRetLong, '', 'team-b')}
+            ${statCard('KO Ret Avg', aKoRetAvg.toFixed(1), '', 'team-b', aq(['special_teams.kickoff_return_avg'], 'KO Ret Avg'))}
+            ${statCard('KO Long', aKoRetLong, '', 'team-b', aq(['special_teams.kickoff_return_long'], 'KO Long'))}
+            ${statCard('PR Avg', aPrRetAvg.toFixed(1), '', 'team-b', aq(['special_teams.punt_return_avg'], 'PR Avg'))}
+            ${statCard('PR Long', aPrRetLong, '', 'team-b', aq(['special_teams.punt_return_long'], 'PR Long'))}
         </div>
     </div></div>`;
     
@@ -2891,6 +2914,12 @@ function updateHeader() {
     const gs = agg(gf), as_ = agg(af);
     document.getElementById('teamARecord').textContent = gs.record + ' · ' + ga.conference;
     document.getElementById('teamBRecord').textContent = as_.record + ' · ' + aa.conference;
+    const gQuality = computeTeamQuality(gf);
+    const aQuality = computeTeamQuality(af);
+    const teamAQuality = document.getElementById('teamAQuality');
+    const teamBQuality = document.getElementById('teamBQuality');
+    teamAQuality.innerHTML = `${qualityBadge(gQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', gQuality)}</span>`;
+    teamBQuality.innerHTML = `${qualityBadge(aQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', aQuality)}</span>`;
 }
 
 function switchFilter(id) {
@@ -3225,10 +3254,71 @@ function initKeyboardControls() {
     });
 }
 
+let touchTabsReady = false;
+
+function hasScrollableAncestor(el) {
+    let cur = el;
+    while (cur && cur !== document.body && cur !== document.documentElement) {
+        if (cur instanceof HTMLElement) {
+            const style = window.getComputedStyle(cur);
+            if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && cur.scrollWidth > cur.clientWidth + 1) {
+                return true;
+            }
+        }
+        cur = cur.parentElement;
+    }
+    return false;
+}
+
+function isSwipeBlocked(target) {
+    if (!target || !target.closest) return false;
+    if (target.closest('table, .collapsible-body, .pbp-table, #tabNav, [data-swipe-block]')) return true;
+    return hasScrollableAncestor(target);
+}
+
+function initTouchTabs() {
+    if (touchTabsReady) return;
+    touchTabsReady = true;
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let tracking = false;
+
+    main.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        if (document.body.classList.contains('modal-open')) return;
+        if (isTypingTarget(e.target) || isSwipeBlocked(e.target)) return;
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        startTime = Date.now();
+        tracking = true;
+    }, { passive: true });
+
+    main.addEventListener('touchend', e => {
+        if (!tracking || e.changedTouches.length !== 1) return;
+        tracking = false;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        const dt = Date.now() - startTime;
+        if (absX < 60 || absY > 40 || dt > 650) return;
+        const currentIdx = getTabIndexById(currentTab);
+        if (currentIdx < 0) return;
+        const nextIdx = dx < 0 ? (currentIdx + 1) % TABS.length : (currentIdx - 1 + TABS.length) % TABS.length;
+        focusTabByIndex(nextIdx, false);
+    }, { passive: true });
+}
+
 // ===== INIT =====
 function initApp() {
     initMenus();
     initKeyboardControls();
+    initTouchTabs();
     showLoadingState();
     fetch('data.json').then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -3252,6 +3342,7 @@ function initApp() {
 
         window.addEventListener('beforeprint', beforePrint);
         window.addEventListener('afterprint', afterPrint);
+        window.addEventListener('orientationchange', () => window.dispatchEvent(new Event('resize')));
         if (window.matchMedia) {
             const media = window.matchMedia('print');
             if (media.addEventListener) {
