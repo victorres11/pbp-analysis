@@ -21,6 +21,7 @@ from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
 
+from cfbstats_scraper import CfbstatsScraper
 
 def extract_scores_from_pdf(pdf_path):
     """Extract final scores from SCORE BY QUARTERS section of PBP PDF."""
@@ -1078,6 +1079,26 @@ def main():
     
     print("\n=== Parsing Georgia Games ===")
     georgia_games, georgia_agg, _ = process_team_games(georgia_dir, 'georgia')
+
+    def infer_season_year(paths):
+        years = set()
+        for path in paths:
+            m = re.search(r'-(20\\d{2})$', path.name)
+            if m:
+                years.add(int(m.group(1)))
+        if len(years) == 1:
+            return years.pop()
+        return date.today().year
+
+    season_year = infer_season_year([asu_dir, georgia_dir])
+    scraper = CfbstatsScraper()
+    cfbstats_badges = scraper.get_red_zone_badges(
+        season_year,
+        {
+            "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
+            "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+        },
+    )
     
     data = {
         "teams": {
@@ -1086,6 +1107,9 @@ def main():
                 "abbr": "UGA",
                 "conference": "SEC",
                 "color": "#ef4444",
+                "cfbstats": {
+                    "red_zone_badges": cfbstats_badges.get("georgia", []),
+                },
                 "aggregates": georgia_agg,
                 "games": georgia_games,
             },
@@ -1094,13 +1118,17 @@ def main():
                 "abbr": "ASU",
                 "conference": "Big 12",
                 "color": "#f97316",
+                "cfbstats": {
+                    "red_zone_badges": cfbstats_badges.get("asu", []),
+                },
                 "aggregates": asu_agg,
                 "games": asu_games,
             }
         },
         "metadata": {
             "generated": date.today().isoformat(),
-            "version": "2.1"
+            "version": "2.1",
+            "cfbstats_season": season_year,
         }
     }
     

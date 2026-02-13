@@ -31,6 +31,9 @@
         .team-b-bg { background: rgba(249,115,22,0.1); border-color: rgba(249,115,22,0.2); }
         .team-a-bar { background: #ef4444; }
         .team-b-bar { background: #f97316; }
+        .context-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); font-size: 0.72rem; color: #e4e4e7; }
+        .context-badge.team-a-badge { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); }
+        .context-badge.team-b-badge { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.08); }
         .section-enter { animation: sectionEnter 0.4s ease-out; }
         @keyframes sectionEnter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .schedule-row:hover { background: rgba(255,255,255,0.04); }
@@ -50,6 +53,15 @@
         .zone-title.zone-title-green { color: #86efac; }
         .zone-title.zone-title-red { color: #fca5a5; }
         .zone-title.zone-title-tight { color: #fdba74; }
+        .spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.15); border-top-color: #ef4444; border-radius: 999px; animation: spin 0.8s linear infinite; }
+        .state-card { border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); border-radius: 16px; padding: 2rem; text-align: center; }
+        .chart-shell { position: relative; width: 100%; border-radius: 12px; overflow: hidden; }
+        .chart-surface { position: relative; width: 100%; height: 100%; }
+        .chart-skeleton { position: absolute; inset: 0; background: linear-gradient(110deg, rgba(255,255,255,0.05) 8%, rgba(255,255,255,0.12) 18%, rgba(255,255,255,0.05) 33%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; }
+        .chart-shell.chart-ready .chart-skeleton { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .chart-fallback { display: flex; align-items: center; justify-content: center; height: 100%; color: #a1a1aa; font-size: 0.85rem; text-align: center; padding: 1rem; }
+        @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         @media (max-width: 768px) {
             body { font-size: 16px; }
@@ -84,6 +96,44 @@
             .team-header .text-left { text-align: center; }
             .team-header h1 { font-size: 1.5rem; }
             .team-header .vs-badge { font-size: 1.75rem; }
+        }
+
+        @media print {
+            @page { margin: 0.6in; }
+            * { animation: none !important; transition: none !important; box-shadow: none !important; text-shadow: none !important; }
+            body { background: #ffffff !important; color: #111111 !important; font-size: 11pt; line-height: 1.35; }
+            nav, #tabNav, #filterBar, .mobile-hide { display: none !important; }
+            main, .max-w-7xl { max-width: none !important; padding: 0 !important; }
+            .section-enter { animation: none !important; }
+            .glass, .zone-section, .team-a-bg, .team-b-bg { background: #ffffff !important; border-color: #d1d5db !important; }
+            .zone-green, .zone-red, .zone-tight { background: none !important; border-left-color: #111111 !important; }
+            .vs-badge { background: none !important; -webkit-text-fill-color: #111111 !important; color: #111111 !important; }
+            .team-a, .team-b, .zone-title { color: #111111 !important; }
+            .team-a-bar, .team-b-bar { background: #111111 !important; }
+            .text-zinc-400, .text-zinc-500, .text-zinc-200 { color: #111111 !important; }
+            .bg-zinc-900, .bg-white\\/5 { background: #ffffff !important; }
+            .border-white\\/5, .border-white\\/10 { border-color: #d1d5db !important; }
+            .sticky { position: static !important; }
+            .collapsible-body { max-height: none !important; overflow: visible !important; }
+            .collapsible-toggle { pointer-events: none !important; cursor: default !important; color: #111111 !important; background: none !important; border-bottom: 1px solid #d1d5db !important; }
+            details { display: block !important; }
+            details > summary { list-style: none; cursor: default !important; pointer-events: none !important; color: #111111 !important; }
+            details > summary::-webkit-details-marker { display: none !important; }
+            details:not([open]) > * { display: block !important; }
+            details:not([open]) > summary { display: block !important; }
+            table, thead, tbody, tfoot, tr, td, th, .glass, .zone-section, .stat-card, .collapsible-body, .print-section {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            canvas, svg { filter: grayscale(1) contrast(1.1); }
+            .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
+            .print-section + .print-section { margin-top: 18px; }
+            .text-xs { font-size: 9pt !important; }
+            .text-sm { font-size: 10pt !important; }
+            .text-lg { font-size: 12pt !important; }
+            .text-2xl { font-size: 16pt !important; }
+            .text-3xl { font-size: 18pt !important; }
+            .text-4xl { font-size: 20pt !important; }
         }
     </style>
 </head>
@@ -134,6 +184,7 @@ let allPlaysQuery = '';
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'trends', label: 'Trends', icon: '📈' },
     { id: 'middle8', label: 'Middle 8', icon: '⏱️' },
     { id: 'explosives', label: 'Explosive Plays', icon: '💥' },
     { id: 'redzone', label: 'Red Zone', icon: '🔴' },
@@ -288,6 +339,14 @@ function statCard(label, value, sub, teamClass) {
     </div>`;
 }
 
+function renderContextBadges(team, badgeClass) {
+    const badges = (team.cfbstats && team.cfbstats.red_zone_badges) || [];
+    if (!badges.length) {
+        return `<div class="text-zinc-500 text-xs">No conference context available.</div>`;
+    }
+    return `<div class="flex flex-wrap gap-2">${badges.map(b => `<span class="context-badge ${badgeClass}">${b}</span>`).join('')}</div>`;
+}
+
 function classifyRedZoneFailure(play) {
     const result = (play.drive_result || '').toUpperCase();
     const desc = (play.description || '').toUpperCase();
@@ -395,13 +454,16 @@ function scheduleTable(team, games, teamClass) {
 }
 
 function chartContainer(id, h='300px') {
-    return `<div id="${id}" style="width:100%;height:${h}"></div>`;
+    return `<div class="chart-shell" style="height:${h}">
+        <div class="chart-skeleton"></div>
+        <div id="${id}" class="chart-surface" style="height:${h}"></div>
+    </div>`;
 }
 
 function collapsible(title, count, content) {
     const uid = 'coll_' + Math.random().toString(36).substr(2,9);
     return `<div class="glass rounded-xl mt-4 overflow-hidden">
-        <button onclick="document.getElementById('${uid}').classList.toggle('open');this.querySelector('.chevron').classList.toggle('open')" class="w-full px-4 py-3 flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-200 transition">
+        <button onclick="document.getElementById('${uid}').classList.toggle('open');this.querySelector('.chevron').classList.toggle('open')" class="collapsible-toggle w-full px-4 py-3 flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-200 transition">
             <span>${title} — ${count} plays</span>
             <svg class="chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
@@ -454,11 +516,162 @@ function renderOverview() {
     return html;
 }
 
+function renderTrends() {
+    return `<div class="section-enter space-y-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm text-zinc-300 font-medium mb-1">Season Trends</div>
+            <div class="text-xs text-zinc-500">Hover any point to see opponent details. Toggle series via the legend.</div>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm text-zinc-300 font-medium mb-2">Points Scored vs Allowed</div>
+            ${chartContainer('trendPoints', '320px')}
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="glass rounded-xl p-4">
+                <div class="text-sm text-zinc-300 font-medium mb-2">Explosive Plays</div>
+                ${chartContainer('trendExplosives', '280px')}
+            </div>
+            <div class="glass rounded-xl p-4">
+                <div class="text-sm text-zinc-300 font-medium mb-2">Turnover Margin</div>
+                ${chartContainer('trendTurnovers', '280px')}
+            </div>
+            <div class="glass rounded-xl p-4">
+                <div class="text-sm text-zinc-300 font-medium mb-2">Red Zone Efficiency</div>
+                ${chartContainer('trendRedZone', '280px')}
+            </div>
+            <div class="glass rounded-xl p-4">
+                <div class="text-sm text-zinc-300 font-medium mb-2">Penalties</div>
+                ${chartContainer('trendPenalties', '280px')}
+            </div>
+        </div>
+    </div>`;
+}
+
+function initTrendsCharts() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const teamNames = [ga.name, aa.name];
+    const maxLen = Math.max(gf.length, af.length);
+    const xLabels = Array.from({ length: maxLen }, (_, i) => `G${i + 1}`);
+
+    const seriesData = (games, fn) => {
+        const arr = Array(maxLen).fill(null);
+        games.forEach((g, i) => { arr[i] = fn(g); });
+        return arr;
+    };
+
+    const trendTooltip = (params) => {
+        if (!params || !params.length) return '';
+        const idx = params[0].dataIndex;
+        let tip = `<div class="text-xs text-zinc-400 mb-1">G${idx + 1}</div>`;
+        const shownTeams = new Set();
+        params.forEach(p => {
+            if (p.value === null || p.value === '-' || typeof p.value === 'undefined') return;
+            tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+            const teamName = teamNames.find(n => p.seriesName.startsWith(n));
+            if (teamName && !shownTeams.has(teamName)) {
+                const games = teamName === teamNames[0] ? gf : af;
+                const g = games[idx];
+                if (g) {
+                    const date = g.date ? ` (${g.date})` : '';
+                    tip += `<span class="text-zinc-500">vs ${g.opponent}${date}</span><br/>`;
+                }
+                shownTeams.add(teamName);
+            }
+        });
+        return tip;
+    };
+
+    const baseOption = {
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'line' }, formatter: trendTooltip },
+        legend: { textStyle: { color: '#a1a1aa' } },
+        grid: { left: 40, right: 20, top: 40, bottom: 30 },
+        xAxis: { type: 'category', data: xLabels, axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [],
+    };
+
+    const makeLine = (name, data, color, areaOpacity = 0.12) => ({
+        name,
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        connectNulls: false,
+        data,
+        lineStyle: { width: 2 },
+        itemStyle: { color },
+        areaStyle: areaOpacity ? { opacity: areaOpacity } : undefined,
+        emphasis: { focus: 'series' },
+    });
+
+    const pointsChart = safeInitChart('trendPoints');
+    if (pointsChart) safeSetOption(pointsChart, 'trendPoints', {
+        ...baseOption,
+        legend: { ...baseOption.legend, data: [
+            `${ga.name} Scored`, `${ga.name} Allowed`,
+            `${aa.name} Scored`, `${aa.name} Allowed`
+        ]},
+        series: [
+            makeLine(`${ga.name} Scored`, seriesData(gf, g => g.points_for), '#ef4444', 0.16),
+            makeLine(`${ga.name} Allowed`, seriesData(gf, g => g.points_against), '#fca5a5', 0.08),
+            makeLine(`${aa.name} Scored`, seriesData(af, g => g.points_for), '#f97316', 0.16),
+            makeLine(`${aa.name} Allowed`, seriesData(af, g => g.points_against), '#fdba74', 0.08),
+        ],
+    });
+
+    const explChart = safeInitChart('trendExplosives');
+    if (explChart) safeSetOption(explChart, 'trendExplosives', {
+        ...baseOption,
+        legend: { ...baseOption.legend, data: [`${ga.name} Explosives`, `${aa.name} Explosives`] },
+        series: [
+            makeLine(`${ga.name} Explosives`, seriesData(gf, g => g.explosives), '#ef4444', 0.12),
+            makeLine(`${aa.name} Explosives`, seriesData(af, g => g.explosives), '#f97316', 0.12),
+        ],
+    });
+
+    const toChart = safeInitChart('trendTurnovers');
+    if (toChart) safeSetOption(toChart, 'trendTurnovers', {
+        ...baseOption,
+        legend: { ...baseOption.legend, data: [`${ga.name} Margin`, `${aa.name} Margin`] },
+        yAxis: { ...baseOption.yAxis, splitLine: baseOption.yAxis.splitLine },
+        series: [
+            makeLine(`${ga.name} Margin`, seriesData(gf, g => g.turnovers_gained - g.turnovers_lost), '#ef4444', 0),
+            makeLine(`${aa.name} Margin`, seriesData(af, g => g.turnovers_gained - g.turnovers_lost), '#f97316', 0),
+        ],
+    });
+
+    const rzChart = safeInitChart('trendRedZone');
+    if (rzChart) safeSetOption(rzChart, 'trendRedZone', {
+        ...baseOption,
+        legend: { ...baseOption.legend, data: [`${ga.name} RZ%`, `${aa.name} RZ%`] },
+        yAxis: { ...baseOption.yAxis, max: 100, min: 0 },
+        series: [
+            makeLine(`${ga.name} RZ%`, seriesData(gf, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#ef4444', 0.14),
+            makeLine(`${aa.name} RZ%`, seriesData(af, g => g.red_zone_trips ? +(((g.red_zone_tds + g.red_zone_fgs) / g.red_zone_trips) * 100).toFixed(1) : null), '#f97316', 0.14),
+        ],
+    });
+
+    const penChart = safeInitChart('trendPenalties');
+    if (penChart) safeSetOption(penChart, 'trendPenalties', {
+        ...baseOption,
+        legend: { ...baseOption.legend, data: [`${ga.name} Penalties`, `${aa.name} Penalties`] },
+        series: [
+            makeLine(`${ga.name} Penalties`, seriesData(gf, g => g.penalties), '#ef4444', 0.1),
+            makeLine(`${aa.name} Penalties`, seriesData(af, g => g.penalties), '#f97316', 0.1),
+        ],
+    });
+
+    const charts = [pointsChart, explChart, toChart, rzChart, penChart].filter(Boolean);
+    window.addEventListener('resize', () => charts.forEach(ch => ch.resize()));
+}
+
 function initOverviewCharts() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
-    const c = echarts.init(document.getElementById('ppgChart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('ppgChart');
+    if (!c) return;
+    safeSetOption(c, 'ppgChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -621,8 +834,9 @@ function renderExplosives() {
 
 function initExplosivesCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
-    const c = echarts.init(document.getElementById('explChart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('explChart');
+    if (!c) return;
+    safeSetOption(c, 'explChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -751,6 +965,19 @@ function renderRedzone() {
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm font-medium text-white mb-3">Conference Context</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadges(ga, 'team-a-badge')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadges(aa, 'team-b-badge')}
+            </div>
+        </div>
+    </div>`;
     html += renderZoneSection('Green Zone', '(30 yards & in)', gs, as_, 'green_zone', gf, af);
     html += `<div class="border-t-2 border-zinc-700 my-6"></div>`;
     html += renderZoneSection('Red Zone', '(20 yards & in)', gs, as_, 'red_zone', gf, af);
@@ -765,8 +992,9 @@ function initRedzoneCharts() {
     const as_ = agg(filterGames(DATA.teams.asu.games));
     const noScore = (s) => Math.max(0, s.rzt - s.rztd - s.rzfg);
     [['rzChartA', gs, '#ef4444', 'Georgia'], ['rzChartB', as_, '#f97316', 'Arizona State']].forEach(([id, s, col, name]) => {
-        const c = echarts.init(document.getElementById(id), 'dark');
-        c.setOption({
+        const c = safeInitChart(id);
+        if (!c) return;
+        safeSetOption(c, id, {
             backgroundColor: 'transparent',
             title: { text: name, left: 'center', textStyle: { color: '#a1a1aa', fontSize: 13 } },
             tooltip: { trigger: 'item' },
@@ -903,7 +1131,6 @@ function renderTurnovers() {
 
 function initTurnoverCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
-    const c = echarts.init(document.getElementById('toChart'), 'dark');
     const gIntLost = sumField(gf, 'interceptions_lost');
     const gIntGained = sumField(gf, 'interceptions_gained');
     const gFumLost = sumField(gf, 'fumbles_lost');
@@ -912,7 +1139,8 @@ function initTurnoverCharts() {
     const aIntGained = sumField(af, 'interceptions_gained');
     const aFumLost = sumField(af, 'fumbles_lost');
     const aFumGained = sumField(af, 'fumbles_gained');
-    c.setOption({
+    const c = safeInitChart('toChart');
+    if (c) safeSetOption(c, 'toChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -937,8 +1165,8 @@ function initTurnoverCharts() {
             { name: 'ASU TO Margin', type: 'bar', data: af.map(g => g.turnovers_gained - g.turnovers_lost), itemStyle: { color: '#f97316' } },
         ]
     });
-    const cGained = echarts.init(document.getElementById('toSplitGained'), 'dark');
-    cGained.setOption({
+    const cGained = safeInitChart('toSplitGained');
+    if (cGained) safeSetOption(cGained, 'toSplitGained', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
         legend: { data: ['INTs', 'Fumbles'], textStyle: { color: '#a1a1aa' } },
@@ -950,8 +1178,8 @@ function initTurnoverCharts() {
             { name: 'Fumbles', type: 'bar', stack: 'gained', data: [gFumGained, aFumGained], itemStyle: { color: '#34d399' } },
         ]
     });
-    const cLost = echarts.init(document.getElementById('toSplitLost'), 'dark');
-    cLost.setOption({
+    const cLost = safeInitChart('toSplitLost');
+    if (cLost) safeSetOption(cLost, 'toSplitLost', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
         legend: { data: ['INTs', 'Fumbles'], textStyle: { color: '#a1a1aa' } },
@@ -963,11 +1191,8 @@ function initTurnoverCharts() {
             { name: 'Fumbles', type: 'bar', stack: 'lost', data: [gFumLost, aFumLost], itemStyle: { color: '#86efac' } },
         ]
     });
-    window.addEventListener('resize', () => {
-        c.resize();
-        cGained.resize();
-        cLost.resize();
-    });
+    const charts = [c, cGained, cLost].filter(Boolean);
+    window.addEventListener('resize', () => charts.forEach(ch => ch.resize()));
 }
 
 function renderPostTurnover() {
@@ -1071,8 +1296,8 @@ function initPostTurnoverCharts() {
     const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM'));
     const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT'));
     const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM'));
-    const totalsChart = echarts.init(document.getElementById('postToTotalsChart'), 'dark');
-    totalsChart.setOption({
+    const totalsChart = safeInitChart('postToTotalsChart');
+    if (totalsChart) safeSetOption(totalsChart, 'postToTotalsChart', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
         legend: { data: ['Pts Off INT', 'Pts Off FUM'], textStyle: { color: '#a1a1aa' } },
@@ -1084,8 +1309,8 @@ function initPostTurnoverCharts() {
             { name: 'Pts Off FUM', type: 'bar', stack: 'points', data: [gPointsOffFum, aPointsOffFum], itemStyle: { color: '#fca5a5' } },
         ]
     });
-    const perGameChart = echarts.init(document.getElementById('postToPerGameChart'), 'dark');
-    perGameChart.setOption({
+    const perGameChart = safeInitChart('postToPerGameChart');
+    if (perGameChart) safeSetOption(perGameChart, 'postToPerGameChart', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
         legend: { data: ['UGA INT', 'UGA FUM', 'ASU INT', 'ASU FUM'], textStyle: { color: '#a1a1aa' } },
@@ -1099,10 +1324,8 @@ function initPostTurnoverCharts() {
             { name: 'ASU FUM', type: 'bar', stack: 'ASU', data: aFumByGame, itemStyle: { color: '#fdba74' } },
         ]
     });
-    window.addEventListener('resize', () => {
-        totalsChart.resize();
-        perGameChart.resize();
-    });
+    const charts = [totalsChart, perGameChart].filter(Boolean);
+    window.addEventListener('resize', () => charts.forEach(ch => ch.resize()));
 }
 
 function renderPenalties() {
@@ -1259,8 +1482,8 @@ function initPenaltyCharts() {
     const gaTypeCounts = countByType(gaDetails);
     const aaTypeCounts = countByType(aaDetails);
 
-    const c = echarts.init(document.getElementById('penChart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('penChart');
+    if (c) safeSetOption(c, 'penChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -1285,10 +1508,9 @@ function initPenaltyCharts() {
             { name: 'Arizona State', type: 'line', data: af.map(g => g.penalties), itemStyle: { color: '#f97316' }, smooth: true, areaStyle: { color: 'rgba(249,115,22,0.1)' } },
         ]
     });
-    const typeChartEl = document.getElementById('penTypeChart');
-    const typeChart = typeChartEl ? echarts.init(typeChartEl, 'dark') : null;
+    const typeChart = safeInitChart('penTypeChart');
     if (typeChart) {
-        typeChart.setOption({
+        safeSetOption(typeChart, 'penTypeChart', {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
             legend: { data: [ga.name, aa.name], textStyle: { color: '#a1a1aa' } },
@@ -1301,14 +1523,13 @@ function initPenaltyCharts() {
             ]
         });
     }
-    const acceptEl = document.getElementById('penAcceptChart');
-    const acceptChart = acceptEl ? echarts.init(acceptEl, 'dark') : null;
+    const acceptChart = safeInitChart('penAcceptChart');
     if (acceptChart) {
         const gaAccepted = gaDetails.filter(p => p.accepted).length;
         const gaDeclined = gaDetails.length - gaAccepted;
         const aaAccepted = aaDetails.filter(p => p.accepted).length;
         const aaDeclined = aaDetails.length - aaAccepted;
-        acceptChart.setOption({
+        safeSetOption(acceptChart, 'penAcceptChart', {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
             legend: { data: ['Accepted', 'Declined'], textStyle: { color: '#a1a1aa' } },
@@ -1406,8 +1627,9 @@ function renderMiddle8() {
 
 function initMiddle8Charts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
-    const c = echarts.init(document.getElementById('middle8Chart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('middle8Chart');
+    if (!c) return;
+    safeSetOption(c, 'middle8Chart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -1537,8 +1759,9 @@ function renderFourthDown() {
 
 function initFourthDownCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
-    const c = echarts.init(document.getElementById('fourthChart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('fourthChart');
+    if (!c) return;
+    safeSetOption(c, 'fourthChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -1695,8 +1918,9 @@ function renderSpecialTeams() {
 
 function initSpecialTeamsCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
-    const c = echarts.init(document.getElementById('stChart'), 'dark');
-    c.setOption({
+    const c = safeInitChart('stChart');
+    if (!c) return;
+    safeSetOption(c, 'stChart', {
         backgroundColor: 'transparent',
         tooltip: { 
             trigger: 'axis',
@@ -1883,10 +2107,96 @@ function renderGlossary() {
     </div>`;
 }
 
+function clearChrome() {
+    const nav = document.getElementById('tabNav');
+    const bar = document.getElementById('filterBar');
+    if (nav) nav.innerHTML = '';
+    if (bar) bar.innerHTML = '<span class="text-xs text-zinc-500 mr-1">Filter:</span>';
+}
+
+function showLoadingState() {
+    clearChrome();
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    main.innerHTML = `<div class="state-card section-enter">
+        <div class="flex flex-col items-center gap-3">
+            <div class="spinner"></div>
+            <div class="text-sm text-zinc-300 font-medium">Loading matchup data…</div>
+            <div class="text-xs text-zinc-500">Fetching the latest stats and play-by-play.</div>
+        </div>
+    </div>`;
+}
+
+function showErrorState(message) {
+    clearChrome();
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    main.innerHTML = `<div class="state-card section-enter">
+        <div class="text-sm font-semibold text-red-300">Unable to load data</div>
+        <div class="text-xs text-zinc-400 mt-2">${message || 'Please check your connection and try again.'}</div>
+        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20" onclick="initApp()">Retry</button>
+    </div>`;
+}
+
+function showEmptyState() {
+    clearChrome();
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    main.innerHTML = `<div class="state-card section-enter">
+        <div class="text-sm font-semibold text-zinc-200">No data available</div>
+        <div class="text-xs text-zinc-500 mt-2">The dataset is missing or malformed. Please verify data.json and try again.</div>
+        <button class="mt-4 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" onclick="initApp()">Reload</button>
+    </div>`;
+}
+
+function isDataValid(d) {
+    if (!d || !d.teams || !d.teams.georgia || !d.teams.asu) return false;
+    if (!Array.isArray(d.teams.georgia.games) || !Array.isArray(d.teams.asu.games)) return false;
+    const hasGames = d.teams.georgia.games.length > 0 || d.teams.asu.games.length > 0;
+    return hasGames;
+}
+
+function markChartReady(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const shell = el.closest('.chart-shell');
+    if (shell) shell.classList.add('chart-ready');
+}
+
+function showChartUnavailable(id, message) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const shell = el.closest('.chart-shell');
+    if (shell) shell.classList.add('chart-ready');
+    el.innerHTML = `<div class="chart-fallback">${message || 'Chart unavailable.'}</div>`;
+}
+
+function safeInitChart(id, theme='dark') {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    if (!window.echarts) {
+        showChartUnavailable(id, 'Charts unavailable (ECharts failed to load).');
+        return null;
+    }
+    try {
+        return echarts.init(el, theme);
+    } catch (err) {
+        showChartUnavailable(id, 'Chart failed to initialize.');
+        return null;
+    }
+}
+
+function safeSetOption(chart, id, option) {
+    if (!chart) return;
+    chart.setOption(option);
+    markChartReady(id);
+}
+
 // ===== RENDER ENGINE =====
 
 const renderers = {
     overview: { render: renderOverview, init: initOverviewCharts },
+    trends: { render: renderTrends, init: initTrendsCharts },
     explosives: { render: renderExplosives, init: initExplosivesCharts },
     redzone: { render: renderRedzone },
     turnovers: { render: renderTurnovers, init: initTurnoverCharts },
@@ -1898,6 +2208,37 @@ const renderers = {
     glossary: { render: renderGlossary },
     allplays: { render: renderAllPlays },
 };
+
+let printState = null;
+
+function renderAllTabsForPrint() {
+    return TABS.map(t => {
+        const r = renderers[t.id];
+        if (!r) return '';
+        return `<section class="print-section">
+            <div class="print-section-title">${t.icon} ${t.label}</div>
+            ${r.render()}
+        </section>`;
+    }).join('');
+}
+
+function beforePrint() {
+    if (!DATA || printState) return;
+    const main = document.getElementById('mainContent');
+    printState = { html: main.innerHTML, tab: currentTab };
+    main.innerHTML = renderAllTabsForPrint();
+    Object.values(renderers).forEach(r => { if (r.init) r.init(); });
+}
+
+function afterPrint() {
+    if (!printState) return;
+    const main = document.getElementById('mainContent');
+    currentTab = printState.tab;
+    main.innerHTML = printState.html;
+    printState = null;
+    buildNav();
+    renderTab();
+}
 
 function renderTab() {
     const main = document.getElementById('mainContent');
@@ -1942,18 +2283,41 @@ function switchFilter(id) {
 }
 
 // ===== INIT =====
-fetch('data.json').then(r => r.json()).then(d => {
-    DATA = d;
-    const ga = d.teams.georgia, aa = d.teams.asu;
-    document.getElementById('teamAName').textContent = ga.name;
-    document.getElementById('teamBName').textContent = aa.name;
-    buildNav();
-    buildFilters();
-    updateHeader();
-    renderTab();
-}).catch(e => {
-    document.getElementById('mainContent').innerHTML = `<div class="glass rounded-xl p-8 text-center text-red-400">Failed to load data: ${e.message}</div>`;
-});
+function initApp() {
+    showLoadingState();
+    fetch('data.json').then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    }).then(d => {
+        if (!isDataValid(d)) {
+            showEmptyState();
+            return;
+        }
+        DATA = d;
+        const ga = d.teams.georgia, aa = d.teams.asu;
+        document.getElementById('teamAName').textContent = ga.name;
+        document.getElementById('teamBName').textContent = aa.name;
+        buildNav();
+        buildFilters();
+        updateHeader();
+        renderTab();
+
+        window.addEventListener('beforeprint', beforePrint);
+        window.addEventListener('afterprint', afterPrint);
+        if (window.matchMedia) {
+            const media = window.matchMedia('print');
+            if (media.addEventListener) {
+                media.addEventListener('change', e => (e.matches ? beforePrint() : afterPrint()));
+            } else if (media.addListener) {
+                media.addListener(e => (e.matches ? beforePrint() : afterPrint()));
+            }
+        }
+    }).catch(e => {
+        showErrorState(`Failed to load data.json (${e.message}).`);
+    });
+}
+
+initApp();
 </script>
 <a href="https://vtsportssolutions.com" target="_blank" rel="noopener" class="mobile-hide" style="position:fixed;bottom:1rem;right:1rem;z-index:40;display:flex;align-items:center;gap:0.5rem;padding:0.625rem 1rem;background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);border-radius:9999px;box-shadow:0 4px 12px rgba(0,0,0,0.1);border:1px solid rgba(0,0,0,0.08);text-decoration:none;transition:transform 0.2s,box-shadow 0.2s;">
   <span style="font-size:0.75rem;color:#666;white-space:nowrap;">made with ❤️ by</span>
