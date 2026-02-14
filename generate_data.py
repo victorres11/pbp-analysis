@@ -201,6 +201,24 @@ def identify_georgia(teams):
     return teams[1] if len(teams) > 1 else None
 
 
+def identify_oregon(teams):
+    """Find Oregon abbreviation from team list."""
+    for t in teams:
+        up = t.upper().replace('.', '').strip()
+        if up in ['OREGON', 'ORE', 'ORG', 'UO']:
+            return t
+    return teams[0] if len(teams) > 0 else None
+
+
+def identify_washington(teams):
+    """Find Washington abbreviation from team list."""
+    for t in teams:
+        up = t.upper().replace('.', '').strip()
+        if up in ['WASHINGTON', 'WASH', 'UW', 'UWASH']:
+            return t
+    return teams[0] if len(teams) > 0 else None
+
+
 def parse_clock_seconds(clock):
     if not clock or ':' not in clock:
         return None
@@ -897,7 +915,8 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
 
 def process_team_games(pdf_dir, team_identifier):
     """Process all PDFs for a team, extracting all data from the parser."""
-    pdf_files = sorted(glob.glob(str(pdf_dir / "*.pdf")))
+    # Match both .pdf and .PDF (case-insensitive)
+    pdf_files = sorted(glob.glob(str(pdf_dir / "*.pdf")) + glob.glob(str(pdf_dir / "*.PDF")))
     
     games = []
     parsed_games = []
@@ -922,6 +941,10 @@ def process_team_games(pdf_dir, team_identifier):
             our_abbr = identify_asu(g.teams)
         elif team_identifier == 'georgia':
             our_abbr = identify_georgia(g.teams)
+        elif team_identifier == 'oregon':
+            our_abbr = identify_oregon(g.teams)
+        elif team_identifier == 'washington':
+            our_abbr = identify_washington(g.teams)
         else:
             our_abbr = None
         if not our_abbr and len(g.teams) >= 2:
@@ -946,8 +969,14 @@ def process_team_games(pdf_dir, team_identifier):
                 if team_identifier == 'georgia' and ('georgia' in stl or 'uga' in stl or our_abbr.lower() in stl):
                     our_idx = idx
                     break
+                if team_identifier == 'oregon' and ('oregon' in stl or our_abbr.lower() in stl):
+                    our_idx = idx
+                    break
+                if team_identifier == 'washington' and ('washington' in stl or 'wash' in stl or our_abbr.lower() in stl):
+                    our_idx = idx
+                    break
             if our_idx == -1:
-                our_idx = 1 if team_identifier == 'asu' else 0
+                our_idx = 0  # default to first team
             
             opp_idx = 1 - our_idx
             our_score = score_vals[our_idx]
@@ -1445,12 +1474,20 @@ def main():
     
     asu_dir = repo_root / "data" / "asu-2025"
     georgia_dir = repo_root / "data" / "georgia-2025"
+    oregon_dir = repo_root / "data" / "oregon-2025"
+    washington_dir = repo_root / "data" / "washington-2025"
     
     print("=== Parsing ASU Games ===")
     asu_games, asu_agg, _ = process_team_games(asu_dir, 'asu')
     
     print("\n=== Parsing Georgia Games ===")
     georgia_games, georgia_agg, _ = process_team_games(georgia_dir, 'georgia')
+    
+    print("\n=== Parsing Oregon Games ===")
+    oregon_games, oregon_agg, _ = process_team_games(oregon_dir, 'oregon')
+    
+    print("\n=== Parsing Washington Games ===")
+    washington_games, washington_agg, _ = process_team_games(washington_dir, 'washington')
 
     def infer_season_year(paths):
         years = set()
@@ -1469,7 +1506,7 @@ def main():
     # Fetch schedules from NCAA API for bye week detection
     print("\n=== Fetching NCAA Schedules ===")
     ncaa_schedules = {}
-    for team_seo in ["georgia", "arizona-st"]:
+    for team_seo in ["georgia", "arizona-st", "oregon", "washington"]:
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
@@ -1478,6 +1515,8 @@ def main():
         {
             "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
             "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+            "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
+            "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
         },
     )
 
@@ -1523,6 +1562,32 @@ def main():
                 "schedule": ncaa_schedules["arizona-st"].to_dict() if "arizona-st" in ncaa_schedules else None,
                 "aggregates": asu_agg,
                 "games": asu_games,
+            },
+            "oregon": {
+                "name": "Oregon",
+                "abbr": "ORE",
+                "conference": "Big Ten",
+                "color": "#047857",
+                "cfbstats": {
+                    "rankings": build_rankings("oregon"),
+                },
+                "bye_weeks": ncaa_schedules["oregon"].bye_weeks if "oregon" in ncaa_schedules else [],
+                "schedule": ncaa_schedules["oregon"].to_dict() if "oregon" in ncaa_schedules else None,
+                "aggregates": oregon_agg,
+                "games": oregon_games,
+            },
+            "washington": {
+                "name": "Washington",
+                "abbr": "WASH",
+                "conference": "Big Ten",
+                "color": "#4b2e83",
+                "cfbstats": {
+                    "rankings": build_rankings("washington"),
+                },
+                "bye_weeks": ncaa_schedules["washington"].bye_weeks if "washington" in ncaa_schedules else [],
+                "schedule": ncaa_schedules["washington"].to_dict() if "washington" in ncaa_schedules else None,
+                "aggregates": washington_agg,
+                "games": washington_games,
             }
         },
         "metadata": {
@@ -1539,6 +1604,8 @@ def main():
     print(f"\n✓ Generated {output_path}")
     print(f"\nGeorgia: {georgia_agg['record']} ({georgia_agg['conf_record']} conf) - {georgia_agg['ppg']} PPG")
     print(f"ASU: {asu_agg['record']} ({asu_agg['conf_record']} conf) - {asu_agg['ppg']} PPG")
+    print(f"Oregon: {oregon_agg['record']} ({oregon_agg['conf_record']} conf) - {oregon_agg['ppg']} PPG")
+    print(f"Washington: {washington_agg['record']} ({washington_agg['conf_record']} conf) - {washington_agg['ppg']} PPG")
 
 
 if __name__ == "__main__":
