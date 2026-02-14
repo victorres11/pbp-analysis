@@ -560,6 +560,10 @@ def parse_all_penalties(desc: str, team_abbrs: list) -> list:
             # Clean up the type by removing 'offsetting'
             penalty_type = re.sub(r'\s*offsetting\s*', '', penalty_type, flags=re.IGNORECASE).strip()
         
+        # Clean up OCR noise codes like X8, P4, R8 (letter + digits)
+        penalty_type = re.sub(r'\b[A-Z]\d+\b', '', penalty_type).strip()
+        penalty_type = re.sub(r'\s+', ' ', penalty_type)  # collapse multiple spaces
+        
         # Skip non-penalty text fragments
         if penalty_type and len(penalty_type) > 3:
             penalties.append({
