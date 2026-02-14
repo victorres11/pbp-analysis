@@ -969,10 +969,10 @@ def process_team_games(pdf_dir, team_identifier):
                 if team_identifier == 'georgia' and ('georgia' in stl or 'uga' in stl or our_abbr.lower() in stl):
                     our_idx = idx
                     break
-                if team_identifier == 'oregon' and ('oregon' in stl or our_abbr.lower() in stl):
+                if team_identifier == 'oregon' and ('oregon' in stl or our_abbr.lower() in stl) and 'state' not in stl:
                     our_idx = idx
                     break
-                if team_identifier == 'washington' and ('washington' in stl or 'wash' in stl or our_abbr.lower() in stl):
+                if team_identifier == 'washington' and ('washington' in stl or 'wash' in stl or our_abbr.lower() in stl) and 'state' not in stl:
                     our_idx = idx
                     break
             if our_idx == -1:
