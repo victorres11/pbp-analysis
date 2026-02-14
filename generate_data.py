@@ -509,6 +509,63 @@ def compute_fourth_down_stats(plays, our_abbr):
     return attempts, conversions
 
 
+def parse_all_penalties(desc: str, team_abbrs: list) -> list:
+    """Parse all penalties from a play description, handling multiple penalties per play.
+    
+    Returns list of dicts with: team, type, accepted
+    Handles cases like: 'PENALTY UGA Holding declined UGA Pass Interference 15 yards...'
+    """
+    penalties = []
+    upper = desc.upper()
+    
+    penalty_start = upper.find('PENALTY')
+    if penalty_start == -1:
+        return penalties
+    
+    penalty_text = upper[penalty_start:]
+    
+    # Build team pattern (longest first to match TENN before TEN)
+    team_pattern = '|'.join(re.escape(t) for t in sorted(team_abbrs, key=len, reverse=True))
+    
+    # Split on team abbreviations, keeping the delimiter
+    parts = re.split(rf'({team_pattern})\s+', penalty_text)
+    
+    # Process pairs: [prefix, TEAM, penalty_text, TEAM, penalty_text, ...]
+    i = 1
+    while i < len(parts) - 1:
+        team = parts[i]
+        if team not in team_abbrs:
+            i += 1
+            continue
+            
+        text = parts[i + 1] if i + 1 < len(parts) else ''
+        
+        # Check if 'declined' appears right after the penalty type (before yards/player)
+        # Include colons for abbreviations like "UNR: Unnecessary Roughness"
+        declined_match = re.search(r'^([A-Za-z\s:]+?)\s+declined', text, re.IGNORECASE)
+        if declined_match:
+            penalty_type = declined_match.group(1).strip()
+            is_declined = True
+        else:
+            # Extract penalty type - up to: digit, open paren, or end of string
+            # Include colons for abbreviations like "UNR: Unnecessary Roughness"
+            type_match = re.match(r'^([A-Za-z\s:]+?)(?=\s*\(|\s+\d|\s*$)', text)
+            penalty_type = type_match.group(1).strip() if type_match else ''
+            is_declined = False
+        
+        # Skip non-penalty text fragments
+        if penalty_type and len(penalty_type) > 3:
+            penalties.append({
+                'team': team,
+                'type': penalty_type,
+                'accepted': not is_declined
+            })
+        
+        i += 2
+    
+    return penalties
+
+
 def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
     """Parse turnovers into INT and fumble breakdowns for both teams."""
     our_ints_lost = 0
@@ -605,19 +662,17 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         # Parse accepted/declined
         accepted = 'DECLINED' not in desc_upper and 'OFFSETTING' not in desc_upper
         
-        # Determine penalized team
+        # Determine penalized team by extracting from 'PENALTY <TEAM>' pattern
         penalized_team = None
-        if p.offense == our_abbr:
-            # Check if it says opponent team name in penalty
-            if opp_abbr and opp_abbr.upper() in desc_upper:
+        penalty_team_match = re.search(r'PENALTY\s+([A-Z]{2,4})\s', desc_upper)
+        if penalty_team_match:
+            extracted_team = penalty_team_match.group(1)
+            if extracted_team == our_abbr.upper():
+                penalized_team = our_abbr
+            elif extracted_team == opp_abbr.upper():
                 penalized_team = opp_abbr
             else:
-                penalized_team = our_abbr
-        elif p.offense == opp_abbr:
-            if our_abbr and our_abbr.upper() in desc_upper:
-                penalized_team = our_abbr
-            else:
-                penalized_team = opp_abbr
+                penalized_team = extracted_team  # Unknown team, use as-is
         
         # Determine offense or defense
         # If the penalized team is the offense team, it's an offensive penalty
@@ -894,15 +949,30 @@ def process_team_games(pdf_dir, team_identifier):
         our_stats = g.team_stats.get(our_abbr, None)
         opp_stats = g.team_stats.get(opp_abbr, None)
         
-        # Count penalties from plays
+        # Count penalties from plays - handles multiple penalties per play
         our_penalties = 0
         opp_penalties = 0
+        team_abbrs = [our_abbr.upper(), opp_abbr.upper()]
+        # Add common variants
+        if 'TEN' in team_abbrs:
+            team_abbrs.append('TENN')
+        if 'MIS' in team_abbrs:
+            team_abbrs.append('MISS')
+        
         for p in g.plays:
-            desc = (p.description or '').upper()
-            if 'PENALTY' in desc or 'PENALIZED' in desc:
-                if p.offense == our_abbr:
+            desc = (p.description or '')
+            if 'PENALTY' not in desc.upper():
+                continue
+            
+            # Parse all penalties in this play
+            penalties = parse_all_penalties(desc, team_abbrs)
+            for pen in penalties:
+                if not pen['accepted']:  # Skip declined penalties
+                    continue
+                team = pen['team'].upper()
+                if team == our_abbr.upper() or (our_abbr.upper() == 'TEN' and team == 'TENN'):
                     our_penalties += 1
-                elif p.offense == opp_abbr:
+                elif team == opp_abbr.upper() or (opp_abbr.upper() == 'TEN' and team == 'TENN'):
                     opp_penalties += 1
         
         # Count explosive plays
@@ -991,6 +1061,30 @@ def process_team_games(pdf_dir, team_identifier):
                     'zone': 'green' if ytg <= 30 else ''
                 }
                 
+                # Skip PAT/kick attempts, 2pt conversions, and timeouts - they shouldn't count for red zone trips
+                desc_check = (p.description or '').upper()
+                
+                # Skip timeouts
+                if 'TIMEOUT' in desc_check:
+                    continue
+                
+                # Skip PAT kicks and 2pt conversions (from 3-yard line)
+                is_conversion_attempt = (
+                    'KICK ATTEMPT' in desc_check or 
+                    'EXTRA POINT' in desc_check or 
+                    'PAT' in desc_check or 
+                    '2PT' in desc_check or 
+                    'TWO-POINT' in desc_check or 
+                    'TWO POINT' in desc_check or 
+                    '2-POINT' in desc_check or 
+                    '2 POINT' in desc_check or
+                    'ATTEMPT SUCCESSFUL' in desc_check or  # catches "pass attempt successful" for 2pt
+                    'ATTEMPT FAILED' in desc_check or
+                    'CONVERSION' in desc_check
+                )
+                if is_conversion_attempt:
+                    continue
+
                 if ytg <= 20:
                     drives_by_zone['red'].add(current_drive)
                     play_dict['zone'] = 'red'
