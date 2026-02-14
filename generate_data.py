@@ -27,6 +27,7 @@ from pbp_parser.explosives import compute_team_explosives
 
 from cfbstats_scraper import CfbstatsScraper
 from pbp_parser.ncaa_schedule import fetch_team_schedule
+from team_mappings import CONFERENCE_TEAMS, TEAM_ALIASES, FBS_CONFERENCES
 
 LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
@@ -73,6 +74,23 @@ def extract_explosive_player(desc, play_type):
     if m:
         return normalize_player_name(m.group(1))
     return None
+
+
+def conference_terms(conference_name):
+    teams = CONFERENCE_TEAMS.get(conference_name, [])
+    if not teams:
+        return []
+    alias_terms = [
+        alias for alias, canonical in TEAM_ALIASES.items()
+        if canonical in teams
+    ]
+    seen = set()
+    terms = []
+    for term in teams + alias_terms:
+        if term not in seen:
+            terms.append(term)
+            seen.add(term)
+    return terms
 
 def extract_scores_from_pdf(pdf_path):
     """Extract final scores from SCORE BY QUARTERS section of PBP PDF."""
@@ -1322,38 +1340,17 @@ def process_team_games(pdf_dir, team_identifier):
                 })
         
         # Determine conference membership
-        sec_teams = [
-            'alabama', 'arkansas', 'auburn', 'florida', 'georgia', 'kentucky', 'lsu',
-            'mississippi', 'ole miss', 'mississippi st', 'mississippi state', 'missouri',
-            'oklahoma', 'south carolina', 'tennessee', 'texas', 'texas a&m', 'vanderbilt',
-            'a&m', 'tamu', 'uga'
-        ]
-        big12_teams = [
-            'baylor', 'tcu', 'utah', 'texas tech', 'houston', 'iowa state',
-            'west virginia', 'colorado', 'arizona', 'arizona st', 'arizona state',
-            'ttu', 'uh', 'isu', 'wvu', 'colo'
-        ]
-        big10_teams = [
-            'illinois', 'indiana', 'iowa', 'maryland', 'michigan', 'michigan st',
-            'minnesota', 'nebraska', 'northwestern', 'ohio st', 'ohio state',
-            'penn st', 'penn state', 'purdue', 'rutgers', 'wisconsin', 'ucla', 'usc',
-            'washington', 'oregon'
-        ]
-        acc_teams = [
-            'boston college', 'clemson', 'duke', 'florida st', 'florida state', 'georgia tech',
-            'louisville', 'miami', 'nc state', 'north carolina', 'pitt', 'pittsburgh',
-            'syracuse', 'virginia', 'virginia tech', 'wake forest', 'stanford', 'cal'
-        ]
-
         if team_identifier == 'asu':
-            conf_list = big12_teams
+            conf_list = conference_terms('Big 12')
         else:
-            conf_list = sec_teams
+            conf_list = conference_terms('SEC')
 
         is_conference = any(t in opp_name.lower() or t in opp_abbr.lower() for t in conf_list)
 
         # Power 4 check (Big 12, SEC, Big Ten, ACC)
-        p4_list = sec_teams + big12_teams + big10_teams + acc_teams
+        p4_list = []
+        for conference_name in FBS_CONFERENCES:
+            p4_list.extend(conference_terms(conference_name))
         is_power4 = any(t in opp_name.lower() or t in opp_abbr.lower() for t in p4_list)
         non_p4 = ['northern ariz', 'texas st', 'nau', 'txst', 'umass', 'tenn tech', 'tennessee tech']
         if any(t in opp_name.lower() or t in opp_abbr.lower() for t in non_p4):
