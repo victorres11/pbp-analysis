@@ -542,16 +542,23 @@ def parse_all_penalties(desc: str, team_abbrs: list) -> list:
         
         # Check if 'declined' appears right after the penalty type (before yards/player)
         # Include colons for abbreviations like "UNR: Unnecessary Roughness"
-        declined_match = re.search(r'^([A-Za-z\s:]+?)\s+declined', text, re.IGNORECASE)
+        # Include alphanumeric to handle OCR noise like "Pass X8 Interference"
+        declined_match = re.search(r'^([A-Za-z0-9\s:]+?)\s+declined', text, re.IGNORECASE)
         if declined_match:
             penalty_type = declined_match.group(1).strip()
             is_declined = True
         else:
-            # Extract penalty type - up to: digit, open paren, or end of string
-            # Include colons for abbreviations like "UNR: Unnecessary Roughness"
-            type_match = re.match(r'^([A-Za-z\s:]+?)(?=\s*\(|\s+\d|\s*$)', text)
+            # Extract penalty type - up to: open paren, or isolated digit followed by "yards"
+            # Include alphanumeric to handle OCR noise like "Pass X8 Interference"
+            type_match = re.match(r'^([A-Za-z0-9\s:]+?)(?=\s*\(|\s+\d+\s+yards|\s*$)', text, re.IGNORECASE)
             penalty_type = type_match.group(1).strip() if type_match else ''
             is_declined = False
+        
+        # Check if penalty type ends with 'offsetting' - these cancel out
+        if 'OFFSETTING' in penalty_type.upper():
+            is_declined = True
+            # Clean up the type by removing 'offsetting'
+            penalty_type = re.sub(r'\s*offsetting\s*', '', penalty_type, flags=re.IGNORECASE).strip()
         
         # Skip non-penalty text fragments
         if penalty_type and len(penalty_type) > 3:
