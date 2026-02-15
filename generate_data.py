@@ -27,6 +27,7 @@ from pbp_parser.explosives import compute_team_explosives
 
 from pbp_parser.cfbstats import generate_context_badges
 from pbp_parser.ncaa_schedule import fetch_team_schedule
+from pbp_parser.fourth_down import compute_fourth_down_stats
 
 LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
@@ -489,71 +490,6 @@ def parse_fourth_distance(down_distance):
         return int(m.group(1))
     except ValueError:
         return None
-
-
-def compute_fourth_down_stats(plays, our_abbr):
-    """
-    Count 4th down conversion attempts.
-    Only counts "go for it" plays (rush or pass attempts).
-    Excludes punts, field goals, and penalty-only plays.
-    
-    Fix for issue #60: Ensure punts and FGs are not counted as 4th down attempts.
-    """
-    attempts = 0
-    conversions = 0
-    for p in plays:
-        if p.is_no_play or p.offense != our_abbr:
-            continue
-        dd = p.down_distance or ''
-        if not dd.startswith('4-'):
-            continue
-        desc = (p.description or '').upper()
-        
-        # EXCLUDE: Punts (any variation)
-        if 'PUNT' in desc:
-            continue
-        
-        # EXCLUDE: Field goals (any variation)  
-        if 'FIELD GOAL' in desc or ' FG ' in desc or desc.endswith(' FG') or desc.startswith('FG '):
-            continue
-        
-        # EXCLUDE: Kicks and special teams plays
-        if 'KICKOFF' in desc or 'ONSIDE' in desc or 'SQUIB' in desc:
-            continue
-            
-        # EXCLUDE: Penalty-only plays (no actual attempt)
-        if 'PENALTY' in desc or 'PENALIZED' in desc:
-            # Check if there's an actual play action described
-            has_play_action = any(keyword in desc for keyword in [
-                'RUSH', 'RUN', 'PASS', 'COMPLETE', 'INCOMPLETE', 'SACK', 'SCRAMBLE'
-            ])
-            if not has_play_action:
-                continue
-        
-        # ONLY COUNT: Rush or pass attempts
-        # This is the "go for it" decision
-        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
-                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc or
-                           'SCRAMBLE' in desc)
-        if not is_rush_or_pass:
-            continue
-        
-        # This is a valid 4th down attempt
-        attempts += 1
-        
-        # Check if converted
-        converted = False
-        if p.is_scoring:
-            converted = True
-        elif '1ST DOWN' in desc or 'FIRST DOWN' in desc:
-            converted = True
-        else:
-            dist = parse_fourth_distance(dd)
-            if dist is not None and p.yards is not None and p.yards >= dist:
-                converted = True
-        if converted:
-            conversions += 1
-    return attempts, conversions
 
 
 def parse_all_penalties(desc: str, team_abbrs: list) -> list:
@@ -1389,7 +1325,9 @@ def process_team_games(pdf_dir, team_identifier):
             is_power4 = False
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
-        fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
+        fourth_stats = compute_fourth_down_stats(g.plays, our_abbr)
+        fourth_attempts = fourth_stats.attempts
+        fourth_conversions = fourth_stats.conversions
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
