@@ -232,32 +232,9 @@ def identify_washington(teams):
     """Find Washington abbreviation from team list."""
     for t in teams:
         up = t.upper().replace('.', '').strip()
-        if up in ['WASHINGTON', 'WASH', 'UW', 'UWASH', 'WAS', 'WASHJ']:
-            return t
-        if up.startswith('WASH') and not re.search(r'(ST|STATE)$', up):
+        if up in ['WASHINGTON', 'WASH', 'UW', 'UWASH']:
             return t
     return teams[0] if len(teams) > 0 else None
-
-
-WASHINGTON_ABBR_ALIASES = {
-    'WASHINGTON', 'WASH', 'WAS', 'WASHJ', 'UW', 'UWASH'
-}
-
-
-def team_abbr_aliases(abbr):
-    up = (abbr or '').upper().replace('.', '').strip()
-    if not up:
-        return set()
-    if up in WASHINGTON_ABBR_ALIASES:
-        return set(WASHINGTON_ABBR_ALIASES)
-    return {up}
-
-
-def text_has_team(text, aliases):
-    if not aliases:
-        return False
-    upper = (text or '').upper()
-    return any(alias and alias in upper for alias in aliases)
 
 
 def parse_clock_seconds(clock):
@@ -398,7 +375,7 @@ def build_play_tree(plays):
         }
         get_quarter(quarter)['drives'].append(current_drive)
 
-    for p in plays:
+    for idx, p in enumerate(plays):
         desc = p.description or ''
         if is_drive_marker(desc):
             start_drive(p.offense or current_offense, p.quarter)
@@ -415,6 +392,7 @@ def build_play_tree(plays):
             start_drive(p.offense, p.quarter)
 
         current_drive['plays'].append({
+            'play_index': idx,
             'quarter': p.quarter,
             'clock': p.clock or '',
             'offense': p.offense or '',
@@ -475,7 +453,7 @@ def compute_middle8_stats(plays, our_abbr, opp_abbr):
     return points_for, points_against, scoring_plays
 
 
-def parse_yards_to_goal(spot, offense_abbr, opponent_abbr, offense_aliases=None, opponent_aliases=None):
+def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
     """
     Parse spot field to determine yards-to-goal.
     
@@ -492,8 +470,6 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr, offense_aliases=None,
     spot = spot.strip().upper()
     offense_abbr = offense_abbr.upper()
     opponent_abbr = (opponent_abbr or '').upper()
-    offense_aliases = offense_aliases or team_abbr_aliases(offense_abbr)
-    opponent_aliases = opponent_aliases or team_abbr_aliases(opponent_abbr)
     
     # Handle midfield
     if spot == '50':
@@ -507,11 +483,11 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr, offense_aliases=None,
     yards_num = int(match.group(1))
     
     # If spot contains opponent's abbreviation, the number IS yards-to-goal
-    if opponent_aliases and text_has_team(spot, opponent_aliases):
+    if opponent_abbr and opponent_abbr in spot:
         return yards_num
     
     # If spot contains offense's abbreviation, yards-to-goal = 100 - number
-    if offense_aliases and text_has_team(spot, offense_aliases):
+    if offense_abbr in spot:
         return 100 - yards_num
     
     # Try to guess: if number is <= 50, assume it's on opponent's side
@@ -534,6 +510,69 @@ def parse_fourth_distance(down_distance):
         return None
 
 
+def is_penalty_negated_desc(desc: str) -> bool:
+    desc_check = (desc or '').upper()
+    if 'PENALTY' not in desc_check and 'PENALIZED' not in desc_check:
+        return False
+    return 'NO PLAY' in desc_check or 'NULLIFIED' in desc_check
+
+
+def penalty_on_team(desc: str, team_aliases: list[str]) -> bool:
+    desc_check = (desc or '').upper()
+    for alias in team_aliases or []:
+        alias_up = alias.upper()
+        if f'PENALTY {alias_up}' in desc_check or f'PENALIZED {alias_up}' in desc_check:
+            return True
+    return False
+
+
+def parse_penalty_spot_yards_to_goal(
+    desc: str,
+    offense_abbr: str,
+    opponent_abbr: str,
+    offense_aliases: list[str],
+    opponent_aliases: list[str],
+) -> int | None:
+    desc_check = (desc or '').upper()
+    if ' TO ' not in desc_check:
+        return None
+    for alias in opponent_aliases or []:
+        alias_up = alias.upper()
+        m = re.search(rf'TO\\s+(?:THE\\s+)?{re.escape(alias_up)}\\s*(\\d{{1,2}})\\b', desc_check)
+        if m:
+            return int(m.group(1))
+    for alias in offense_aliases or []:
+        alias_up = alias.upper()
+        m = re.search(rf'TO\\s+(?:THE\\s+)?{re.escape(alias_up)}\\s*(\\d{{1,2}})\\b', desc_check)
+        if m:
+            return 100 - int(m.group(1))
+    return None
+
+
+def is_red_zone_eligible_play(desc: str) -> bool:
+    desc_check = (desc or '').upper()
+    if 'TIMEOUT' in desc_check:
+        return False
+    if is_penalty_negated_desc(desc_check):
+        return False
+    is_conversion_attempt = (
+        'KICK ATTEMPT' in desc_check or
+        'EXTRA POINT' in desc_check or
+        'PAT' in desc_check or
+        '2PT' in desc_check or
+        'TWO-POINT' in desc_check or
+        'TWO POINT' in desc_check or
+        '2-POINT' in desc_check or
+        '2 POINT' in desc_check or
+        'ATTEMPT SUCCESSFUL' in desc_check or
+        'ATTEMPT FAILED' in desc_check or
+        'CONVERSION' in desc_check
+    )
+    if is_conversion_attempt:
+        return False
+    return True
+
+
 def compute_fourth_down_stats(plays, our_abbr):
     attempts = 0
     conversions = 0
@@ -544,6 +583,9 @@ def compute_fourth_down_stats(plays, our_abbr):
         if not dd.startswith('4-'):
             continue
         desc = (p.description or '').upper()
+        # Exclude non-competitive plays (kneels/spikes)
+        if 'KNEEL' in desc or 'SPIKE' in desc or 'SPIKED' in desc:
+            continue
         # Only count "go for it" attempts (rush or pass)
         # Exclude punts, field goals, and penalties
         if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
@@ -611,7 +653,7 @@ def parse_all_penalties(desc: str, team_abbrs: list) -> list:
         else:
             # Extract penalty type - up to: open paren, or isolated digit followed by "yards"
             # Include alphanumeric to handle OCR noise like "Pass X8 Interference"
-            type_match = re.match(r'^([A-Za-z0-9\s:]+?)(?=\s*\(|\s+\d+\s+yards|\s*$)', text, re.IGNORECASE)
+            type_match = re.match(r'^([A-Za-z0-9\s:]+?)(?=\s*\(|\s+\d+\s+yards?|\s*$)', text, re.IGNORECASE)
             penalty_type = type_match.group(1).strip() if type_match else ''
             is_declined = False
         
@@ -644,6 +686,11 @@ def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
     our_fumbles_lost = 0
     our_ints_gained = 0
     our_fumbles_gained = 0
+
+    def is_penalty_negated(play):
+        if play.is_no_play:
+            return True
+        return is_penalty_negated_desc(play.description or '')
     
     for p in plays:
         if not p.is_turnover:
@@ -664,6 +711,8 @@ def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
                 our_fumbles_lost += 1
         elif lost_by == opp_abbr:
             # Opponent lost the turnover (we gained it)
+            if is_penalty_negated(p):
+                continue
             if is_interception:
                 our_ints_gained += 1
             elif is_fumble:
@@ -676,6 +725,12 @@ def compute_turnover_totals(plays, our_abbr, opp_abbr):
     """Compute total turnovers gained/lost from play data."""
     lost = 0
     gained = 0
+
+    def is_penalty_negated(play):
+        if play.is_no_play:
+            return True
+        return is_penalty_negated_desc(play.description or '')
+
     for p in plays:
         if not p.is_turnover:
             continue
@@ -683,33 +738,34 @@ def compute_turnover_totals(plays, our_abbr, opp_abbr):
         if lost_by == our_abbr:
             lost += 1
         elif lost_by == opp_abbr:
+            if is_penalty_negated(p):
+                continue
             gained += 1
     return lost, gained
 
 
-def parse_penalty_details(plays, our_abbr, opp_abbr, our_aliases=None, opp_aliases=None):
+def parse_penalty_details(plays, our_abbr, opp_abbr):
     """Extract detailed penalty information from plays."""
-    our_aliases = our_aliases or team_abbr_aliases(our_abbr)
-    opp_aliases = opp_aliases or team_abbr_aliases(opp_abbr)
     penalty_details = []
     
     # Common penalty patterns
     penalty_patterns = [
-        (r'HOLDING', 'Holding'),
-        (r'FALSE START', 'False Start'),
-        (r'PASS INTERFERENCE', 'Pass Interference'),
-        (r'OFFSIDE', 'Offside'),
-        (r'ILLEGAL (FORMATION|PROCEDURE|MOTION|SHIFT|BLOCK)', 'Illegal \\1'),
-        (r'ROUGHING THE (PASSER|KICKER)', 'Roughing the \\1'),
-        (r'FACEMASK', 'Facemask'),
-        (r'UNSPORTSMANLIKE', 'Unsportsmanlike Conduct'),
-        (r'TARGETING', 'Targeting'),
-        (r'DELAY OF GAME', 'Delay of Game'),
-        (r'ENCROACHMENT', 'Encroachment'),
-        (r'NEUTRAL ZONE INFRACTION', 'Neutral Zone Infraction'),
-        (r'ILLEGAL HANDS', 'Illegal Hands'),
-        (r'CLIPPING', 'Clipping'),
-        (r'INTENTIONAL GROUNDING', 'Intentional Grounding'),
+        (r'\bHOLDING\b', 'Holding'),
+        (r'\bFALSE START\b', 'False Start'),
+        (r'\bPASS INTERFERENCE\b', 'Pass Interference'),
+        (r'\bOFFSIDE\b', 'Offside'),
+        (r'\bILLEGAL BLOCK IN (THE )?BACK\b', 'Illegal Block In The Back'),
+        (r'\bILLEGAL (FORMATION|PROCEDURE|MOTION|SHIFT|BLOCK)\b', 'Illegal \\1'),
+        (r'\bROUGHING THE (PASSER|KICKER)\b', 'Roughing the \\1'),
+        (r'\bFACEMASK\b', 'Facemask'),
+        (r'\bUNSPORTSMANLIKE\b', 'Unsportsmanlike Conduct'),
+        (r'\bTARGETING\b', 'Targeting'),
+        (r'\bDELAY OF GAME\b', 'Delay of Game'),
+        (r'\bENCROACHMENT\b', 'Encroachment'),
+        (r'\bNEUTRAL ZONE INFRACTION\b', 'Neutral Zone Infraction'),
+        (r'\bILLEGAL HANDS\b', 'Illegal Hands'),
+        (r'\bCLIPPING\b', 'Clipping'),
+        (r'\bINTENTIONAL GROUNDING\b', 'Intentional Grounding'),
     ]
     
     for p in plays:
@@ -718,32 +774,51 @@ def parse_penalty_details(plays, our_abbr, opp_abbr, our_aliases=None, opp_alias
         
         if 'PENALTY' not in desc_upper and 'PENALIZED' not in desc_upper:
             continue
+
+        penalty_idx = desc_upper.find('PENALTY')
+        penalty_text = desc_upper[penalty_idx:] if penalty_idx != -1 else desc_upper
+        penalty_text_original = desc[penalty_idx:] if penalty_idx != -1 else desc
         
         # Parse penalty type
-        penalty_type = 'Unknown'
+        penalty_type = None
         for pattern, name in penalty_patterns:
-            if re.search(pattern, desc_upper):
-                penalty_type = re.sub(pattern, name, desc_upper, count=1)
-                # Clean up the penalty type
-                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
-                penalty_type = penalty_type.title()
+            match = re.search(pattern, penalty_text)
+            if match:
+                if '\\1' in name:
+                    penalty_type = re.sub(pattern, name, match.group(0), count=1).title()
+                else:
+                    penalty_type = name
                 break
+
+        if not penalty_type:
+            type_match = re.search(
+                r'PENALTY\s+[A-Z]{2,4}\s+(.+?)(?=\s*\(|\s+\d+\s+yards?\b|\s+declined\b|\s*$)',
+                penalty_text_original,
+                flags=re.IGNORECASE,
+            )
+            if type_match:
+                raw_type = type_match.group(1).strip()
+                raw_type = re.sub(r'\b[A-Z]\d+\b', '', raw_type).strip()
+                raw_type = re.sub(r'\s+', ' ', raw_type)
+                penalty_type = raw_type.title()
+            else:
+                penalty_type = 'Unknown'
         
         # Parse yards
-        yards_match = re.search(r'(\d+)\s*YARD', desc_upper)
+        yards_match = re.search(r'\b(\d+)\s+YARDS?\b', penalty_text)
         yards = int(yards_match.group(1)) if yards_match else 0
         
         # Parse accepted/declined
-        accepted = 'DECLINED' not in desc_upper and 'OFFSETTING' not in desc_upper
+        accepted = 'DECLINED' not in penalty_text and 'OFFSETTING' not in penalty_text
         
         # Determine penalized team by extracting from 'PENALTY <TEAM>' pattern
         penalized_team = None
-        penalty_team_match = re.search(r'PENALTY\s+([A-Z]{2,4})\s', desc_upper)
+        penalty_team_match = re.search(r'PENALTY\s+([A-Z]{2,4})\s', penalty_text)
         if penalty_team_match:
             extracted_team = penalty_team_match.group(1)
-            if extracted_team in our_aliases:
+            if extracted_team == our_abbr.upper():
                 penalized_team = our_abbr
-            elif extracted_team in opp_aliases:
+            elif extracted_team == opp_abbr.upper():
                 penalized_team = opp_abbr
             else:
                 penalized_team = extracted_team  # Unknown team, use as-is
@@ -776,9 +851,7 @@ def parse_penalty_details(plays, our_abbr, opp_abbr, our_aliases=None, opp_alias
     return penalty_details
 
 
-def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp_aliases=None):
-    our_aliases = our_aliases or team_abbr_aliases(our_abbr)
-    opp_aliases = opp_aliases or team_abbr_aliases(opp_abbr)
+def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     stats = {
         'kickoff_returns': 0,
         'kickoff_return_yards': 0,
@@ -837,9 +910,9 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp
         is_onside = 'ONSIDE' in desc
 
         if 'BLOCKED' in desc:
-            if is_fg and (p.offense == opp_abbr or (p.offense is None and text_has_team(desc, our_aliases) and not text_has_team(desc, opp_aliases))):
+            if is_fg and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
                 stats['fg_blocks'] += 1
-            if is_punt and (p.offense == opp_abbr or (p.offense is None and text_has_team(desc, our_aliases) and not text_has_team(desc, opp_aliases))):
+            if is_punt and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
                 stats['punt_blocks'] += 1
 
         if p.offense == our_abbr:
@@ -896,12 +969,12 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp
             # Our onside kicks
             if is_kickoff and is_onside:
                 stats['onside_kicks_attempted'] += 1
-                if 'RECOVER' in desc and text_has_team(desc, our_aliases):
+                if 'RECOVER' in desc and our_abbr in desc:
                     stats['onside_kicks_recovered'] += 1
 
         # Opponent's kicks that we return
         if p.offense == opp_abbr or is_kickoff:  # Kickoffs might not have offense set correctly
-            if is_kickoff and 'RETURN' in desc and text_has_team(desc, our_aliases):
+            if is_kickoff and 'RETURN' in desc and our_abbr in desc:
                 stats['kickoff_returns'] += 1
                 ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
                 if ret_yards is not None:
@@ -911,7 +984,7 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp
                         stats['kick_return_30_plus'] += 1
                         add_return_play('kick_return_30_plus_plays', p, ret_yards)
             
-            if is_punt and 'RETURN' in desc and text_has_team(desc, our_aliases):
+            if is_punt and 'RETURN' in desc and our_abbr in desc:
                 stats['punt_returns'] += 1
                 ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
                 if ret_yards is not None:
@@ -922,8 +995,8 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp
                         add_return_play('punt_return_20_plus_plays', p, ret_yards)
 
         if 'TOUCHDOWN' in desc and (is_kickoff or is_punt or is_fg or is_pat or 'RETURN' in desc or 'BLOCKED' in desc):
-            has_our_team = text_has_team(desc, our_aliases)
-            has_opp_team = text_has_team(desc, opp_aliases)
+            has_our_team = our_abbr in desc
+            has_opp_team = opp_abbr in desc
             credited = False
             if has_our_team:
                 credited = True
@@ -998,8 +1071,15 @@ def process_team_games(pdf_dir, team_identifier):
             our_abbr = g.teams[0]  # fallback
         
         opp_abbr = [t for t in g.teams if t != our_abbr][0] if len(g.teams) >= 2 else '?'
-        our_aliases = team_abbr_aliases(our_abbr)
-        opp_aliases = team_abbr_aliases(opp_abbr)
+        
+        # Create team alias lists for flexible matching
+        our_aliases = [our_abbr.upper()] if our_abbr else []
+        opp_aliases = [opp_abbr.upper()] if opp_abbr and opp_abbr != '?' else []
+        # Add Washington-specific aliases
+        if team_identifier == 'washington' or (our_abbr and our_abbr.upper() in ['WASH', 'WAS', 'WASHJ', 'UW', 'UWASH', 'WASHINGTON']):
+            our_aliases = ['WASH', 'WAS', 'WASHJ', 'UW', 'UWASH', 'WASHINGTON']
+        if opp_abbr and opp_abbr.upper() in ['WASH', 'WAS', 'WASHJ', 'UW', 'UWASH', 'WASHINGTON']:
+            opp_aliases = ['WASH', 'WAS', 'WASHJ', 'UW', 'UWASH', 'WASHINGTON']
         
         # Match score names to abbreviations
         our_score = 0
@@ -1041,7 +1121,7 @@ def process_team_games(pdf_dir, team_identifier):
         # Count penalties from plays - handles multiple penalties per play
         our_penalties = 0
         opp_penalties = 0
-        team_abbrs = sorted({*our_aliases, *opp_aliases}, key=len, reverse=True)
+        team_abbrs = [our_abbr.upper(), opp_abbr.upper()]
         # Add common variants
         if 'TEN' in team_abbrs:
             team_abbrs.append('TENN')
@@ -1092,6 +1172,38 @@ def process_team_games(pdf_dir, team_identifier):
                         detail['player'] = player
                     our_explosive_details.append(detail)
         
+        play_tree = build_play_tree(g.plays)
+        play_drive_id = {}
+        for quarter in play_tree:
+            for drive in quarter['drives']:
+                for play in drive['plays']:
+                    play_index = play.get('play_index')
+                    if play_index is not None:
+                        play_drive_id[play_index] = drive['drive_id']
+        # Merge drives that span quarters (same offense, non-1st down start)
+        drive_merge_map = {}
+        logical_drive_id = 0
+        prev_logical_id = None
+        prev_offense = None
+        for quarter in play_tree:
+            for drive in quarter.get('drives', []):
+                drive_id = drive.get('drive_id')
+                offense = drive.get('offense')
+                first_dd = ''
+                for play in drive.get('plays', []):
+                    dd = play.get('down_distance') or ''
+                    if dd:
+                        first_dd = dd
+                        break
+                starts_mid_series = first_dd and not first_dd.startswith('1-')
+                if offense == prev_offense and starts_mid_series and prev_logical_id:
+                    drive_merge_map[drive_id] = prev_logical_id
+                else:
+                    logical_drive_id += 1
+                    drive_merge_map[drive_id] = f'LD{logical_drive_id}'
+                prev_logical_id = drive_merge_map[drive_id]
+                prev_offense = offense
+
         # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
         # Track trips, TDs, FGs, and failed attempts for each zone
         green_zone_trips = 0
@@ -1111,32 +1223,72 @@ def process_team_games(pdf_dir, team_identifier):
         
         red_zone_plays = []
         
-        # Track drives that enter each zone
+        # Track drives that enter each zone using play_tree drives
         drives_by_zone = {
             'green': set(),
             'red': set(),
             'tight_red': set()
         }
+        for quarter in play_tree:
+            for drive in quarter.get('drives', []):
+                if drive.get('offense') != our_abbr:
+                    continue
+                drive_id = drive.get('drive_id')
+                if not drive_id:
+                    continue
+                logical_id = drive_merge_map.get(drive_id, drive_id)
+                for play in drive.get('plays', []):
+                    desc = play.get('description', '')
+                    penalty_no_play = play.get('is_no_play') or is_penalty_negated_desc(desc)
+                    if penalty_no_play:
+                        if not penalty_on_team(desc, opp_aliases):
+                            continue
+                    else:
+                        if not is_red_zone_eligible_play(desc):
+                            continue
+                    ytg = parse_yards_to_goal(
+                        play.get('spot', ''),
+                        our_abbr,
+                        opp_abbr
+                    )
+                    if penalty_no_play:
+                        penalty_ytg = parse_penalty_spot_yards_to_goal(
+                            desc,
+                            our_abbr,
+                            opp_abbr,
+                            our_aliases,
+                            opp_aliases
+                        )
+                        if penalty_ytg is not None:
+                            ytg = penalty_ytg
+                    if ytg is None:
+                        continue
+                    if ytg <= 30:
+                        drives_by_zone['green'].add(logical_id)
+                    if ytg <= 20:
+                        drives_by_zone['red'].add(logical_id)
+                    if ytg <= 10:
+                        drives_by_zone['tight_red'].add(logical_id)
         
         # Track drive results (need to track per drive)
         drive_results = {}  # drive_id -> {'zone': str, 'result': 'TD'/'FG'/'FAILED'}
         drive_failures = {}  # drive_id -> 'TURNOVER'/'DOWNS'/'MISSED_FG'
         
-        current_drive = 0
         for i, p in enumerate(g.plays):
             if p.offense != our_abbr:
-                if i > 0 and g.plays[i-1].offense == our_abbr:
-                    current_drive += 1
                 continue
+
+            current_drive = play_drive_id.get(i)
+            if current_drive is None:
+                continue
+            logical_drive = drive_merge_map.get(current_drive, current_drive)
             
-            ytg = parse_yards_to_goal(p.spot, our_abbr, opp_abbr, offense_aliases=our_aliases, opponent_aliases=opp_aliases)
+            ytg = parse_yards_to_goal(p.spot, our_abbr, opp_abbr)
             if ytg is None:
                 continue
             
-            # Track which zones this drive entered
+            # Add play to red_zone_plays if it's in any tracked zone
             if ytg <= 30:
-                drives_by_zone['green'].add(current_drive)
-                # Add play to red_zone_plays if it's in any tracked zone
                 play_dict = {
                     'quarter': p.quarter,
                     'clock': p.clock or '',
@@ -1150,36 +1302,14 @@ def process_team_games(pdf_dir, team_identifier):
                     'zone': 'green' if ytg <= 30 else ''
                 }
                 
-                # Skip PAT/kick attempts, 2pt conversions, and timeouts - they shouldn't count for red zone trips
-                desc_check = (p.description or '').upper()
-                
-                # Skip timeouts
-                if 'TIMEOUT' in desc_check:
-                    continue
-                
-                # Skip PAT kicks and 2pt conversions (from 3-yard line)
-                is_conversion_attempt = (
-                    'KICK ATTEMPT' in desc_check or 
-                    'EXTRA POINT' in desc_check or 
-                    'PAT' in desc_check or 
-                    '2PT' in desc_check or 
-                    'TWO-POINT' in desc_check or 
-                    'TWO POINT' in desc_check or 
-                    '2-POINT' in desc_check or 
-                    '2 POINT' in desc_check or
-                    'ATTEMPT SUCCESSFUL' in desc_check or  # catches "pass attempt successful" for 2pt
-                    'ATTEMPT FAILED' in desc_check or
-                    'CONVERSION' in desc_check
-                )
-                if is_conversion_attempt:
+                # Skip PAT/2pt conversions and timeouts - they shouldn't count for red zone trips
+                if not is_red_zone_eligible_play(p.description or ''):
                     continue
 
                 if ytg <= 20:
-                    drives_by_zone['red'].add(current_drive)
                     play_dict['zone'] = 'red'
                     
                     if ytg <= 10:
-                        drives_by_zone['tight_red'].add(current_drive)
                         play_dict['zone'] = 'tight_red'
                 
                 red_zone_plays.append(play_dict)
@@ -1191,28 +1321,32 @@ def process_team_games(pdf_dir, team_identifier):
             
             # Include FG attempts even if not marked as scrimmage play
             is_scoring_play = p.is_scoring or (is_fg and ('GOOD' in desc or 'IS GOOD' in desc or 'MADE' in desc))
+            if is_penalty_negated_desc(desc):
+                is_scoring_play = False
             
             if is_scoring_play:
                 
                 # Determine which zone this score came from
                 if ytg <= 10:
                     if is_td:
-                        drive_results[current_drive] = {'zone': 'tight_red', 'result': 'TD'}
+                        drive_results[logical_drive] = {'zone': 'tight_red', 'result': 'TD', 'scoring_ytg': ytg}
                     elif is_fg:
-                        drive_results[current_drive] = {'zone': 'tight_red', 'result': 'FG'}
+                        drive_results[logical_drive] = {'zone': 'tight_red', 'result': 'FG', 'scoring_ytg': ytg}
                 elif ytg <= 20:
                     if is_td:
-                        drive_results[current_drive] = {'zone': 'red', 'result': 'TD'}
+                        drive_results[logical_drive] = {'zone': 'red', 'result': 'TD', 'scoring_ytg': ytg}
                     elif is_fg:
-                        drive_results[current_drive] = {'zone': 'red', 'result': 'FG'}
+                        drive_results[logical_drive] = {'zone': 'red', 'result': 'FG', 'scoring_ytg': ytg}
                 elif ytg <= 30:
                     if is_td:
-                        drive_results[current_drive] = {'zone': 'green', 'result': 'TD'}
+                        drive_results[logical_drive] = {'zone': 'green', 'result': 'TD', 'scoring_ytg': ytg}
                     elif is_fg:
-                        drive_results[current_drive] = {'zone': 'green', 'result': 'FG'}
+                        drive_results[logical_drive] = {'zone': 'green', 'result': 'FG', 'scoring_ytg': ytg}
 
             # Track failed outcomes: turnovers, turnover on downs, missed FGs
-            if current_drive not in drive_results and current_drive not in drive_failures:
+            if logical_drive not in drive_results and logical_drive not in drive_failures:
+                if is_penalty_negated_desc(desc):
+                    continue
                 is_turnover = p.is_turnover
                 is_turnover_on_downs = 'TURNOVER ON DOWNS' in desc
                 is_fg_attempt = is_fg
@@ -1221,11 +1355,11 @@ def process_team_games(pdf_dir, team_identifier):
                     'NO GOOD' in desc or 'MISSED' in desc or 'BLOCKED' in desc or 'WIDE' in desc
                 )
                 if is_turnover:
-                    drive_failures[current_drive] = 'TURNOVER'
+                    drive_failures[logical_drive] = 'TURNOVER'
                 elif is_turnover_on_downs:
-                    drive_failures[current_drive] = 'DOWNS'
+                    drive_failures[logical_drive] = 'DOWNS'
                 elif is_fg_missed:
-                    drive_failures[current_drive] = 'MISSED_FG'
+                    drive_failures[logical_drive] = 'MISSED_FG'
         
         # Count trips and outcomes
         green_zone_trips = len(drives_by_zone['green'])
@@ -1236,13 +1370,17 @@ def process_team_games(pdf_dir, team_identifier):
         for drive_id, result_info in drive_results.items():
             zone = result_info['zone']
             result = result_info['result']
+            scoring_ytg = result_info.get('scoring_ytg')
             
             # If scored from tight red, it counts for all three zones
             if zone == 'tight_red':
                 if result == 'TD':
-                    tight_red_zone_tds += 1
-                    red_zone_tds += 1
-                    green_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 10:
+                        tight_red_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 20:
+                        red_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 30:
+                        green_zone_tds += 1
                 elif result == 'FG':
                     tight_red_zone_fgs += 1
                     red_zone_fgs += 1
@@ -1250,15 +1388,18 @@ def process_team_games(pdf_dir, team_identifier):
             # If scored from red (but not tight red), counts for red and green
             elif zone == 'red':
                 if result == 'TD':
-                    red_zone_tds += 1
-                    green_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 20:
+                        red_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 30:
+                        green_zone_tds += 1
                 elif result == 'FG':
                     red_zone_fgs += 1
                     green_zone_fgs += 1
             # If scored from green (but not red), counts only for green
             elif zone == 'green':
                 if result == 'TD':
-                    green_zone_tds += 1
+                    if scoring_ytg is not None and scoring_ytg <= 30:
+                        green_zone_tds += 1
                 elif result == 'FG':
                     green_zone_fgs += 1
         
@@ -1288,8 +1429,9 @@ def process_team_games(pdf_dir, team_identifier):
 
         for play in red_zone_plays:
             drive_id = play.get('drive_id')
-            if drive_id in drive_result_map:
-                play['drive_result'] = drive_result_map[drive_id]
+            logical_id = drive_merge_map.get(drive_id, drive_id)
+            if logical_id in drive_result_map:
+                play['drive_result'] = drive_result_map[logical_id]
         
         # For backward compatibility, keep old rz_ fields as red zone (20 & in)
         rz_trips = red_zone_trips
@@ -1389,11 +1531,10 @@ def process_team_games(pdf_dir, team_identifier):
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
-        special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr, our_aliases=our_aliases, opp_aliases=opp_aliases)
-        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr, our_aliases=our_aliases, opp_aliases=opp_aliases)
+        special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
+        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         turnovers_lost, turnovers_gained = compute_turnover_totals(g.plays, our_abbr, opp_abbr)
-        play_tree = build_play_tree(g.plays)
 
         game_data = {
             'game_number': len(games) + 1,
