@@ -25,7 +25,7 @@ from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
 
-from cfbstats_scraper import CfbstatsScraper
+from pbp_parser.cfbstats import generate_context_badges
 from pbp_parser.ncaa_schedule import fetch_team_schedule
 
 LAST_FIRST_PATTERN = re.compile(
@@ -1501,8 +1501,6 @@ def main():
 
     season_year = 2024  # CFBStats uses academic year start
     ncaa_season = 2025   # NCAA API uses calendar year of the season
-    scraper = CfbstatsScraper()
-
     # Fetch schedules from NCAA API for bye week detection
     print("\n=== Fetching NCAA Schedules ===")
     ncaa_schedules = {}
@@ -1510,29 +1508,35 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
-    cfbstats_rankings = scraper.get_context_badges(
-        season_year,
-        {
-            "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
-            "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
-            "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
-            "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
-        },
-    )
+    
+    # Generate CFBStats context badges using pbp_parser
+    print("\n=== Generating CFBStats Context Badges ===")
+    teams_config = {
+        "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
+        "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+        "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
+        "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
+    }
+    cfbstats_rankings = {}
+    for team_id, team_info in teams_config.items():
+        print(f"  Fetching badges for {team_info['name']}...")
+        badges = generate_context_badges(
+            team=team_info["name"],
+            conference=team_info["conference"],
+            year=season_year
+        )
+        cfbstats_rankings[team_id] = badges
 
     def build_rankings(team_id):
+        # cfbstats_rankings now has simple badge strings like:
+        # {"red_zone": "Ranks 4 in SEC in red zone TD% (70.00)", ...}
+        badges = cfbstats_rankings.get(team_id, {})
         rankings = {}
-        for key, entries in (cfbstats_rankings.get(team_id, {}) or {}).items():
-            if not entries:
-                continue
-            entry = entries[0]
-            rankings[key] = {
-                "rank": entry.get("rank"),
-                "conference": entry.get("conference"),
-                "value": entry.get("value"),
-                "label": entry.get("label"),
-                "total": entry.get("total"),
-            }
+        for key, badge_text in badges.items():
+            if badge_text:
+                # Badge format: "Ranks N in CONF in LABEL (VALUE)"
+                # Just store the text for now - UI can display it as-is
+                rankings[key] = {"text": badge_text}
         return rankings
     
     data = {
