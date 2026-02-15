@@ -232,9 +232,32 @@ def identify_washington(teams):
     """Find Washington abbreviation from team list."""
     for t in teams:
         up = t.upper().replace('.', '').strip()
-        if up in ['WASHINGTON', 'WASH', 'UW', 'UWASH']:
+        if up in ['WASHINGTON', 'WASH', 'UW', 'UWASH', 'WAS', 'WASHJ']:
+            return t
+        if up.startswith('WASH') and not re.search(r'(ST|STATE)$', up):
             return t
     return teams[0] if len(teams) > 0 else None
+
+
+WASHINGTON_ABBR_ALIASES = {
+    'WASHINGTON', 'WASH', 'WAS', 'WASHJ', 'UW', 'UWASH'
+}
+
+
+def team_abbr_aliases(abbr):
+    up = (abbr or '').upper().replace('.', '').strip()
+    if not up:
+        return set()
+    if up in WASHINGTON_ABBR_ALIASES:
+        return set(WASHINGTON_ABBR_ALIASES)
+    return {up}
+
+
+def text_has_team(text, aliases):
+    if not aliases:
+        return False
+    upper = (text or '').upper()
+    return any(alias and alias in upper for alias in aliases)
 
 
 def parse_clock_seconds(clock):
@@ -452,7 +475,7 @@ def compute_middle8_stats(plays, our_abbr, opp_abbr):
     return points_for, points_against, scoring_plays
 
 
-def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
+def parse_yards_to_goal(spot, offense_abbr, opponent_abbr, offense_aliases=None, opponent_aliases=None):
     """
     Parse spot field to determine yards-to-goal.
     
@@ -469,6 +492,8 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
     spot = spot.strip().upper()
     offense_abbr = offense_abbr.upper()
     opponent_abbr = (opponent_abbr or '').upper()
+    offense_aliases = offense_aliases or team_abbr_aliases(offense_abbr)
+    opponent_aliases = opponent_aliases or team_abbr_aliases(opponent_abbr)
     
     # Handle midfield
     if spot == '50':
@@ -482,11 +507,11 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
     yards_num = int(match.group(1))
     
     # If spot contains opponent's abbreviation, the number IS yards-to-goal
-    if opponent_abbr and opponent_abbr in spot:
+    if opponent_aliases and text_has_team(spot, opponent_aliases):
         return yards_num
     
     # If spot contains offense's abbreviation, yards-to-goal = 100 - number
-    if offense_abbr in spot:
+    if offense_aliases and text_has_team(spot, offense_aliases):
         return 100 - yards_num
     
     # Try to guess: if number is <= 50, assume it's on opponent's side
@@ -662,8 +687,10 @@ def compute_turnover_totals(plays, our_abbr, opp_abbr):
     return lost, gained
 
 
-def parse_penalty_details(plays, our_abbr, opp_abbr):
+def parse_penalty_details(plays, our_abbr, opp_abbr, our_aliases=None, opp_aliases=None):
     """Extract detailed penalty information from plays."""
+    our_aliases = our_aliases or team_abbr_aliases(our_abbr)
+    opp_aliases = opp_aliases or team_abbr_aliases(opp_abbr)
     penalty_details = []
     
     # Common penalty patterns
@@ -714,9 +741,9 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         penalty_team_match = re.search(r'PENALTY\s+([A-Z]{2,4})\s', desc_upper)
         if penalty_team_match:
             extracted_team = penalty_team_match.group(1)
-            if extracted_team == our_abbr.upper():
+            if extracted_team in our_aliases:
                 penalized_team = our_abbr
-            elif extracted_team == opp_abbr.upper():
+            elif extracted_team in opp_aliases:
                 penalized_team = opp_abbr
             else:
                 penalized_team = extracted_team  # Unknown team, use as-is
@@ -749,7 +776,9 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
     return penalty_details
 
 
-def compute_special_teams_stats(plays, our_abbr, opp_abbr):
+def compute_special_teams_stats(plays, our_abbr, opp_abbr, our_aliases=None, opp_aliases=None):
+    our_aliases = our_aliases or team_abbr_aliases(our_abbr)
+    opp_aliases = opp_aliases or team_abbr_aliases(opp_abbr)
     stats = {
         'kickoff_returns': 0,
         'kickoff_return_yards': 0,
@@ -808,9 +837,9 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         is_onside = 'ONSIDE' in desc
 
         if 'BLOCKED' in desc:
-            if is_fg and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
+            if is_fg and (p.offense == opp_abbr or (p.offense is None and text_has_team(desc, our_aliases) and not text_has_team(desc, opp_aliases))):
                 stats['fg_blocks'] += 1
-            if is_punt and (p.offense == opp_abbr or (p.offense is None and our_abbr in desc and opp_abbr not in desc)):
+            if is_punt and (p.offense == opp_abbr or (p.offense is None and text_has_team(desc, our_aliases) and not text_has_team(desc, opp_aliases))):
                 stats['punt_blocks'] += 1
 
         if p.offense == our_abbr:
@@ -867,12 +896,12 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
             # Our onside kicks
             if is_kickoff and is_onside:
                 stats['onside_kicks_attempted'] += 1
-                if 'RECOVER' in desc and our_abbr in desc:
+                if 'RECOVER' in desc and text_has_team(desc, our_aliases):
                     stats['onside_kicks_recovered'] += 1
 
         # Opponent's kicks that we return
         if p.offense == opp_abbr or is_kickoff:  # Kickoffs might not have offense set correctly
-            if is_kickoff and 'RETURN' in desc and our_abbr in desc:
+            if is_kickoff and 'RETURN' in desc and text_has_team(desc, our_aliases):
                 stats['kickoff_returns'] += 1
                 ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
                 if ret_yards is not None:
@@ -882,7 +911,7 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
                         stats['kick_return_30_plus'] += 1
                         add_return_play('kick_return_30_plus_plays', p, ret_yards)
             
-            if is_punt and 'RETURN' in desc and our_abbr in desc:
+            if is_punt and 'RETURN' in desc and text_has_team(desc, our_aliases):
                 stats['punt_returns'] += 1
                 ret_yards = p.yards if p.yards is not None else extract_return_yards(desc)
                 if ret_yards is not None:
@@ -893,8 +922,8 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
                         add_return_play('punt_return_20_plus_plays', p, ret_yards)
 
         if 'TOUCHDOWN' in desc and (is_kickoff or is_punt or is_fg or is_pat or 'RETURN' in desc or 'BLOCKED' in desc):
-            has_our_team = our_abbr in desc
-            has_opp_team = opp_abbr in desc
+            has_our_team = text_has_team(desc, our_aliases)
+            has_opp_team = text_has_team(desc, opp_aliases)
             credited = False
             if has_our_team:
                 credited = True
@@ -969,6 +998,8 @@ def process_team_games(pdf_dir, team_identifier):
             our_abbr = g.teams[0]  # fallback
         
         opp_abbr = [t for t in g.teams if t != our_abbr][0] if len(g.teams) >= 2 else '?'
+        our_aliases = team_abbr_aliases(our_abbr)
+        opp_aliases = team_abbr_aliases(opp_abbr)
         
         # Match score names to abbreviations
         our_score = 0
@@ -1010,7 +1041,7 @@ def process_team_games(pdf_dir, team_identifier):
         # Count penalties from plays - handles multiple penalties per play
         our_penalties = 0
         opp_penalties = 0
-        team_abbrs = [our_abbr.upper(), opp_abbr.upper()]
+        team_abbrs = sorted({*our_aliases, *opp_aliases}, key=len, reverse=True)
         # Add common variants
         if 'TEN' in team_abbrs:
             team_abbrs.append('TENN')
@@ -1098,7 +1129,7 @@ def process_team_games(pdf_dir, team_identifier):
                     current_drive += 1
                 continue
             
-            ytg = parse_yards_to_goal(p.spot, our_abbr, opp_abbr)
+            ytg = parse_yards_to_goal(p.spot, our_abbr, opp_abbr, offense_aliases=our_aliases, opponent_aliases=opp_aliases)
             if ytg is None:
                 continue
             
@@ -1358,8 +1389,8 @@ def process_team_games(pdf_dir, team_identifier):
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
-        special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
-        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
+        special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr, our_aliases=our_aliases, opp_aliases=opp_aliases)
+        penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr, our_aliases=our_aliases, opp_aliases=opp_aliases)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         turnovers_lost, turnovers_gained = compute_turnover_totals(g.plays, our_abbr, opp_abbr)
         play_tree = build_play_tree(g.plays)
