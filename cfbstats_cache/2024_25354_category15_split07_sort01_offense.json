@@ -1,0 +1,124 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Total Time",
+    "Time/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Iowa State",
+      "G": "10",
+      "Total Time": "333:00",
+      "Time/G": "33:18.00"
+    },
+    {
+      "": "2",
+      "Name": "West Virginia",
+      "G": "9",
+      "Total Time": "291:40",
+      "Time/G": "32:24.44"
+    },
+    {
+      "": "3",
+      "Name": "Utah",
+      "G": "10",
+      "Total Time": "316:41",
+      "Time/G": "31:40.10"
+    },
+    {
+      "": "4",
+      "Name": "Cincinnati",
+      "G": "9",
+      "Total Time": "284:42",
+      "Time/G": "31:38.00"
+    },
+    {
+      "": "5",
+      "Name": "Kansas",
+      "G": "9",
+      "Total Time": "283:31",
+      "Time/G": "31:30.11"
+    },
+    {
+      "": "6",
+      "Name": "Arizona State",
+      "G": "10",
+      "Total Time": "311:15",
+      "Time/G": "31:07.50"
+    },
+    {
+      "": "7",
+      "Name": "BYU",
+      "G": "10",
+      "Total Time": "303:54",
+      "Time/G": "30:23.40"
+    },
+    {
+      "": "8",
+      "Name": "Texas Tech",
+      "G": "9",
+      "Total Time": "273:23",
+      "Time/G": "30:22.56"
+    },
+    {
+      "": "9",
+      "Name": "Arizona",
+      "G": "10",
+      "Total Time": "299:22",
+      "Time/G": "29:56.20"
+    },
+    {
+      "": "10",
+      "Name": "Kansas State",
+      "G": "10",
+      "Total Time": "294:46",
+      "Time/G": "29:28.60"
+    },
+    {
+      "": "11",
+      "Name": "Houston",
+      "G": "9",
+      "Total Time": "263:24",
+      "Time/G": "29:16.00"
+    },
+    {
+      "": "12",
+      "Name": "Colorado",
+      "G": "10",
+      "Total Time": "284:02",
+      "Time/G": "28:24.20"
+    },
+    {
+      "": "13",
+      "Name": "Baylor",
+      "G": "10",
+      "Total Time": "279:09",
+      "Time/G": "27:54.90"
+    },
+    {
+      "": "14",
+      "Name": "TCU",
+      "G": "9",
+      "Total Time": "248:23",
+      "Time/G": "27:35.89"
+    },
+    {
+      "": "15",
+      "Name": "UCF",
+      "G": "9",
+      "Total Time": "248:14",
+      "Time/G": "27:34.89"
+    },
+    {
+      "": "16",
+      "Name": "Oklahoma State",
+      "G": "9",
+      "Total Time": "240:43",
+      "Time/G": "26:44.78"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:42.063956Z"
+}

@@ -1,0 +1,157 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Attempts",
+    "Conversions",
+    "Conversion %"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Oregon",
+      "G": "11",
+      "Attempts": "145",
+      "Conversions": "72",
+      "Conversion %": "49.66"
+    },
+    {
+      "": "2",
+      "Name": "Indiana",
+      "G": "9",
+      "Attempts": "103",
+      "Conversions": "49",
+      "Conversion %": "47.57"
+    },
+    {
+      "": "3",
+      "Name": "Penn State",
+      "G": "10",
+      "Attempts": "127",
+      "Conversions": "60",
+      "Conversion %": "47.24"
+    },
+    {
+      "": "4",
+      "Name": "Minnesota",
+      "G": "9",
+      "Attempts": "123",
+      "Conversions": "57",
+      "Conversion %": "46.34"
+    },
+    {
+      "": "5",
+      "Name": "Illinois",
+      "G": "9",
+      "Attempts": "108",
+      "Conversions": "50",
+      "Conversion %": "46.30"
+    },
+    {
+      "": "6",
+      "Name": "USC",
+      "G": "9",
+      "Attempts": "121",
+      "Conversions": "54",
+      "Conversion %": "44.63"
+    },
+    {
+      "": "7",
+      "Name": "UCLA",
+      "G": "9",
+      "Attempts": "116",
+      "Conversions": "50",
+      "Conversion %": "43.10"
+    },
+    {
+      "": "8",
+      "Name": "Michigan",
+      "G": "9",
+      "Attempts": "125",
+      "Conversions": "53",
+      "Conversion %": "42.40"
+    },
+    {
+      "": "9",
+      "Name": "Nebraska",
+      "G": "9",
+      "Attempts": "130",
+      "Conversions": "54",
+      "Conversion %": "41.54"
+    },
+    {
+      "": "10",
+      "Name": "Rutgers",
+      "G": "9",
+      "Attempts": "131",
+      "Conversions": "53",
+      "Conversion %": "40.46"
+    },
+    {
+      "": "11",
+      "Name": "Ohio State",
+      "G": "10",
+      "Attempts": "122",
+      "Conversions": "49",
+      "Conversion %": "40.16"
+    },
+    {
+      "": "12",
+      "Name": "Iowa",
+      "G": "9",
+      "Attempts": "109",
+      "Conversions": "43",
+      "Conversion %": "39.45"
+    },
+    {
+      "": "13",
+      "Name": "Maryland",
+      "G": "9",
+      "Attempts": "134",
+      "Conversions": "51",
+      "Conversion %": "38.06"
+    },
+    {
+      "": "14",
+      "Name": "Michigan State",
+      "G": "9",
+      "Attempts": "115",
+      "Conversions": "41",
+      "Conversion %": "35.65"
+    },
+    {
+      "": "15",
+      "Name": "Washington",
+      "G": "9",
+      "Attempts": "109",
+      "Conversions": "38",
+      "Conversion %": "34.86"
+    },
+    {
+      "": "16",
+      "Name": "Northwestern",
+      "G": "9",
+      "Attempts": "129",
+      "Conversions": "43",
+      "Conversion %": "33.33"
+    },
+    {
+      "": "17",
+      "Name": "Wisconsin",
+      "G": "9",
+      "Attempts": "114",
+      "Conversions": "37",
+      "Conversion %": "32.46"
+    },
+    {
+      "": "18",
+      "Name": "Purdue",
+      "G": "9",
+      "Attempts": "113",
+      "Conversions": "36",
+      "Conversion %": "31.86"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:46.984534Z"
+}

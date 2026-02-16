@@ -343,6 +343,7 @@ const FILTERS = [
     { id: 'power4', label: 'Power 4' },
     { id: 'last3', label: 'Last 3' },
 ];
+const FILTER_TO_SPLIT = { all: 'all', conf: 'conf', nonconf: 'nonconf', power4: 'all', last3: 'all' };
 
 function getTabTitle(id) {
     return TAB_TITLES[id] || TABS.find(t => t.id === id)?.label || 'Tab';
@@ -968,7 +969,13 @@ const RANKING_META = {
 };
 
 function getRanking(team, key) {
-    return (team && team.cfbstats && team.cfbstats.rankings && team.cfbstats.rankings[key]) || null;
+    if (!team || !team.cfbstats || !team.cfbstats.rankings) return null;
+    const rankings = team.cfbstats.rankings;
+    if ('all' in rankings) {
+        const split = FILTER_TO_SPLIT[currentFilter] || 'all';
+        return (rankings[split] && rankings[split][key]) || null;
+    }
+    return rankings[key] || null;
 }
 
 function buildStatBadge(team, key) {
@@ -1276,9 +1283,14 @@ function renderOverview() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += renderQualityScoreCard(ga, aa, gQuality, aQuality);
+    const splitLabels = { all: 'All Games', conf: 'Conference Games', nonconf: 'Non-Conference Games' };
+    const activeSplit = FILTER_TO_SPLIT[currentFilter] || 'all';
+    const splitNote = currentFilter === 'power4' || currentFilter === 'last3'
+        ? '<div class="text-xs text-amber-400/70 mb-2">Showing all-games rankings (no split available for this filter)</div>' : '';
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Context</div>
-        <div class="text-xs text-zinc-400 mb-3">Scoring offense/defense and third down rankings</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — scoring offense/defense and third down rankings</div>
+        ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
@@ -1297,7 +1309,8 @@ function renderOverview() {
     };
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
-        <div class="text-xs text-zinc-400 mb-3">Season-long team ranks (CFBStats)</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — team ranks within conference (CFBStats)</div>
+        ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div class="grid grid-cols-2 gap-3">
                 ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a')}

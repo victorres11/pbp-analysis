@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "BYU",
+      "G": "3",
+      "Rush Yards": "317",
+      "Pass Yards": "392",
+      "Plays": "187",
+      "Total Yards": "709",
+      "Yards/Play": "3.79",
+      "Yards/G": "236.3"
+    },
+    {
+      "": "2",
+      "Name": "Houston",
+      "G": "3",
+      "Rush Yards": "345",
+      "Pass Yards": "371",
+      "Plays": "174",
+      "Total Yards": "716",
+      "Yards/Play": "4.11",
+      "Yards/G": "238.7"
+    },
+    {
+      "": "3",
+      "Name": "Kansas",
+      "G": "3",
+      "Rush Yards": "335",
+      "Pass Yards": "405",
+      "Plays": "182",
+      "Total Yards": "740",
+      "Yards/Play": "4.07",
+      "Yards/G": "246.7"
+    },
+    {
+      "": "4",
+      "Name": "TCU",
+      "G": "4",
+      "Rush Yards": "532",
+      "Pass Yards": "465",
+      "Plays": "249",
+      "Total Yards": "997",
+      "Yards/Play": "4.00",
+      "Yards/G": "249.3"
+    },
+    {
+      "": "5",
+      "Name": "Utah",
+      "G": "2",
+      "Rush Yards": "219",
+      "Pass Yards": "316",
+      "Plays": "120",
+      "Total Yards": "535",
+      "Yards/Play": "4.46",
+      "Yards/G": "267.5"
+    },
+    {
+      "": "6",
+      "Name": "UCF",
+      "G": "3",
+      "Rush Yards": "264",
+      "Pass Yards": "543",
+      "Plays": "171",
+      "Total Yards": "807",
+      "Yards/Play": "4.72",
+      "Yards/G": "269.0"
+    },
+    {
+      "": "7",
+      "Name": "Baylor",
+      "G": "3",
+      "Rush Yards": "408",
+      "Pass Yards": "418",
+      "Plays": "181",
+      "Total Yards": "826",
+      "Yards/Play": "4.56",
+      "Yards/G": "275.3"
+    },
+    {
+      "": "8",
+      "Name": "Arizona State",
+      "G": "4",
+      "Rush Yards": "249",
+      "Pass Yards": "936",
+      "Plays": "242",
+      "Total Yards": "1185",
+      "Yards/Play": "4.90",
+      "Yards/G": "296.3"
+    },
+    {
+      "": "9",
+      "Name": "Arizona",
+      "G": "2",
+      "Rush Yards": "283",
+      "Pass Yards": "369",
+      "Plays": "136",
+      "Total Yards": "652",
+      "Yards/Play": "4.79",
+      "Yards/G": "326.0"
+    },
+    {
+      "": "9",
+      "Name": "Iowa State",
+      "G": "4",
+      "Rush Yards": "750",
+      "Pass Yards": "554",
+      "Plays": "269",
+      "Total Yards": "1304",
+      "Yards/Play": "4.85",
+      "Yards/G": "326.0"
+    },
+    {
+      "": "11",
+      "Name": "Kansas State",
+      "G": "3",
+      "Rush Yards": "349",
+      "Pass Yards": "677",
+      "Plays": "189",
+      "Total Yards": "1026",
+      "Yards/Play": "5.43",
+      "Yards/G": "342.0"
+    },
+    {
+      "": "12",
+      "Name": "Colorado",
+      "G": "3",
+      "Rush Yards": "437",
+      "Pass Yards": "686",
+      "Plays": "204",
+      "Total Yards": "1123",
+      "Yards/Play": "5.50",
+      "Yards/G": "374.3"
+    },
+    {
+      "": "13",
+      "Name": "West Virginia",
+      "G": "4",
+      "Rush Yards": "548",
+      "Pass Yards": "1136",
+      "Plays": "249",
+      "Total Yards": "1684",
+      "Yards/Play": "6.76",
+      "Yards/G": "421.0"
+    },
+    {
+      "": "14",
+      "Name": "Cincinnati",
+      "G": "3",
+      "Rush Yards": "414",
+      "Pass Yards": "902",
+      "Plays": "202",
+      "Total Yards": "1316",
+      "Yards/Play": "6.51",
+      "Yards/G": "438.7"
+    },
+    {
+      "": "15",
+      "Name": "Oklahoma State",
+      "G": "3",
+      "Rush Yards": "472",
+      "Pass Yards": "916",
+      "Plays": "227",
+      "Total Yards": "1388",
+      "Yards/Play": "6.11",
+      "Yards/G": "462.7"
+    },
+    {
+      "": "16",
+      "Name": "Texas Tech",
+      "G": "4",
+      "Rush Yards": "763",
+      "Pass Yards": "1180",
+      "Plays": "281",
+      "Total Yards": "1943",
+      "Yards/Play": "6.91",
+      "Yards/G": "485.8"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:35:02.100530Z"
+}

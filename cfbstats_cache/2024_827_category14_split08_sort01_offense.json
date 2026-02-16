@@ -1,0 +1,176 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Pen.",
+    "Yards",
+    "Pen./G",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Wisconsin",
+      "G": "3",
+      "Pen.": "11",
+      "Yards": "53",
+      "Pen./G": "3.7",
+      "Yards/G": "17.7"
+    },
+    {
+      "": "2",
+      "Name": "Rutgers",
+      "G": "4",
+      "Pen.": "13",
+      "Yards": "105",
+      "Pen./G": "3.3",
+      "Yards/G": "26.3"
+    },
+    {
+      "": "3",
+      "Name": "Iowa",
+      "G": "4",
+      "Pen.": "15",
+      "Yards": "131",
+      "Pen./G": "3.8",
+      "Yards/G": "32.8"
+    },
+    {
+      "": "4",
+      "Name": "Minnesota",
+      "G": "4",
+      "Pen.": "20",
+      "Yards": "132",
+      "Pen./G": "5.0",
+      "Yards/G": "33.0"
+    },
+    {
+      "": "5",
+      "Name": "Illinois",
+      "G": "4",
+      "Pen.": "20",
+      "Yards": "161",
+      "Pen./G": "5.0",
+      "Yards/G": "40.3"
+    },
+    {
+      "": "6",
+      "Name": "Northwestern",
+      "G": "3",
+      "Pen.": "17",
+      "Yards": "131",
+      "Pen./G": "5.7",
+      "Yards/G": "43.7"
+    },
+    {
+      "": "7",
+      "Name": "Indiana",
+      "G": "4",
+      "Pen.": "19",
+      "Yards": "184",
+      "Pen./G": "4.8",
+      "Yards/G": "46.0"
+    },
+    {
+      "": "8",
+      "Name": "Michigan",
+      "G": "4",
+      "Pen.": "19",
+      "Yards": "204",
+      "Pen./G": "4.8",
+      "Yards/G": "51.0"
+    },
+    {
+      "": "9",
+      "Name": "Ohio State",
+      "G": "6",
+      "Pen.": "36",
+      "Yards": "315",
+      "Pen./G": "6.0",
+      "Yards/G": "52.5"
+    },
+    {
+      "": "10",
+      "Name": "USC",
+      "G": "4",
+      "Pen.": "23",
+      "Yards": "216",
+      "Pen./G": "5.8",
+      "Yards/G": "54.0"
+    },
+    {
+      "": "11",
+      "Name": "Oregon",
+      "G": "3",
+      "Pen.": "20",
+      "Yards": "170",
+      "Pen./G": "6.7",
+      "Yards/G": "56.7"
+    },
+    {
+      "": "12",
+      "Name": "Nebraska",
+      "G": "4",
+      "Pen.": "25",
+      "Yards": "239",
+      "Pen./G": "6.3",
+      "Yards/G": "59.8"
+    },
+    {
+      "": "13",
+      "Name": "Maryland",
+      "G": "3",
+      "Pen.": "21",
+      "Yards": "200",
+      "Pen./G": "7.0",
+      "Yards/G": "66.7"
+    },
+    {
+      "": "14",
+      "Name": "Purdue",
+      "G": "3",
+      "Pen.": "20",
+      "Yards": "203",
+      "Pen./G": "6.7",
+      "Yards/G": "67.7"
+    },
+    {
+      "": "15",
+      "Name": "Penn State",
+      "G": "6",
+      "Pen.": "43",
+      "Yards": "408",
+      "Pen./G": "7.2",
+      "Yards/G": "68.0"
+    },
+    {
+      "": "16",
+      "Name": "UCLA",
+      "G": "3",
+      "Pen.": "23",
+      "Yards": "210",
+      "Pen./G": "7.7",
+      "Yards/G": "70.0"
+    },
+    {
+      "": "17",
+      "Name": "Washington",
+      "G": "4",
+      "Pen.": "34",
+      "Yards": "328",
+      "Pen./G": "8.5",
+      "Yards/G": "82.0"
+    },
+    {
+      "": "18",
+      "Name": "Michigan State",
+      "G": "3",
+      "Pen.": "26",
+      "Yards": "267",
+      "Pen./G": "8.7",
+      "Yards/G": "89.0"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:35:06.525123Z"
+}

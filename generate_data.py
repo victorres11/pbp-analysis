@@ -1510,30 +1510,43 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
-    cfbstats_rankings = scraper.get_context_badges(
-        season_year,
-        {
-            "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
-            "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
-            "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
-            "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
-        },
-    )
+    CFBSTATS_SPLITS = {
+        "all": "split01",
+        "conf": "split07",
+        "nonconf": "split08",
+    }
+
+    teams_dict = {
+        "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
+        "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+        "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
+        "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
+    }
+
+    cfbstats_by_split = {}
+    for split_key, split_code in CFBSTATS_SPLITS.items():
+        print(f"  Fetching cfbstats for {split_key} ({split_code})...")
+        cfbstats_by_split[split_key] = scraper.get_context_badges(
+            season_year, teams_dict, split=split_code
+        )
 
     def build_rankings(team_id):
-        rankings = {}
-        for key, entries in (cfbstats_rankings.get(team_id, {}) or {}).items():
-            if not entries:
-                continue
-            entry = entries[0]
-            rankings[key] = {
-                "rank": entry.get("rank"),
-                "conference": entry.get("conference"),
-                "value": entry.get("value"),
-                "label": entry.get("label"),
-                "total": entry.get("total"),
-            }
-        return rankings
+        result = {}
+        for split_key, rankings_data in cfbstats_by_split.items():
+            rankings = {}
+            for key, entries in (rankings_data.get(team_id, {}) or {}).items():
+                if not entries:
+                    continue
+                entry = entries[0]
+                rankings[key] = {
+                    "rank": entry.get("rank"),
+                    "conference": entry.get("conference"),
+                    "value": entry.get("value"),
+                    "label": entry.get("label"),
+                    "total": entry.get("total"),
+                }
+            result[split_key] = rankings
+        return result
     
     data = {
         "teams": {
@@ -1592,7 +1605,7 @@ def main():
         },
         "metadata": {
             "generated": date.today().isoformat(),
-            "version": "2.1",
+            "version": "2.2",
             "cfbstats_season": season_year,
         }
     }

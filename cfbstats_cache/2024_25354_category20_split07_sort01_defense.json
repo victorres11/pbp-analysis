@@ -1,0 +1,141 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Sacks",
+    "Sack Yards",
+    "Sacks/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Kansas",
+      "G": "9",
+      "Sacks": "7.0",
+      "Sack Yards": "62",
+      "Sacks/G": "0.78"
+    },
+    {
+      "": "2",
+      "Name": "Kansas State",
+      "G": "10",
+      "Sacks": "11.0",
+      "Sack Yards": "101",
+      "Sacks/G": "1.10"
+    },
+    {
+      "": "3",
+      "Name": "Arizona State",
+      "G": "10",
+      "Sacks": "12.0",
+      "Sack Yards": "85",
+      "Sacks/G": "1.20"
+    },
+    {
+      "": "3",
+      "Name": "TCU",
+      "G": "9",
+      "Sacks": "12.0",
+      "Sack Yards": "86",
+      "Sacks/G": "1.33"
+    },
+    {
+      "": "5",
+      "Name": "Iowa State",
+      "G": "10",
+      "Sacks": "13.0",
+      "Sack Yards": "62",
+      "Sacks/G": "1.30"
+    },
+    {
+      "": "5",
+      "Name": "Oklahoma State",
+      "G": "9",
+      "Sacks": "13.0",
+      "Sack Yards": "120",
+      "Sacks/G": "1.44"
+    },
+    {
+      "": "7",
+      "Name": "Cincinnati",
+      "G": "9",
+      "Sacks": "14.0",
+      "Sack Yards": "83",
+      "Sacks/G": "1.56"
+    },
+    {
+      "": "8",
+      "Name": "BYU",
+      "G": "10",
+      "Sacks": "15.0",
+      "Sack Yards": "73",
+      "Sacks/G": "1.50"
+    },
+    {
+      "": "9",
+      "Name": "Baylor",
+      "G": "10",
+      "Sacks": "16.0",
+      "Sack Yards": "134",
+      "Sacks/G": "1.60"
+    },
+    {
+      "": "10",
+      "Name": "UCF",
+      "G": "9",
+      "Sacks": "20.0",
+      "Sack Yards": "142",
+      "Sacks/G": "2.22"
+    },
+    {
+      "": "11",
+      "Name": "West Virginia",
+      "G": "9",
+      "Sacks": "21.0",
+      "Sack Yards": "108",
+      "Sacks/G": "2.33"
+    },
+    {
+      "": "11",
+      "Name": "Texas Tech",
+      "G": "9",
+      "Sacks": "21.0",
+      "Sack Yards": "158",
+      "Sacks/G": "2.33"
+    },
+    {
+      "": "13",
+      "Name": "Houston",
+      "G": "9",
+      "Sacks": "22.0",
+      "Sack Yards": "162",
+      "Sacks/G": "2.44"
+    },
+    {
+      "": "14",
+      "Name": "Utah",
+      "G": "10",
+      "Sacks": "23.0",
+      "Sack Yards": "167",
+      "Sacks/G": "2.30"
+    },
+    {
+      "": "15",
+      "Name": "Arizona",
+      "G": "10",
+      "Sacks": "26.0",
+      "Sack Yards": "204",
+      "Sacks/G": "2.60"
+    },
+    {
+      "": "16",
+      "Name": "Colorado",
+      "G": "10",
+      "Sacks": "35.0",
+      "Sack Yards": "314",
+      "Sacks/G": "3.50"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:42.756667Z"
+}

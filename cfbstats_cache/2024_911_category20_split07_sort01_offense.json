@@ -1,0 +1,141 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Sacks",
+    "Sack Yards",
+    "Sacks/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Ole Miss",
+      "G": "8",
+      "Sacks": "39.0",
+      "Sack Yards": "251",
+      "Sacks/G": "4.88"
+    },
+    {
+      "": "2",
+      "Name": "Texas",
+      "G": "9",
+      "Sacks": "31.0",
+      "Sack Yards": "226",
+      "Sacks/G": "3.44"
+    },
+    {
+      "": "3",
+      "Name": "South Carolina",
+      "G": "8",
+      "Sacks": "28.0",
+      "Sack Yards": "234",
+      "Sacks/G": "3.50"
+    },
+    {
+      "": "4",
+      "Name": "Georgia",
+      "G": "9",
+      "Sacks": "27.0",
+      "Sack Yards": "182",
+      "Sacks/G": "3.00"
+    },
+    {
+      "": "5",
+      "Name": "LSU",
+      "G": "8",
+      "Sacks": "23.0",
+      "Sack Yards": "143",
+      "Sacks/G": "2.88"
+    },
+    {
+      "": "6",
+      "Name": "Tennessee",
+      "G": "8",
+      "Sacks": "21.0",
+      "Sack Yards": "144",
+      "Sacks/G": "2.63"
+    },
+    {
+      "": "6",
+      "Name": "Kentucky",
+      "G": "8",
+      "Sacks": "21.0",
+      "Sack Yards": "138",
+      "Sacks/G": "2.63"
+    },
+    {
+      "": "6",
+      "Name": "Oklahoma",
+      "G": "8",
+      "Sacks": "21.0",
+      "Sack Yards": "136",
+      "Sacks/G": "2.63"
+    },
+    {
+      "": "9",
+      "Name": "Florida",
+      "G": "8",
+      "Sacks": "20.0",
+      "Sack Yards": "125",
+      "Sacks/G": "2.50"
+    },
+    {
+      "": "9",
+      "Name": "Auburn",
+      "G": "8",
+      "Sacks": "20.0",
+      "Sack Yards": "117",
+      "Sacks/G": "2.50"
+    },
+    {
+      "": "11",
+      "Name": "Texas A&M",
+      "G": "8",
+      "Sacks": "19.0",
+      "Sack Yards": "116",
+      "Sacks/G": "2.38"
+    },
+    {
+      "": "12",
+      "Name": "Arkansas",
+      "G": "8",
+      "Sacks": "17.0",
+      "Sack Yards": "94",
+      "Sacks/G": "2.13"
+    },
+    {
+      "": "13",
+      "Name": "Missouri",
+      "G": "8",
+      "Sacks": "15.0",
+      "Sack Yards": "107",
+      "Sacks/G": "1.88"
+    },
+    {
+      "": "13",
+      "Name": "Alabama",
+      "G": "8",
+      "Sacks": "15.0",
+      "Sack Yards": "101",
+      "Sacks/G": "1.88"
+    },
+    {
+      "": "13",
+      "Name": "Vanderbilt",
+      "G": "8",
+      "Sacks": "15.0",
+      "Sack Yards": "78",
+      "Sacks/G": "1.88"
+    },
+    {
+      "": "16",
+      "Name": "Mississippi State",
+      "G": "8",
+      "Sacks": "5.0",
+      "Sack Yards": "20",
+      "Sacks/G": "0.63"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:36.251186Z"
+}
