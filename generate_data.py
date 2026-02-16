@@ -24,6 +24,7 @@ from pbp_parser.parse import parse_pdf
 from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
+from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down
 
 from cfbstats_scraper import CfbstatsScraper
 from pbp_parser.ncaa_schedule import fetch_team_schedule
@@ -479,52 +480,10 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
         return 100 - yards_num
 
 
-def parse_fourth_distance(down_distance):
-    m = re.match(r'^4-(\d+|Goal)', down_distance or '')
-    if not m:
-        return None
-    if m.group(1).lower() == 'goal':
-        return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
-
-
 def compute_fourth_down_stats(plays, our_abbr):
-    attempts = 0
-    conversions = 0
-    for p in plays:
-        if p.is_no_play or p.offense != our_abbr:
-            continue
-        dd = p.down_distance or ''
-        if not dd.startswith('4-'):
-            continue
-        desc = (p.description or '').upper()
-        # Only count "go for it" attempts (rush or pass)
-        # Exclude punts, field goals, and penalties
-        if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
-            continue
-        if 'PENALTY' in desc or 'PENALIZED' in desc:
-            continue
-        # Must be a rush or pass attempt
-        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
-                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc)
-        if not is_rush_or_pass:
-            continue
-        attempts += 1
-        converted = False
-        if p.is_scoring:
-            converted = True
-        elif '1ST DOWN' in desc or 'FIRST DOWN' in desc:
-            converted = True
-        else:
-            dist = parse_fourth_distance(dd)
-            if dist is not None and p.yards is not None and p.yards >= dist:
-                converted = True
-        if converted:
-            conversions += 1
-    return attempts, conversions
+    """Thin wrapper around upstream pbp_parser.fourth_down (issue #60)."""
+    stats = _upstream_fourth_down(plays, our_abbr)
+    return stats.attempts, stats.conversions
 
 
 def parse_all_penalties(desc: str, team_abbrs: list) -> list:
