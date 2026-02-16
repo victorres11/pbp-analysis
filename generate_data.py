@@ -24,6 +24,7 @@ from pbp_parser.parse import parse_pdf
 from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
+from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down
 
 from cfbstats_scraper import CfbstatsScraper
 from pbp_parser.ncaa_schedule import fetch_team_schedule
@@ -514,52 +515,10 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
         return 100 - yards_num
 
 
-def parse_fourth_distance(down_distance):
-    m = re.match(r'^4-(\d+|Goal)', down_distance or '')
-    if not m:
-        return None
-    if m.group(1).lower() == 'goal':
-        return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
-
-
 def compute_fourth_down_stats(plays, our_abbr):
-    attempts = 0
-    conversions = 0
-    for p in plays:
-        if p.is_no_play or p.offense != our_abbr:
-            continue
-        dd = p.down_distance or ''
-        if not dd.startswith('4-'):
-            continue
-        desc = (p.description or '').upper()
-        # Only count "go for it" attempts (rush or pass)
-        # Exclude punts, field goals, and penalties
-        if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
-            continue
-        if 'PENALTY' in desc or 'PENALIZED' in desc:
-            continue
-        # Must be a rush or pass attempt
-        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
-                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc)
-        if not is_rush_or_pass:
-            continue
-        attempts += 1
-        converted = False
-        if p.is_scoring:
-            converted = True
-        elif '1ST DOWN' in desc or 'FIRST DOWN' in desc:
-            converted = True
-        else:
-            dist = parse_fourth_distance(dd)
-            if dist is not None and p.yards is not None and p.yards >= dist:
-                converted = True
-        if converted:
-            conversions += 1
-    return attempts, conversions
+    """Thin wrapper around upstream pbp_parser.fourth_down (issue #60)."""
+    stats = _upstream_fourth_down(plays, our_abbr)
+    return stats.attempts, stats.conversions
 
 
 def parse_all_penalties(desc: str, team_abbrs: list) -> list:
@@ -946,6 +905,31 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         stats['field_goal_pct'] = 0.0
 
     return stats
+
+
+def parse_game_date_iso(date_str):
+    """Parse a game date string (e.g. 'Sep 7, 2025') to an ISO date string."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%b %d, %Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def add_week_from_schedule(games, schedule):
+    """Match games to NCAA schedule entries by date and copy the week number."""
+    if not schedule:
+        return
+    sched_by_date = {}
+    for sg in schedule.games:
+        if sg.game_date and not sg.is_bye:
+            iso = sg.game_date.isoformat() if hasattr(sg.game_date, 'isoformat') else str(sg.game_date)
+            sched_by_date[iso] = sg.week
+    for g in games:
+        iso = parse_game_date_iso(g.get('date', ''))
+        if iso and iso in sched_by_date:
+            g['week'] = sched_by_date[iso]
 
 
 def process_team_games(pdf_dir, team_identifier):
@@ -1455,7 +1439,7 @@ def process_team_games(pdf_dir, team_identifier):
         if not date_str:
             return None
         try:
-            return datetime.strptime(date_str, "%B %d, %Y").date()
+            return datetime.strptime(date_str, "%b %d, %Y").date()
         except ValueError:
             return None
 
@@ -1545,30 +1529,50 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
-    cfbstats_rankings = scraper.get_context_badges(
-        season_year,
-        {
-            "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
-            "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
-            "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
-            "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
-        },
-    )
+
+    # Add week numbers from NCAA schedule data to each game
+    add_week_from_schedule(georgia_games, ncaa_schedules.get("georgia"))
+    add_week_from_schedule(asu_games, ncaa_schedules.get("arizona-st"))
+    add_week_from_schedule(oregon_games, ncaa_schedules.get("oregon"))
+    add_week_from_schedule(washington_games, ncaa_schedules.get("washington"))
+
+    CFBSTATS_SPLITS = {
+        "all": "split01",
+        "conf": "split07",
+        "nonconf": "split08",
+    }
+
+    teams_dict = {
+        "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
+        "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+        "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
+        "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
+    }
+
+    cfbstats_by_split = {}
+    for split_key, split_code in CFBSTATS_SPLITS.items():
+        print(f"  Fetching cfbstats for {split_key} ({split_code})...")
+        cfbstats_by_split[split_key] = scraper.get_context_badges(
+            season_year, teams_dict, split=split_code
+        )
 
     def build_rankings(team_id):
-        rankings = {}
-        for key, entries in (cfbstats_rankings.get(team_id, {}) or {}).items():
-            if not entries:
-                continue
-            entry = entries[0]
-            rankings[key] = {
-                "rank": entry.get("rank"),
-                "conference": entry.get("conference"),
-                "value": entry.get("value"),
-                "label": entry.get("label"),
-                "total": entry.get("total"),
-            }
-        return rankings
+        result = {}
+        for split_key, rankings_data in cfbstats_by_split.items():
+            rankings = {}
+            for key, entries in (rankings_data.get(team_id, {}) or {}).items():
+                if not entries:
+                    continue
+                entry = entries[0]
+                rankings[key] = {
+                    "rank": entry.get("rank"),
+                    "conference": entry.get("conference"),
+                    "value": entry.get("value"),
+                    "label": entry.get("label"),
+                    "total": entry.get("total"),
+                }
+            result[split_key] = rankings
+        return result
     
     data = {
         "teams": {
@@ -1627,7 +1631,7 @@ def main():
         },
         "metadata": {
             "generated": date.today().isoformat(),
-            "version": "2.1",
+            "version": "2.2",
             "cfbstats_season": season_year,
         }
     }

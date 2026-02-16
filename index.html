@@ -345,6 +345,7 @@ const FILTERS = [
     { id: 'power4', label: 'Power 4' },
     { id: 'last3', label: 'Last 3' },
 ];
+const FILTER_TO_SPLIT = { all: 'all', conf: 'conf', nonconf: 'nonconf', power4: 'all', last3: 'all' };
 
 function getTabTitle(id) {
     return TAB_TITLES[id] || TABS.find(t => t.id === id)?.label || 'Tab';
@@ -970,7 +971,13 @@ const RANKING_META = {
 };
 
 function getRanking(team, key) {
-    return (team && team.cfbstats && team.cfbstats.rankings && team.cfbstats.rankings[key]) || null;
+    if (!team || !team.cfbstats || !team.cfbstats.rankings) return null;
+    const rankings = team.cfbstats.rankings;
+    if ('all' in rankings) {
+        const split = FILTER_TO_SPLIT[currentFilter] || 'all';
+        return (rankings[split] && rankings[split][key]) || null;
+    }
+    return rankings[key] || null;
 }
 
 function buildStatBadge(team, key) {
@@ -1167,21 +1174,24 @@ function parseScheduleDate(dateStr) {
 function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
     const byeWeeks = team.bye_weeks || [];
+    const byeWeekSet = new Set(byeWeeks);
     const rows = [];
     let previousWeek = null;
-    let byeInserted = new Set();
+    const byeInserted = new Set();
     games.forEach((g, i) => {
-        const currentWeek = g.week || (i + 1);
-        // Insert bye week rows using week numbers (no date-gap inference).
-        if (byeWeeks.length > 0 && previousWeek !== null) {
-            for (let w = previousWeek + 1; w < currentWeek; w++) {
-                if (byeWeeks.includes(w) && !byeInserted.has(w)) {
-                    byeInserted.add(w);
+        const gameWeek = g.week || (i + 1);
+        if (previousWeek !== null && Number.isFinite(gameWeek)) {
+            for (let wk = previousWeek + 1; wk < gameWeek; wk += 1) {
+                if (byeWeekSet.has(wk) && !byeInserted.has(wk)) {
+                    byeInserted.add(wk);
                     rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
-                        <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${w})</td>
+                        <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${wk})</td>
                     </tr>`);
                 }
             }
+        }
+        if (Number.isFinite(gameWeek)) {
+            previousWeek = gameWeek;
         }
 
         const w = g.points_for > g.points_against;
@@ -1207,7 +1217,6 @@ function scheduleTable(team, games, teamClass) {
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
         </tr>`);
-        previousWeek = currentWeek;
     });
     return `<div class="glass rounded-xl overflow-hidden">
         <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
@@ -1264,9 +1273,14 @@ function renderOverview() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += renderQualityScoreCard(ga, aa, gQuality, aQuality);
+    const splitLabels = { all: 'All Games', conf: 'Conference Games', nonconf: 'Non-Conference Games' };
+    const activeSplit = FILTER_TO_SPLIT[currentFilter] || 'all';
+    const splitNote = currentFilter === 'power4' || currentFilter === 'last3'
+        ? '<div class="text-xs text-amber-400/70 mb-2">Showing all-games rankings (no split available for this filter)</div>' : '';
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Context</div>
-        <div class="text-xs text-zinc-400 mb-3">Scoring offense/defense and third down rankings</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — scoring offense/defense and third down rankings</div>
+        ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
@@ -1285,7 +1299,8 @@ function renderOverview() {
     };
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
-        <div class="text-xs text-zinc-400 mb-3">Season-long team ranks (CFBStats)</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — team ranks within conference (CFBStats)</div>
+        ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div class="grid grid-cols-2 gap-3">
                 ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a')}
@@ -2748,6 +2763,7 @@ function initMiddle8Charts() {
 
 function renderFourthDown() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
     const gaAtt = sumField(gf, '4th_down_attempts');
@@ -2838,7 +2854,6 @@ function renderFourthDown() {
         }).join('')}</tbody></table>`;
     };
 
-    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         ${collapsible('Georgia 4th Down Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === ga.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(gf, ga.abbr, 'team-a'))}
         ${collapsible('Arizona State 4th Down Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === aa.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(af, aa.abbr, 'team-b'))}
