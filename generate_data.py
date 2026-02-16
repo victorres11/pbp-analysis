@@ -42,12 +42,15 @@ EXPLOSIVE_NAME_PATTERN = re.compile(
         HASH_FULLNAME_PATTERN.pattern,
     ]) + r")"
 )
+# Match: to LastName,FirstName (with optional Jr./Sr./II/III/IV/V suffixes)
+# This specifically matches the Last,First format without capturing trailing text
 PASS_RECEIVER_RE = re.compile(
-    r"\bto\s+(" + EXPLOSIVE_NAME_PATTERN.pattern + r")(?=\b|,|\.|\s+for\b|\s+at\b|\s+\d|\s+touchdown\b|\s+td\b|\s+gain\b|\s+gains\b|\s+loss\b|\s*$)",
+    r'\bto\s+([A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?,[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?)\b',
     re.IGNORECASE
 )
+# Match: LastName,FirstName before rush/run keywords
 RUSH_PLAYER_RE = re.compile(
-    r"\b(" + EXPLOSIVE_NAME_PATTERN.pattern + r")\s+(?:rush|rushes|run|runs)\b",
+    r'\b([A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?,[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?)\s+(?:rush|rushes|run|runs)\b',
     re.IGNORECASE
 )
 PLAYER_NAME_BLACKLIST = [
