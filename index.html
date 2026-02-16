@@ -204,7 +204,11 @@
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
-            canvas, svg { filter: grayscale(1) contrast(1.1); }
+            .chart-shell { height: 320px !important; min-height: 320px !important; }
+            .chart-surface { height: 320px !important; min-height: 320px !important; }
+            canvas, svg { filter: none !important; }
+            .print-section { break-before: page; page-break-before: always; }
+            .print-section:first-of-type { break-before: auto; page-break-before: auto; }
             .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
             .print-section + .print-section { margin-top: 18px; }
             .text-xs { font-size: 9pt !important; }
@@ -3611,6 +3615,7 @@ let printMode = 'all';
 
 function renderAllTabsForPrint() {
     return TABS.map(t => {
+        if (t.id === 'allplays') return '';
         const r = renderers[t.id];
         if (!r) return '';
         return `<section class="print-section">
