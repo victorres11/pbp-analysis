@@ -913,6 +913,31 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
     return stats
 
 
+def parse_game_date_iso(date_str):
+    """Parse a game date string (e.g. 'Sep 7, 2025') to an ISO date string."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%b %d, %Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def add_week_from_schedule(games, schedule):
+    """Match games to NCAA schedule entries by date and copy the week number."""
+    if not schedule:
+        return
+    sched_by_date = {}
+    for sg in schedule.games:
+        if sg.game_date and not sg.is_bye:
+            iso = sg.game_date.isoformat() if hasattr(sg.game_date, 'isoformat') else str(sg.game_date)
+            sched_by_date[iso] = sg.week
+    for g in games:
+        iso = parse_game_date_iso(g.get('date', ''))
+        if iso and iso in sched_by_date:
+            g['week'] = sched_by_date[iso]
+
+
 def process_team_games(pdf_dir, team_identifier):
     """Process all PDFs for a team, extracting all data from the parser."""
     # Match both .pdf and .PDF (case-insensitive)
@@ -1420,7 +1445,7 @@ def process_team_games(pdf_dir, team_identifier):
         if not date_str:
             return None
         try:
-            return datetime.strptime(date_str, "%B %d, %Y").date()
+            return datetime.strptime(date_str, "%b %d, %Y").date()
         except ValueError:
             return None
 
@@ -1510,6 +1535,13 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
+
+    # Add week numbers from NCAA schedule data to each game
+    add_week_from_schedule(georgia_games, ncaa_schedules.get("georgia"))
+    add_week_from_schedule(asu_games, ncaa_schedules.get("arizona-st"))
+    add_week_from_schedule(oregon_games, ncaa_schedules.get("oregon"))
+    add_week_from_schedule(washington_games, ncaa_schedules.get("washington"))
+
     CFBSTATS_SPLITS = {
         "all": "split01",
         "conf": "split07",
