@@ -943,7 +943,7 @@ function renderStatBadge(rank, total, reverse=false, conference='') {
     else if (adjustedRank > Math.ceil(total * 0.75)) cls = 'bad';
     else if (adjustedRank > Math.ceil(total * 0.5)) cls = 'low';
     const confLabel = conference ? ` in ${conference}` : '';
-    return `<span class="rank-badge ${cls}">${ordinal(adjustedRank)}${confLabel}</span>`;
+    return `<span class="rank-badge ${cls}">${ordinal(rank)}${confLabel}</span>`;
 }
 
 const RANKING_META = {
@@ -1165,35 +1165,24 @@ function parseScheduleDate(dateStr) {
 function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
     const byeWeeks = team.bye_weeks || [];
+    const byeWeekSet = new Set(byeWeeks);
     const rows = [];
-    let prevDate = null;
-    let byeInserted = new Set();
+    let previousWeek = null;
+    const byeInserted = new Set();
     games.forEach((g, i) => {
-        const currentDate = parseScheduleDate(g.date || g.game_date);
-        // Insert bye week rows from NCAA schedule API data
-        if (byeWeeks.length > 0) {
-            // Check if a bye week falls between the previous game and this one
-            // Use game index as a rough week proxy when schedule weeks aren't available
-            const gameWeek = g.week || (i + 1);
-            byeWeeks.forEach(bw => {
-                if (!byeInserted.has(bw) && prevDate && currentDate) {
-                    const gapDays = Math.round((currentDate - prevDate) / 86400000);
-                    if (gapDays > 10) {
-                        byeInserted.add(bw);
-                        rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
-                            <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${bw})</td>
-                        </tr>`);
-                    }
+        const gameWeek = g.week || (i + 1);
+        if (previousWeek !== null && Number.isFinite(gameWeek)) {
+            for (let wk = previousWeek + 1; wk < gameWeek; wk += 1) {
+                if (byeWeekSet.has(wk) && !byeInserted.has(wk)) {
+                    byeInserted.add(wk);
+                    rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
+                        <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${wk})</td>
+                    </tr>`);
                 }
-            });
-        } else if (prevDate && currentDate) {
-            // Fallback: infer from date gaps if no bye_weeks data
-            const gapDays = Math.round((currentDate - prevDate) / 86400000);
-            if (gapDays > 7) {
-                rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
-                    <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week</td>
-                </tr>`);
             }
+        }
+        if (Number.isFinite(gameWeek)) {
+            previousWeek = gameWeek;
         }
 
         const w = g.points_for > g.points_against;
@@ -2760,6 +2749,7 @@ function initMiddle8Charts() {
 
 function renderFourthDown() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
     const gaAtt = sumField(gf, '4th_down_attempts');
