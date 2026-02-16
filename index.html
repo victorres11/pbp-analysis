@@ -204,8 +204,12 @@
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
-            canvas, svg { filter: grayscale(1) contrast(1.1); }
+            .chart-shell { height: 320px !important; min-height: 320px !important; }
+            .chart-surface { height: 320px !important; min-height: 320px !important; }
+            canvas, svg { filter: none !important; }
             .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
+            .print-section { break-before: page; page-break-before: always; }
+            .print-section:first-of-type { break-before: auto; page-break-before: auto; }
             .print-section + .print-section { margin-top: 18px; }
             .text-xs { font-size: 9pt !important; }
             .text-sm { font-size: 10pt !important; }
@@ -236,8 +240,6 @@
                 <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
                 <div class="menu-panel hidden" id="exportPanel">
                     <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export current view as PDF</button>
-                    <button class="menu-item" type="button" onclick="exportCurrentTabCsv()">📄 Export current tab as CSV</button>
-                    <button class="menu-item" type="button" onclick="downloadRawJson()">🗂️ Export data.json</button>
                     <div class="menu-divider"></div>
                     <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy shareable link</button>
                 </div>
@@ -838,7 +840,7 @@ function renderExplosiveLeaders(title, leaders, teamClass) {
             <div class="text-xs text-zinc-500">No explosive play player data found.</div>
         </div>`;
     }
-    const fmt = (n) => n ? `${n}+ yards` : '—';
+    const fmt = (n) => n ? `longest: ${n} yards` : 'longest: —';
     const formatExplosiveLine = (player) => {
         const parts = [];
         if (player.rush > 0) {
@@ -943,7 +945,7 @@ function renderStatBadge(rank, total, reverse=false, conference='') {
     else if (adjustedRank > Math.ceil(total * 0.75)) cls = 'bad';
     else if (adjustedRank > Math.ceil(total * 0.5)) cls = 'low';
     const confLabel = conference ? ` in ${conference}` : '';
-    return `<span class="rank-badge ${cls}">${ordinal(adjustedRank)}${confLabel}</span>`;
+    return `<span class="rank-badge ${cls}">${ordinal(rank)}${confLabel}</span>`;
 }
 
 const RANKING_META = {
@@ -1166,33 +1168,19 @@ function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
     const byeWeeks = team.bye_weeks || [];
     const rows = [];
-    let prevDate = null;
+    let previousWeek = null;
     let byeInserted = new Set();
     games.forEach((g, i) => {
-        const currentDate = parseScheduleDate(g.date || g.game_date);
-        // Insert bye week rows from NCAA schedule API data
-        if (byeWeeks.length > 0) {
-            // Check if a bye week falls between the previous game and this one
-            // Use game index as a rough week proxy when schedule weeks aren't available
-            const gameWeek = g.week || (i + 1);
-            byeWeeks.forEach(bw => {
-                if (!byeInserted.has(bw) && prevDate && currentDate) {
-                    const gapDays = Math.round((currentDate - prevDate) / 86400000);
-                    if (gapDays > 10) {
-                        byeInserted.add(bw);
-                        rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
-                            <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${bw})</td>
-                        </tr>`);
-                    }
+        const currentWeek = g.week || (i + 1);
+        // Insert bye week rows using week numbers (no date-gap inference).
+        if (byeWeeks.length > 0 && previousWeek !== null) {
+            for (let w = previousWeek + 1; w < currentWeek; w++) {
+                if (byeWeeks.includes(w) && !byeInserted.has(w)) {
+                    byeInserted.add(w);
+                    rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
+                        <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week (Week ${w})</td>
+                    </tr>`);
                 }
-            });
-        } else if (prevDate && currentDate) {
-            // Fallback: infer from date gaps if no bye_weeks data
-            const gapDays = Math.round((currentDate - prevDate) / 86400000);
-            if (gapDays > 7) {
-                rows.push(`<tr class="schedule-row border-b border-white/5 bg-white/5">
-                    <td class="py-2 px-3 text-xs text-zinc-500 text-center" colspan="5">Bye Week</td>
-                </tr>`);
             }
         }
 
@@ -1219,7 +1207,7 @@ function scheduleTable(team, games, teamClass) {
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
         </tr>`);
-        if (currentDate) prevDate = currentDate;
+        previousWeek = currentWeek;
     });
     return `<div class="glass rounded-xl overflow-hidden">
         <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
@@ -3611,6 +3599,7 @@ let printMode = 'all';
 
 function renderAllTabsForPrint() {
     return TABS.map(t => {
+        if (t.id === 'allplays') return '';
         const r = renderers[t.id];
         if (!r) return '';
         return `<section class="print-section">
