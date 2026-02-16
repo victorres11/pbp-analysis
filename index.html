@@ -2840,7 +2840,6 @@ function renderFourthDown() {
         }).join('')}</tbody></table>`;
     };
 
-    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         ${collapsible('Georgia 4th Down Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === ga.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(gf, ga.abbr, 'team-a'))}
         ${collapsible('Arizona State 4th Down Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === aa.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(af, aa.abbr, 'team-b'))}
