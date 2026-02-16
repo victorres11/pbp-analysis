@@ -1,0 +1,157 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Sacks",
+    "Sack Yards",
+    "Sacks/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Northwestern",
+      "G": "3",
+      "Sacks": "1.0",
+      "Sack Yards": "5",
+      "Sacks/G": "0.33"
+    },
+    {
+      "": "2",
+      "Name": "Nebraska",
+      "G": "4",
+      "Sacks": "2.0",
+      "Sack Yards": "9",
+      "Sacks/G": "0.50"
+    },
+    {
+      "": "3",
+      "Name": "Michigan State",
+      "G": "3",
+      "Sacks": "3.0",
+      "Sack Yards": "17",
+      "Sacks/G": "1.00"
+    },
+    {
+      "": "3",
+      "Name": "Maryland",
+      "G": "3",
+      "Sacks": "3.0",
+      "Sack Yards": "22",
+      "Sacks/G": "1.00"
+    },
+    {
+      "": "5",
+      "Name": "USC",
+      "G": "4",
+      "Sacks": "4.0",
+      "Sack Yards": "26",
+      "Sacks/G": "1.00"
+    },
+    {
+      "": "6",
+      "Name": "Wisconsin",
+      "G": "3",
+      "Sacks": "5.0",
+      "Sack Yards": "34",
+      "Sacks/G": "1.67"
+    },
+    {
+      "": "6",
+      "Name": "Iowa",
+      "G": "4",
+      "Sacks": "5.0",
+      "Sack Yards": "43",
+      "Sacks/G": "1.25"
+    },
+    {
+      "": "8",
+      "Name": "Indiana",
+      "G": "4",
+      "Sacks": "6.0",
+      "Sack Yards": "30",
+      "Sacks/G": "1.50"
+    },
+    {
+      "": "8",
+      "Name": "Michigan",
+      "G": "4",
+      "Sacks": "6.0",
+      "Sack Yards": "33",
+      "Sacks/G": "1.50"
+    },
+    {
+      "": "8",
+      "Name": "Illinois",
+      "G": "4",
+      "Sacks": "6.0",
+      "Sack Yards": "42",
+      "Sacks/G": "1.50"
+    },
+    {
+      "": "8",
+      "Name": "Purdue",
+      "G": "3",
+      "Sacks": "6.0",
+      "Sack Yards": "48",
+      "Sacks/G": "2.00"
+    },
+    {
+      "": "12",
+      "Name": "Rutgers",
+      "G": "4",
+      "Sacks": "7.0",
+      "Sack Yards": "34",
+      "Sacks/G": "1.75"
+    },
+    {
+      "": "12",
+      "Name": "Ohio State",
+      "G": "6",
+      "Sacks": "7.0",
+      "Sack Yards": "43",
+      "Sacks/G": "1.17"
+    },
+    {
+      "": "12",
+      "Name": "Oregon",
+      "G": "3",
+      "Sacks": "7.0",
+      "Sack Yards": "55",
+      "Sacks/G": "2.33"
+    },
+    {
+      "": "15",
+      "Name": "Minnesota",
+      "G": "4",
+      "Sacks": "8.0",
+      "Sack Yards": "56",
+      "Sacks/G": "2.00"
+    },
+    {
+      "": "16",
+      "Name": "UCLA",
+      "G": "3",
+      "Sacks": "9.0",
+      "Sack Yards": "61",
+      "Sacks/G": "3.00"
+    },
+    {
+      "": "16",
+      "Name": "Washington",
+      "G": "4",
+      "Sacks": "9.0",
+      "Sack Yards": "63",
+      "Sacks/G": "2.25"
+    },
+    {
+      "": "18",
+      "Name": "Penn State",
+      "G": "6",
+      "Sacks": "11.0",
+      "Sack Yards": "85",
+      "Sacks/G": "1.83"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:35:07.520116Z"
+}

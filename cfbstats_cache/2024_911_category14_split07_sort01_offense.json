@@ -1,0 +1,158 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Pen.",
+    "Yards",
+    "Pen./G",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Oklahoma",
+      "G": "8",
+      "Pen.": "38",
+      "Yards": "307",
+      "Pen./G": "4.8",
+      "Yards/G": "38.4"
+    },
+    {
+      "": "2",
+      "Name": "Missouri",
+      "G": "8",
+      "Pen.": "38",
+      "Yards": "348",
+      "Pen./G": "4.8",
+      "Yards/G": "43.5"
+    },
+    {
+      "": "3",
+      "Name": "Florida",
+      "G": "8",
+      "Pen.": "44",
+      "Yards": "371",
+      "Pen./G": "5.5",
+      "Yards/G": "46.4"
+    },
+    {
+      "": "4",
+      "Name": "Vanderbilt",
+      "G": "8",
+      "Pen.": "39",
+      "Yards": "378",
+      "Pen./G": "4.9",
+      "Yards/G": "47.3"
+    },
+    {
+      "": "5",
+      "Name": "LSU",
+      "G": "8",
+      "Pen.": "50",
+      "Yards": "396",
+      "Pen./G": "6.3",
+      "Yards/G": "49.5"
+    },
+    {
+      "": "6",
+      "Name": "Auburn",
+      "G": "8",
+      "Pen.": "50",
+      "Yards": "398",
+      "Pen./G": "6.3",
+      "Yards/G": "49.8"
+    },
+    {
+      "": "6",
+      "Name": "Kentucky",
+      "G": "8",
+      "Pen.": "52",
+      "Yards": "398",
+      "Pen./G": "6.5",
+      "Yards/G": "49.8"
+    },
+    {
+      "": "8",
+      "Name": "Texas",
+      "G": "9",
+      "Pen.": "61",
+      "Yards": "514",
+      "Pen./G": "6.8",
+      "Yards/G": "57.1"
+    },
+    {
+      "": "9",
+      "Name": "South Carolina",
+      "G": "8",
+      "Pen.": "54",
+      "Yards": "463",
+      "Pen./G": "6.8",
+      "Yards/G": "57.9"
+    },
+    {
+      "": "10",
+      "Name": "Georgia",
+      "G": "9",
+      "Pen.": "55",
+      "Yards": "528",
+      "Pen./G": "6.1",
+      "Yards/G": "58.7"
+    },
+    {
+      "": "11",
+      "Name": "Arkansas",
+      "G": "8",
+      "Pen.": "56",
+      "Yards": "470",
+      "Pen./G": "7.0",
+      "Yards/G": "58.8"
+    },
+    {
+      "": "12",
+      "Name": "Mississippi State",
+      "G": "8",
+      "Pen.": "58",
+      "Yards": "507",
+      "Pen./G": "7.3",
+      "Yards/G": "63.4"
+    },
+    {
+      "": "13",
+      "Name": "Ole Miss",
+      "G": "8",
+      "Pen.": "55",
+      "Yards": "527",
+      "Pen./G": "6.9",
+      "Yards/G": "65.9"
+    },
+    {
+      "": "14",
+      "Name": "Tennessee",
+      "G": "8",
+      "Pen.": "74",
+      "Yards": "583",
+      "Pen./G": "9.3",
+      "Yards/G": "72.9"
+    },
+    {
+      "": "15",
+      "Name": "Alabama",
+      "G": "8",
+      "Pen.": "62",
+      "Yards": "584",
+      "Pen./G": "7.8",
+      "Yards/G": "73.0"
+    },
+    {
+      "": "16",
+      "Name": "Texas A&M",
+      "G": "8",
+      "Pen.": "67",
+      "Yards": "585",
+      "Pen./G": "8.4",
+      "Yards/G": "73.1"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:35.535262Z"
+}

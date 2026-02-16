@@ -1,0 +1,124 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Total Time",
+    "Time/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Arizona State",
+      "G": "4",
+      "Total Time": "145:27",
+      "Time/G": "36:21.75"
+    },
+    {
+      "": "2",
+      "Name": "BYU",
+      "G": "3",
+      "Total Time": "103:29",
+      "Time/G": "34:29.67"
+    },
+    {
+      "": "3",
+      "Name": "Utah",
+      "G": "2",
+      "Total Time": "68:33",
+      "Time/G": "34:16.50"
+    },
+    {
+      "": "4",
+      "Name": "Cincinnati",
+      "G": "3",
+      "Total Time": "95:51",
+      "Time/G": "31:57.00"
+    },
+    {
+      "": "5",
+      "Name": "Houston",
+      "G": "3",
+      "Total Time": "95:33",
+      "Time/G": "31:51.00"
+    },
+    {
+      "": "6",
+      "Name": "West Virginia",
+      "G": "4",
+      "Total Time": "124:14",
+      "Time/G": "31:03.50"
+    },
+    {
+      "": "7",
+      "Name": "TCU",
+      "G": "4",
+      "Total Time": "122:47",
+      "Time/G": "30:41.75"
+    },
+    {
+      "": "8",
+      "Name": "UCF",
+      "G": "3",
+      "Total Time": "91:20",
+      "Time/G": "30:26.67"
+    },
+    {
+      "": "9",
+      "Name": "Kansas",
+      "G": "3",
+      "Total Time": "89:18",
+      "Time/G": "29:46.00"
+    },
+    {
+      "": "10",
+      "Name": "Texas Tech",
+      "G": "4",
+      "Total Time": "119:00",
+      "Time/G": "29:45.00"
+    },
+    {
+      "": "11",
+      "Name": "Arizona",
+      "G": "2",
+      "Total Time": "57:39",
+      "Time/G": "28:49.50"
+    },
+    {
+      "": "12",
+      "Name": "Iowa State",
+      "G": "4",
+      "Total Time": "114:44",
+      "Time/G": "28:41.00"
+    },
+    {
+      "": "13",
+      "Name": "Baylor",
+      "G": "3",
+      "Total Time": "85:04",
+      "Time/G": "28:21.33"
+    },
+    {
+      "": "14",
+      "Name": "Kansas State",
+      "G": "3",
+      "Total Time": "84:18",
+      "Time/G": "28:06.00"
+    },
+    {
+      "": "15",
+      "Name": "Oklahoma State",
+      "G": "3",
+      "Total Time": "83:54",
+      "Time/G": "27:58.00"
+    },
+    {
+      "": "16",
+      "Name": "Colorado",
+      "G": "3",
+      "Total Time": "78:02",
+      "Time/G": "26:00.67"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:35:00.759425Z"
+}

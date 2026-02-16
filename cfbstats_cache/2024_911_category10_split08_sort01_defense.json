@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Missouri",
+      "G": "5",
+      "Rush Yards": "482",
+      "Pass Yards": "604",
+      "Plays": "268",
+      "Total Yards": "1086",
+      "Yards/Play": "4.05",
+      "Yards/G": "217.2"
+    },
+    {
+      "": "2",
+      "Name": "Alabama",
+      "G": "5",
+      "Rush Yards": "574",
+      "Pass Yards": "562",
+      "Plays": "333",
+      "Total Yards": "1136",
+      "Yards/Play": "3.41",
+      "Yards/G": "227.2"
+    },
+    {
+      "": "3",
+      "Name": "Tennessee",
+      "G": "5",
+      "Rush Yards": "404",
+      "Pass Yards": "781",
+      "Plays": "295",
+      "Total Yards": "1185",
+      "Yards/Play": "4.02",
+      "Yards/G": "237.0"
+    },
+    {
+      "": "4",
+      "Name": "Ole Miss",
+      "G": "5",
+      "Rush Yards": "182",
+      "Pass Yards": "1054",
+      "Plays": "341",
+      "Total Yards": "1236",
+      "Yards/Play": "3.62",
+      "Yards/G": "247.2"
+    },
+    {
+      "": "5",
+      "Name": "Oklahoma",
+      "G": "5",
+      "Rush Yards": "566",
+      "Pass Yards": "797",
+      "Plays": "306",
+      "Total Yards": "1363",
+      "Yards/Play": "4.45",
+      "Yards/G": "272.6"
+    },
+    {
+      "": "6",
+      "Name": "Kentucky",
+      "G": "4",
+      "Rush Yards": "566",
+      "Pass Yards": "533",
+      "Plays": "206",
+      "Total Yards": "1099",
+      "Yards/Play": "5.33",
+      "Yards/G": "274.8"
+    },
+    {
+      "": "7",
+      "Name": "Florida",
+      "G": "5",
+      "Rush Yards": "481",
+      "Pass Yards": "959",
+      "Plays": "328",
+      "Total Yards": "1440",
+      "Yards/Play": "4.39",
+      "Yards/G": "288.0"
+    },
+    {
+      "": "8",
+      "Name": "Georgia",
+      "G": "5",
+      "Rush Yards": "802",
+      "Pass Yards": "678",
+      "Plays": "302",
+      "Total Yards": "1480",
+      "Yards/Play": "4.90",
+      "Yards/G": "296.0"
+    },
+    {
+      "": "9",
+      "Name": "South Carolina",
+      "G": "5",
+      "Rush Yards": "495",
+      "Pass Yards": "987",
+      "Plays": "307",
+      "Total Yards": "1482",
+      "Yards/Play": "4.83",
+      "Yards/G": "296.4"
+    },
+    {
+      "": "10",
+      "Name": "Texas",
+      "G": "7",
+      "Rush Yards": "754",
+      "Pass Yards": "1385",
+      "Plays": "452",
+      "Total Yards": "2139",
+      "Yards/Play": "4.73",
+      "Yards/G": "305.6"
+    },
+    {
+      "": "11",
+      "Name": "Auburn",
+      "G": "4",
+      "Rush Yards": "356",
+      "Pass Yards": "882",
+      "Plays": "262",
+      "Total Yards": "1238",
+      "Yards/Play": "4.73",
+      "Yards/G": "309.5"
+    },
+    {
+      "": "12",
+      "Name": "Vanderbilt",
+      "G": "5",
+      "Rush Yards": "540",
+      "Pass Yards": "1016",
+      "Plays": "303",
+      "Total Yards": "1556",
+      "Yards/Play": "5.14",
+      "Yards/G": "311.2"
+    },
+    {
+      "": "13",
+      "Name": "Texas A&M",
+      "G": "5",
+      "Rush Yards": "694",
+      "Pass Yards": "894",
+      "Plays": "314",
+      "Total Yards": "1588",
+      "Yards/Play": "5.06",
+      "Yards/G": "317.6"
+    },
+    {
+      "": "14",
+      "Name": "Arkansas",
+      "G": "5",
+      "Rush Yards": "441",
+      "Pass Yards": "1154",
+      "Plays": "334",
+      "Total Yards": "1595",
+      "Yards/Play": "4.78",
+      "Yards/G": "319.0"
+    },
+    {
+      "": "15",
+      "Name": "Mississippi State",
+      "G": "4",
+      "Rush Yards": "840",
+      "Pass Yards": "659",
+      "Plays": "304",
+      "Total Yards": "1499",
+      "Yards/Play": "4.93",
+      "Yards/G": "374.8"
+    },
+    {
+      "": "16",
+      "Name": "LSU",
+      "G": "5",
+      "Rush Yards": "405",
+      "Pass Yards": "1472",
+      "Plays": "325",
+      "Total Yards": "1877",
+      "Yards/Play": "5.78",
+      "Yards/G": "375.4"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:55.740447Z"
+}

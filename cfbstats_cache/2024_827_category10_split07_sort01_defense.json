@@ -1,0 +1,214 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Ohio State",
+      "G": "10",
+      "Rush Yards": "939",
+      "Pass Yards": "1690",
+      "Plays": "594",
+      "Total Yards": "2629",
+      "Yards/Play": "4.43",
+      "Yards/G": "262.9"
+    },
+    {
+      "": "2",
+      "Name": "Indiana",
+      "G": "9",
+      "Rush Yards": "648",
+      "Pass Yards": "1731",
+      "Plays": "544",
+      "Total Yards": "2379",
+      "Yards/Play": "4.37",
+      "Yards/G": "264.3"
+    },
+    {
+      "": "3",
+      "Name": "Penn State",
+      "G": "10",
+      "Rush Yards": "1093",
+      "Pass Yards": "1887",
+      "Plays": "613",
+      "Total Yards": "2980",
+      "Yards/Play": "4.86",
+      "Yards/G": "298.0"
+    },
+    {
+      "": "4",
+      "Name": "Michigan",
+      "G": "9",
+      "Rush Yards": "901",
+      "Pass Yards": "1917",
+      "Plays": "564",
+      "Total Yards": "2818",
+      "Yards/Play": "5.00",
+      "Yards/G": "313.1"
+    },
+    {
+      "": "5",
+      "Name": "Oregon",
+      "G": "11",
+      "Rush Yards": "1419",
+      "Pass Yards": "2109",
+      "Plays": "673",
+      "Total Yards": "3528",
+      "Yards/Play": "5.24",
+      "Yards/G": "320.7"
+    },
+    {
+      "": "6",
+      "Name": "Minnesota",
+      "G": "9",
+      "Rush Yards": "1128",
+      "Pass Yards": "1804",
+      "Plays": "572",
+      "Total Yards": "2932",
+      "Yards/Play": "5.13",
+      "Yards/G": "325.8"
+    },
+    {
+      "": "7",
+      "Name": "Iowa",
+      "G": "9",
+      "Rush Yards": "1241",
+      "Pass Yards": "1719",
+      "Plays": "587",
+      "Total Yards": "2960",
+      "Yards/Play": "5.04",
+      "Yards/G": "328.9"
+    },
+    {
+      "": "8",
+      "Name": "Nebraska",
+      "G": "9",
+      "Rush Yards": "1058",
+      "Pass Yards": "1961",
+      "Plays": "519",
+      "Total Yards": "3019",
+      "Yards/Play": "5.82",
+      "Yards/G": "335.4"
+    },
+    {
+      "": "9",
+      "Name": "Washington",
+      "G": "9",
+      "Rush Yards": "1531",
+      "Pass Yards": "1529",
+      "Plays": "583",
+      "Total Yards": "3060",
+      "Yards/Play": "5.25",
+      "Yards/G": "340.0"
+    },
+    {
+      "": "10",
+      "Name": "UCLA",
+      "G": "9",
+      "Rush Yards": "939",
+      "Pass Yards": "2138",
+      "Plays": "556",
+      "Total Yards": "3077",
+      "Yards/Play": "5.53",
+      "Yards/G": "341.9"
+    },
+    {
+      "": "11",
+      "Name": "Wisconsin",
+      "G": "9",
+      "Rush Yards": "1556",
+      "Pass Yards": "1651",
+      "Plays": "592",
+      "Total Yards": "3207",
+      "Yards/Play": "5.42",
+      "Yards/G": "356.3"
+    },
+    {
+      "": "12",
+      "Name": "Michigan State",
+      "G": "9",
+      "Rush Yards": "1200",
+      "Pass Yards": "2104",
+      "Plays": "568",
+      "Total Yards": "3304",
+      "Yards/Play": "5.82",
+      "Yards/G": "367.1"
+    },
+    {
+      "": "13",
+      "Name": "USC",
+      "G": "9",
+      "Rush Yards": "1227",
+      "Pass Yards": "2185",
+      "Plays": "594",
+      "Total Yards": "3412",
+      "Yards/Play": "5.74",
+      "Yards/G": "379.1"
+    },
+    {
+      "": "14",
+      "Name": "Northwestern",
+      "G": "9",
+      "Rush Yards": "1386",
+      "Pass Yards": "2138",
+      "Plays": "599",
+      "Total Yards": "3524",
+      "Yards/Play": "5.88",
+      "Yards/G": "391.6"
+    },
+    {
+      "": "15",
+      "Name": "Maryland",
+      "G": "9",
+      "Rush Yards": "1355",
+      "Pass Yards": "2271",
+      "Plays": "616",
+      "Total Yards": "3626",
+      "Yards/Play": "5.89",
+      "Yards/G": "402.9"
+    },
+    {
+      "": "16",
+      "Name": "Illinois",
+      "G": "9",
+      "Rush Yards": "1430",
+      "Pass Yards": "2207",
+      "Plays": "636",
+      "Total Yards": "3637",
+      "Yards/Play": "5.72",
+      "Yards/G": "404.1"
+    },
+    {
+      "": "17",
+      "Name": "Rutgers",
+      "G": "9",
+      "Rush Yards": "1285",
+      "Pass Yards": "2405",
+      "Plays": "587",
+      "Total Yards": "3690",
+      "Yards/Play": "6.29",
+      "Yards/G": "410.0"
+    },
+    {
+      "": "18",
+      "Name": "Purdue",
+      "G": "9",
+      "Rush Yards": "1593",
+      "Pass Yards": "2662",
+      "Plays": "605",
+      "Total Yards": "4255",
+      "Yards/Play": "7.03",
+      "Yards/G": "472.8"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:49.684944Z"
+}

@@ -1,0 +1,141 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Attempts",
+    "Conversions",
+    "Conversion %"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Kansas",
+      "G": "9",
+      "Attempts": "112",
+      "Conversions": "58",
+      "Conversion %": "51.79"
+    },
+    {
+      "": "2",
+      "Name": "Texas Tech",
+      "G": "9",
+      "Attempts": "148",
+      "Conversions": "72",
+      "Conversion %": "48.65"
+    },
+    {
+      "": "3",
+      "Name": "Arizona State",
+      "G": "10",
+      "Attempts": "126",
+      "Conversions": "60",
+      "Conversion %": "47.62"
+    },
+    {
+      "": "4",
+      "Name": "West Virginia",
+      "G": "9",
+      "Attempts": "130",
+      "Conversions": "61",
+      "Conversion %": "46.92"
+    },
+    {
+      "": "5",
+      "Name": "Arizona",
+      "G": "10",
+      "Attempts": "148",
+      "Conversions": "65",
+      "Conversion %": "43.92"
+    },
+    {
+      "": "6",
+      "Name": "Iowa State",
+      "G": "10",
+      "Attempts": "151",
+      "Conversions": "66",
+      "Conversion %": "43.71"
+    },
+    {
+      "": "7",
+      "Name": "TCU",
+      "G": "9",
+      "Attempts": "111",
+      "Conversions": "47",
+      "Conversion %": "42.34"
+    },
+    {
+      "": "8",
+      "Name": "Baylor",
+      "G": "10",
+      "Attempts": "140",
+      "Conversions": "59",
+      "Conversion %": "42.14"
+    },
+    {
+      "": "9",
+      "Name": "Kansas State",
+      "G": "10",
+      "Attempts": "134",
+      "Conversions": "55",
+      "Conversion %": "41.04"
+    },
+    {
+      "": "10",
+      "Name": "UCF",
+      "G": "9",
+      "Attempts": "118",
+      "Conversions": "48",
+      "Conversion %": "40.68"
+    },
+    {
+      "": "11",
+      "Name": "BYU",
+      "G": "10",
+      "Attempts": "114",
+      "Conversions": "46",
+      "Conversion %": "40.35"
+    },
+    {
+      "": "11",
+      "Name": "Cincinnati",
+      "G": "9",
+      "Attempts": "114",
+      "Conversions": "46",
+      "Conversion %": "40.35"
+    },
+    {
+      "": "13",
+      "Name": "Colorado",
+      "G": "10",
+      "Attempts": "123",
+      "Conversions": "49",
+      "Conversion %": "39.84"
+    },
+    {
+      "": "14",
+      "Name": "Oklahoma State",
+      "G": "9",
+      "Attempts": "117",
+      "Conversions": "39",
+      "Conversion %": "33.33"
+    },
+    {
+      "": "15",
+      "Name": "Utah",
+      "G": "10",
+      "Attempts": "145",
+      "Conversions": "47",
+      "Conversion %": "32.41"
+    },
+    {
+      "": "16",
+      "Name": "Houston",
+      "G": "9",
+      "Attempts": "110",
+      "Conversions": "31",
+      "Conversion %": "28.18"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:40.699719Z"
+}

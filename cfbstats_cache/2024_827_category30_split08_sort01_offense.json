@@ -1,0 +1,127 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards",
+    "Yards"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Ohio State",
+      "G": "6",
+      "Yards": "0"
+    },
+    {
+      "": "2",
+      "Name": "Penn State",
+      "G": "6",
+      "Yards": "0"
+    },
+    {
+      "": "3",
+      "Name": "USC",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "4",
+      "Name": "Washington",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "5",
+      "Name": "Indiana",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "6",
+      "Name": "Rutgers",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "7",
+      "Name": "Nebraska",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "8",
+      "Name": "Minnesota",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "9",
+      "Name": "Illinois",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "9",
+      "Name": "Maryland",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "11",
+      "Name": "Oregon",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "12",
+      "Name": "Iowa",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "13",
+      "Name": "Michigan State",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "14",
+      "Name": "Northwestern",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "14",
+      "Name": "UCLA",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "16",
+      "Name": "Purdue",
+      "G": "3",
+      "Yards": "0"
+    },
+    {
+      "": "17",
+      "Name": "Michigan",
+      "G": "4",
+      "Yards": "0"
+    },
+    {
+      "": "18",
+      "Name": "Wisconsin",
+      "G": "3",
+      "Yards": "0"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:35:05.853252Z"
+}

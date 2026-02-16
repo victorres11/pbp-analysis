@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Texas",
+      "G": "9",
+      "Rush Yards": "1000",
+      "Pass Yards": "1396",
+      "Plays": "579",
+      "Total Yards": "2396",
+      "Yards/Play": "4.14",
+      "Yards/G": "266.2"
+    },
+    {
+      "": "2",
+      "Name": "Tennessee",
+      "G": "8",
+      "Rush Yards": "947",
+      "Pass Yards": "1680",
+      "Plays": "541",
+      "Total Yards": "2627",
+      "Yards/Play": "4.86",
+      "Yards/G": "328.4"
+    },
+    {
+      "": "3",
+      "Name": "South Carolina",
+      "G": "8",
+      "Rush Yards": "964",
+      "Pass Yards": "1670",
+      "Plays": "544",
+      "Total Yards": "2634",
+      "Yards/Play": "4.84",
+      "Yards/G": "329.3"
+    },
+    {
+      "": "4",
+      "Name": "Auburn",
+      "G": "8",
+      "Rush Yards": "1057",
+      "Pass Yards": "1674",
+      "Plays": "551",
+      "Total Yards": "2731",
+      "Yards/Play": "4.96",
+      "Yards/G": "341.4"
+    },
+    {
+      "": "5",
+      "Name": "Oklahoma",
+      "G": "8",
+      "Rush Yards": "930",
+      "Pass Yards": "1844",
+      "Plays": "531",
+      "Total Yards": "2774",
+      "Yards/Play": "5.22",
+      "Yards/G": "346.8"
+    },
+    {
+      "": "6",
+      "Name": "Georgia",
+      "G": "9",
+      "Rush Yards": "1013",
+      "Pass Yards": "2125",
+      "Plays": "613",
+      "Total Yards": "3138",
+      "Yards/Play": "5.12",
+      "Yards/G": "348.7"
+    },
+    {
+      "": "7",
+      "Name": "Ole Miss",
+      "G": "8",
+      "Rush Yards": "864",
+      "Pass Yards": "1946",
+      "Plays": "562",
+      "Total Yards": "2810",
+      "Yards/Play": "5.00",
+      "Yards/G": "351.3"
+    },
+    {
+      "": "8",
+      "Name": "LSU",
+      "G": "8",
+      "Rush Yards": "1416",
+      "Pass Yards": "1444",
+      "Plays": "480",
+      "Total Yards": "2860",
+      "Yards/Play": "5.96",
+      "Yards/G": "357.5"
+    },
+    {
+      "": "9",
+      "Name": "Alabama",
+      "G": "8",
+      "Rush Yards": "1218",
+      "Pass Yards": "1807",
+      "Plays": "549",
+      "Total Yards": "3025",
+      "Yards/Play": "5.51",
+      "Yards/G": "378.1"
+    },
+    {
+      "": "10",
+      "Name": "Missouri",
+      "G": "8",
+      "Rush Yards": "1289",
+      "Pass Yards": "1753",
+      "Plays": "492",
+      "Total Yards": "3042",
+      "Yards/Play": "6.18",
+      "Yards/G": "380.3"
+    },
+    {
+      "": "11",
+      "Name": "Kentucky",
+      "G": "8",
+      "Rush Yards": "1376",
+      "Pass Yards": "1671",
+      "Plays": "509",
+      "Total Yards": "3047",
+      "Yards/Play": "5.99",
+      "Yards/G": "380.9"
+    },
+    {
+      "": "12",
+      "Name": "Texas A&M",
+      "G": "8",
+      "Rush Yards": "1063",
+      "Pass Yards": "2124",
+      "Plays": "556",
+      "Total Yards": "3187",
+      "Yards/Play": "5.73",
+      "Yards/G": "398.4"
+    },
+    {
+      "": "13",
+      "Name": "Arkansas",
+      "G": "8",
+      "Rush Yards": "1238",
+      "Pass Yards": "2056",
+      "Plays": "547",
+      "Total Yards": "3294",
+      "Yards/Play": "6.02",
+      "Yards/G": "411.8"
+    },
+    {
+      "": "14",
+      "Name": "Vanderbilt",
+      "G": "8",
+      "Rush Yards": "1290",
+      "Pass Yards": "2048",
+      "Plays": "513",
+      "Total Yards": "3338",
+      "Yards/Play": "6.51",
+      "Yards/G": "417.3"
+    },
+    {
+      "": "15",
+      "Name": "Florida",
+      "G": "8",
+      "Rush Yards": "1462",
+      "Pass Yards": "1998",
+      "Plays": "605",
+      "Total Yards": "3460",
+      "Yards/Play": "5.72",
+      "Yards/G": "432.5"
+    },
+    {
+      "": "16",
+      "Name": "Mississippi State",
+      "G": "8",
+      "Rush Yards": "1763",
+      "Pass Yards": "2215",
+      "Plays": "560",
+      "Total Yards": "3978",
+      "Yards/Play": "7.10",
+      "Yards/G": "497.3"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:37.258534Z"
+}

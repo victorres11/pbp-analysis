@@ -1,0 +1,124 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Total Time",
+    "Time/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Missouri",
+      "G": "5",
+      "Total Time": "170:32",
+      "Time/G": "34:06.40"
+    },
+    {
+      "": "2",
+      "Name": "South Carolina",
+      "G": "5",
+      "Total Time": "165:41",
+      "Time/G": "33:08.20"
+    },
+    {
+      "": "3",
+      "Name": "Vanderbilt",
+      "G": "5",
+      "Total Time": "158:33",
+      "Time/G": "31:42.60"
+    },
+    {
+      "": "4",
+      "Name": "Texas A&M",
+      "G": "5",
+      "Total Time": "158:05",
+      "Time/G": "31:37.00"
+    },
+    {
+      "": "5",
+      "Name": "Arkansas",
+      "G": "5",
+      "Total Time": "154:18",
+      "Time/G": "30:51.60"
+    },
+    {
+      "": "6",
+      "Name": "LSU",
+      "G": "5",
+      "Total Time": "154:04",
+      "Time/G": "30:48.80"
+    },
+    {
+      "": "7",
+      "Name": "Florida",
+      "G": "5",
+      "Total Time": "150:21",
+      "Time/G": "30:04.20"
+    },
+    {
+      "": "8",
+      "Name": "Texas",
+      "G": "7",
+      "Total Time": "207:59",
+      "Time/G": "29:42.71"
+    },
+    {
+      "": "9",
+      "Name": "Tennessee",
+      "G": "5",
+      "Total Time": "145:44",
+      "Time/G": "29:08.80"
+    },
+    {
+      "": "10",
+      "Name": "Georgia",
+      "G": "5",
+      "Total Time": "145:05",
+      "Time/G": "29:01.00"
+    },
+    {
+      "": "11",
+      "Name": "Oklahoma",
+      "G": "5",
+      "Total Time": "144:42",
+      "Time/G": "28:56.40"
+    },
+    {
+      "": "12",
+      "Name": "Ole Miss",
+      "G": "5",
+      "Total Time": "142:18",
+      "Time/G": "28:27.60"
+    },
+    {
+      "": "13",
+      "Name": "Alabama",
+      "G": "5",
+      "Total Time": "140:05",
+      "Time/G": "28:01.00"
+    },
+    {
+      "": "14",
+      "Name": "Kentucky",
+      "G": "4",
+      "Total Time": "111:21",
+      "Time/G": "27:50.25"
+    },
+    {
+      "": "15",
+      "Name": "Auburn",
+      "G": "4",
+      "Total Time": "96:22",
+      "Time/G": "24:05.50"
+    },
+    {
+      "": "16",
+      "Name": "Mississippi State",
+      "G": "4",
+      "Total Time": "83:48",
+      "Time/G": "20:57.00"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:54.372308Z"
+}

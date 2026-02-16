@@ -1,0 +1,192 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Rush Yards",
+    "Pass Yards",
+    "Plays",
+    "Total Yards",
+    "Yards/Play",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Ole Miss",
+      "G": "5",
+      "Rush Yards": "1143",
+      "Pass Yards": "2129",
+      "Plays": "373",
+      "Total Yards": "3272",
+      "Yards/Play": "8.77",
+      "Yards/G": "654.4"
+    },
+    {
+      "": "2",
+      "Name": "Arkansas",
+      "G": "5",
+      "Rush Yards": "1228",
+      "Pass Yards": "1547",
+      "Plays": "370",
+      "Total Yards": "2775",
+      "Yards/Play": "7.50",
+      "Yards/G": "555.0"
+    },
+    {
+      "": "3",
+      "Name": "Tennessee",
+      "G": "5",
+      "Rush Yards": "1402",
+      "Pass Yards": "1232",
+      "Plays": "375",
+      "Total Yards": "2634",
+      "Yards/Play": "7.02",
+      "Yards/G": "526.8"
+    },
+    {
+      "": "4",
+      "Name": "Auburn",
+      "G": "4",
+      "Rush Yards": "769",
+      "Pass Yards": "1155",
+      "Plays": "244",
+      "Total Yards": "1924",
+      "Yards/Play": "7.89",
+      "Yards/G": "481.0"
+    },
+    {
+      "": "5",
+      "Name": "LSU",
+      "G": "5",
+      "Rush Yards": "634",
+      "Pass Yards": "1717",
+      "Plays": "325",
+      "Total Yards": "2351",
+      "Yards/Play": "7.23",
+      "Yards/G": "470.2"
+    },
+    {
+      "": "6",
+      "Name": "Texas",
+      "G": "7",
+      "Rush Yards": "1162",
+      "Pass Yards": "2093",
+      "Plays": "490",
+      "Total Yards": "3255",
+      "Yards/Play": "6.64",
+      "Yards/G": "465.0"
+    },
+    {
+      "": "7",
+      "Name": "Missouri",
+      "G": "5",
+      "Rush Yards": "930",
+      "Pass Yards": "1354",
+      "Plays": "362",
+      "Total Yards": "2284",
+      "Yards/Play": "6.31",
+      "Yards/G": "456.8"
+    },
+    {
+      "": "8",
+      "Name": "South Carolina",
+      "G": "5",
+      "Rush Yards": "1109",
+      "Pass Yards": "1157",
+      "Plays": "368",
+      "Total Yards": "2266",
+      "Yards/Play": "6.16",
+      "Yards/G": "453.2"
+    },
+    {
+      "": "9",
+      "Name": "Georgia",
+      "G": "5",
+      "Rush Yards": "713",
+      "Pass Yards": "1483",
+      "Plays": "323",
+      "Total Yards": "2196",
+      "Yards/Play": "6.80",
+      "Yards/G": "439.2"
+    },
+    {
+      "": "10",
+      "Name": "Texas A&M",
+      "G": "5",
+      "Rush Yards": "1074",
+      "Pass Yards": "1117",
+      "Plays": "352",
+      "Total Yards": "2191",
+      "Yards/Play": "6.22",
+      "Yards/G": "438.2"
+    },
+    {
+      "": "11",
+      "Name": "Alabama",
+      "G": "5",
+      "Rush Yards": "971",
+      "Pass Yards": "1197",
+      "Plays": "328",
+      "Total Yards": "2168",
+      "Yards/Play": "6.61",
+      "Yards/G": "433.6"
+    },
+    {
+      "": "12",
+      "Name": "Florida",
+      "G": "5",
+      "Rush Yards": "894",
+      "Pass Yards": "1255",
+      "Plays": "315",
+      "Total Yards": "2149",
+      "Yards/Play": "6.82",
+      "Yards/G": "429.8"
+    },
+    {
+      "": "13",
+      "Name": "Kentucky",
+      "G": "4",
+      "Rush Yards": "778",
+      "Pass Yards": "937",
+      "Plays": "246",
+      "Total Yards": "1715",
+      "Yards/Play": "6.97",
+      "Yards/G": "428.8"
+    },
+    {
+      "": "14",
+      "Name": "Oklahoma",
+      "G": "5",
+      "Rush Yards": "1016",
+      "Pass Yards": "1058",
+      "Plays": "363",
+      "Total Yards": "2074",
+      "Yards/Play": "5.71",
+      "Yards/G": "414.8"
+    },
+    {
+      "": "15",
+      "Name": "Mississippi State",
+      "G": "4",
+      "Rush Yards": "534",
+      "Pass Yards": "1056",
+      "Plays": "234",
+      "Total Yards": "1590",
+      "Yards/Play": "6.79",
+      "Yards/G": "397.5"
+    },
+    {
+      "": "16",
+      "Name": "Vanderbilt",
+      "G": "5",
+      "Rush Yards": "824",
+      "Pass Yards": "995",
+      "Plays": "311",
+      "Total Yards": "1819",
+      "Yards/Play": "5.85",
+      "Yards/G": "363.8"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:55.397462Z"
+}

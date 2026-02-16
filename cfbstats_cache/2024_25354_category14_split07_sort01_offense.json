@@ -1,0 +1,158 @@
+{
+  "headers": [
+    "",
+    "Name",
+    "G",
+    "Pen.",
+    "Yards",
+    "Pen./G",
+    "Yards/G"
+  ],
+  "rows": [
+    {
+      "": "1",
+      "Name": "Iowa State",
+      "G": "10",
+      "Pen.": "38",
+      "Yards": "281",
+      "Pen./G": "3.8",
+      "Yards/G": "28.1"
+    },
+    {
+      "": "2",
+      "Name": "West Virginia",
+      "G": "9",
+      "Pen.": "39",
+      "Yards": "290",
+      "Pen./G": "4.3",
+      "Yards/G": "32.2"
+    },
+    {
+      "": "3",
+      "Name": "Kansas",
+      "G": "9",
+      "Pen.": "41",
+      "Yards": "326",
+      "Pen./G": "4.6",
+      "Yards/G": "36.2"
+    },
+    {
+      "": "4",
+      "Name": "TCU",
+      "G": "9",
+      "Pen.": "41",
+      "Yards": "346",
+      "Pen./G": "4.6",
+      "Yards/G": "38.4"
+    },
+    {
+      "": "5",
+      "Name": "Oklahoma State",
+      "G": "9",
+      "Pen.": "44",
+      "Yards": "371",
+      "Pen./G": "4.9",
+      "Yards/G": "41.2"
+    },
+    {
+      "": "6",
+      "Name": "BYU",
+      "G": "10",
+      "Pen.": "49",
+      "Yards": "421",
+      "Pen./G": "4.9",
+      "Yards/G": "42.1"
+    },
+    {
+      "": "7",
+      "Name": "Cincinnati",
+      "G": "9",
+      "Pen.": "50",
+      "Yards": "399",
+      "Pen./G": "5.6",
+      "Yards/G": "44.3"
+    },
+    {
+      "": "8",
+      "Name": "Houston",
+      "G": "9",
+      "Pen.": "43",
+      "Yards": "415",
+      "Pen./G": "4.8",
+      "Yards/G": "46.1"
+    },
+    {
+      "": "9",
+      "Name": "Kansas State",
+      "G": "10",
+      "Pen.": "58",
+      "Yards": "482",
+      "Pen./G": "5.8",
+      "Yards/G": "48.2"
+    },
+    {
+      "": "10",
+      "Name": "Utah",
+      "G": "10",
+      "Pen.": "58",
+      "Yards": "485",
+      "Pen./G": "5.8",
+      "Yards/G": "48.5"
+    },
+    {
+      "": "11",
+      "Name": "Arizona",
+      "G": "10",
+      "Pen.": "59",
+      "Yards": "496",
+      "Pen./G": "5.9",
+      "Yards/G": "49.6"
+    },
+    {
+      "": "12",
+      "Name": "Arizona State",
+      "G": "10",
+      "Pen.": "63",
+      "Yards": "552",
+      "Pen./G": "6.3",
+      "Yards/G": "55.2"
+    },
+    {
+      "": "13",
+      "Name": "UCF",
+      "G": "9",
+      "Pen.": "63",
+      "Yards": "534",
+      "Pen./G": "7.0",
+      "Yards/G": "59.3"
+    },
+    {
+      "": "14",
+      "Name": "Texas Tech",
+      "G": "9",
+      "Pen.": "62",
+      "Yards": "559",
+      "Pen./G": "6.9",
+      "Yards/G": "62.1"
+    },
+    {
+      "": "15",
+      "Name": "Baylor",
+      "G": "10",
+      "Pen.": "64",
+      "Yards": "633",
+      "Pen./G": "6.4",
+      "Yards/G": "63.3"
+    },
+    {
+      "": "15",
+      "Name": "Colorado",
+      "G": "10",
+      "Pen.": "76",
+      "Yards": "633",
+      "Pen./G": "7.6",
+      "Yards/G": "63.3"
+    }
+  ],
+  "fetched_at": "2026-02-16T22:34:41.704493Z"
+}
