@@ -255,7 +255,7 @@ class CfbstatsScraper:
         user_agent: str = "Mozilla/5.0 (compatible; cfbstats-scraper/0.1)",
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.cache_dir = Path(cache_dir or Path(__file__).parent / "cfbstats_cache")
+        self.cache_dir = Path(cache_dir or Path.home() / ".pbp-parser" / "cache" / "cfbstats-analysis")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.user_agent = user_agent
 
