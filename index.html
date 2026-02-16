@@ -1208,7 +1208,6 @@ function scheduleTable(team, games, teamClass) {
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
         </tr>`);
-        if (currentDate) prevDate = currentDate;
     });
     return `<div class="glass rounded-xl overflow-hidden">
         <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
@@ -2840,7 +2839,6 @@ function renderFourthDown() {
         }).join('')}</tbody></table>`;
     };
 
-    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         ${collapsible('Georgia 4th Down Plays', gf.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === ga.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(gf, ga.abbr, 'team-a'))}
         ${collapsible('Arizona State 4th Down Plays', af.flatMap(g => (g.play_tree||[]).flatMap(q => q.drives.flatMap(d => d.plays.filter(p => p.offense === aa.abbr && (p.down_distance||'').startsWith('4-'))))).length, render4thDownTable(af, aa.abbr, 'team-b'))}
