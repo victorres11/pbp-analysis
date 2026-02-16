@@ -1208,7 +1208,6 @@ function scheduleTable(team, games, teamClass) {
             <td class="py-2 px-3 text-xs text-zinc-400">${g.explosives} expl</td>
             <td class="py-2 px-3 text-xs text-zinc-400">${g.red_zone_tds}/${g.red_zone_trips} RZ</td>
         </tr>`);
-        if (currentDate) prevDate = currentDate;
     });
     return `<div class="glass rounded-xl overflow-hidden">
         <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">${team.name}</span> <span class="text-zinc-500 text-sm">Schedule</span></div>
