@@ -779,6 +779,15 @@ function sumPostTurnoverPointsByType(games, type, teamAbbr) {
     return games.reduce((s,g) => s + sumPostTurnoverPoints(g, type, teamAbbr), 0);
 }
 
+function countPostTurnoverScoringDrives(game, type, teamAbbr) {
+    const drives = (game && game.post_turnover_drives) || [];
+    return drives.reduce((count, d) => {
+        if (teamAbbr && d.recovered_by !== teamAbbr) return count;
+        if (type && d.turnover_type !== type) return count;
+        return count + ((d.points_scored || 0) > 0 ? 1 : 0);
+    }, 0);
+}
+
 function sumSpecial(games, field) {
     return games.reduce((s,g) => s + ((g.special_teams && g.special_teams[field]) || 0), 0);
 }
@@ -2368,8 +2377,14 @@ function renderPostTurnover() {
     html += compBar('Points Off Turnovers', gPointsOff, aPointsOff);
     html += compBar('Points Allowed After TO', gPointsAllowed, aPointsAllowed);
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="glass rounded-xl p-4">${chartContainer('postToTotalsChart', '260px')}</div>
-        <div class="glass rounded-xl p-4">${chartContainer('postToPerGameChart', '260px')}</div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Total points after takeaways by turnover type</div>
+            ${chartContainer('postToTotalsChart', '260px')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Scoring post-turnover drives per game by turnover type</div>
+            ${chartContainer('postToPerGameChart', '260px')}
+        </div>
     </div>`;
 
     // Post-turnover drive tables (collapsed by default)
@@ -2430,10 +2445,10 @@ function initPostTurnoverCharts() {
     const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
     const maxGames = Math.max(gf.length, af.length);
     const labels = Array.from({length: maxGames}, (_,i) => `G${i+1}`);
-    const gIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'INT', ga.abbr));
-    const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM', ga.abbr));
-    const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT', aa.abbr));
-    const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM', aa.abbr));
+    const gIntScoreDrivesByGame = Array.from({length: maxGames}, (_,i) => countPostTurnoverScoringDrives(gf[i], 'INT', ga.abbr));
+    const gFumScoreDrivesByGame = Array.from({length: maxGames}, (_,i) => countPostTurnoverScoringDrives(gf[i], 'FUM', ga.abbr));
+    const aIntScoreDrivesByGame = Array.from({length: maxGames}, (_,i) => countPostTurnoverScoringDrives(af[i], 'INT', aa.abbr));
+    const aFumScoreDrivesByGame = Array.from({length: maxGames}, (_,i) => countPostTurnoverScoringDrives(af[i], 'FUM', aa.abbr));
     const totalsChart = safeInitChart('postToTotalsChart');
     if (totalsChart) safeSetOption(totalsChart, 'postToTotalsChart', {
         backgroundColor: 'transparent',
@@ -2451,15 +2466,15 @@ function initPostTurnoverCharts() {
     if (perGameChart) safeSetOption(perGameChart, 'postToPerGameChart', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
-        legend: { data: ['UGA INT', 'UGA FUM', 'ASU INT', 'ASU FUM'], textStyle: { color: '#a1a1aa' } },
+        legend: { data: ['UGA INT score drives', 'UGA FUM score drives', 'ASU INT score drives', 'ASU FUM score drives'], textStyle: { color: '#a1a1aa' } },
         grid: { left: 30, right: 20, top: 30, bottom: 30, containLabel: true },
         xAxis: { type: 'category', data: labels, axisLabel: { color: '#71717a' } },
-        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
         series: [
-            { name: 'UGA INT', type: 'bar', stack: 'UGA', data: gIntByGame, itemStyle: { color: '#ef4444' } },
-            { name: 'UGA FUM', type: 'bar', stack: 'UGA', data: gFumByGame, itemStyle: { color: '#fca5a5' } },
-            { name: 'ASU INT', type: 'bar', stack: 'ASU', data: aIntByGame, itemStyle: { color: '#f97316' } },
-            { name: 'ASU FUM', type: 'bar', stack: 'ASU', data: aFumByGame, itemStyle: { color: '#fdba74' } },
+            { name: 'UGA INT score drives', type: 'bar', stack: 'UGA', data: gIntScoreDrivesByGame, itemStyle: { color: '#ef4444' } },
+            { name: 'UGA FUM score drives', type: 'bar', stack: 'UGA', data: gFumScoreDrivesByGame, itemStyle: { color: '#fca5a5' } },
+            { name: 'ASU INT score drives', type: 'bar', stack: 'ASU', data: aIntScoreDrivesByGame, itemStyle: { color: '#f97316' } },
+            { name: 'ASU FUM score drives', type: 'bar', stack: 'ASU', data: aFumScoreDrivesByGame, itemStyle: { color: '#fdba74' } },
         ]
     });
     const charts = [totalsChart, perGameChart].filter(Boolean);
