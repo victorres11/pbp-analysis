@@ -308,6 +308,7 @@ let currentFilter = 'all';
 let allPlaysQuery = '';
 let allPlaysFilters = { team: 'all', type: 'all', scoring: false, turnover: false };
 let allPlaysSelected = null;
+let PLAYER_INITIAL_LAST_LOOKUP = new Map();
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -804,13 +805,86 @@ function buildMissedFgBreakdown(games) {
     }).filter(Boolean);
 }
 
+function canonicalLastName(last) {
+    return (last || '')
+        .toUpperCase()
+        .replace(/\b(JR|SR|II|III|IV|V)\.?$/g, '')
+        .replace(/[^A-Z]/g, '');
+}
+
+function registerPlayerAlias(aliasCounts, first, last) {
+    if (!first || !last) return;
+    const firstToken = String(first).trim().split(/\s+/)[0] || '';
+    const firstInitial = firstToken.charAt(0).toUpperCase();
+    if (!firstInitial) return;
+    const cleanedLast = String(last).trim();
+    const key = `${firstInitial}|${canonicalLastName(cleanedLast)}`;
+    if (!key || key.endsWith('|')) return;
+    const fullName = `${firstToken.replace(/[^\w'.-]/g, '')} ${cleanedLast}`.replace(/\s+/g, ' ').trim();
+    if (!fullName) return;
+    if (!aliasCounts.has(key)) aliasCounts.set(key, new Map());
+    const candidates = aliasCounts.get(key);
+    candidates.set(fullName, (candidates.get(fullName) || 0) + 1);
+}
+
+function scanTextForPlayerAliases(text, aliasCounts) {
+    if (!text || typeof text !== 'string') return;
+    const NAME_RE = /([A-Z][A-Za-z'.-]*(?:\s+(?:[A-Z][A-Za-z'.-]*|Jr\.?|Sr\.?|II|III|IV|V))?),\s*([A-Z][A-Za-z0-9'.-]*)/g;
+    let m;
+    while ((m = NAME_RE.exec(text)) !== null) {
+        registerPlayerAlias(aliasCounts, m[2], m[1]);
+    }
+}
+
+function buildPlayerInitialLastLookup(data) {
+    const aliasCounts = new Map();
+    const teams = (data && data.teams) || {};
+    Object.values(teams).forEach(team => {
+        (team.games || []).forEach(game => {
+            (game.explosive_details || []).forEach(e => {
+                scanTextForPlayerAliases(e.player, aliasCounts);
+                scanTextForPlayerAliases(e.description, aliasCounts);
+            });
+            (game.penalty_details || []).forEach(p => scanTextForPlayerAliases(p.description, aliasCounts));
+            (game.post_turnover_drives || []).forEach(d => scanTextForPlayerAliases(d.turnover_description, aliasCounts));
+            (game.play_tree || []).forEach(q => {
+                (q.drives || []).forEach(d => {
+                    (d.plays || []).forEach(p => {
+                        scanTextForPlayerAliases(p.description, aliasCounts);
+                        scanTextForPlayerAliases(p.type, aliasCounts);
+                    });
+                });
+            });
+        });
+    });
+
+    const lookup = new Map();
+    aliasCounts.forEach((candidates, key) => {
+        const best = Array.from(candidates.entries()).sort((a, b) => b[1] - a[1])[0];
+        if (best && best[0]) lookup.set(key, best[0]);
+    });
+    return lookup;
+}
+
+function resolveInitialLastName(initial, last) {
+    const key = `${String(initial || '').toUpperCase()}|${canonicalLastName(last)}`;
+    return PLAYER_INITIAL_LAST_LOOKUP.get(key) || '';
+}
+
 function normalizePlayerName(raw) {
     if (!raw || typeof raw !== 'string') return '';
     let name = raw.trim().replace(/\s+/g, ' ');
-    name = name.replace(/^[A-Z]{2,4}\s+/, '');
+    name = name.replace(/^(?:[A-Z]{2,4}\s+)+/, '');
+    name = name.replace(/^(?:#?\d+\s+)+/, '');
     if (name.includes(',')) {
         const [last, first] = name.split(',').map(s => s.trim()).filter(Boolean);
         if (first && last) return `${first} ${last}`.trim();
+    }
+    const initialLast = name.match(/^([A-Z])\.\s*([A-Za-z][A-Za-z'.-]*(?:\s+(?:Jr\.?|Sr\.?|II|III|IV|V))?)$/);
+    if (initialLast) {
+        const resolved = resolveInitialLastName(initialLast[1], initialLast[2]);
+        if (resolved) return resolved;
+        return `${initialLast[1]}. ${initialLast[2]}`.trim();
     }
     return name;
 }
@@ -4815,6 +4889,7 @@ function initApp() {
             return;
         }
         DATA = d;
+        PLAYER_INITIAL_LAST_LOOKUP = buildPlayerInitialLastLookup(d);
         applyHashState();
         const ga = d.teams.georgia, aa = d.teams.asu;
         document.getElementById('teamAName').textContent = ga.name;
