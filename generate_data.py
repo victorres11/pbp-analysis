@@ -25,7 +25,6 @@ from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
 from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down
-
 from pbp_parser.cfbstats import CONFERENCE_IDS, get_leaderboard
 from pbp_parser.cfbstats import normalize_team_name as normalize_cfbstats_team
 from pbp_parser.ncaa_schedule import fetch_team_schedule
@@ -1053,10 +1052,7 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         penalty_type = 'Unknown'
         for pattern, name in penalty_patterns:
             if re.search(pattern, desc_upper):
-                penalty_type = re.sub(pattern, name, desc_upper, count=1)
-                # Clean up the penalty type
-                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
-                penalty_type = penalty_type.title()
+                penalty_type = name
                 break
         
         # Parse yards
@@ -1085,12 +1081,21 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         else:
             offense_or_defense = 'unknown'
 
-        # Differentiate holding by side when possible
+        # Differentiate holding by side when possible.
+        # Prefer side attribution first; only fall back to yardage/AFD hints when side is unknown.
         if penalty_type == 'Holding':
+            is_afd = ('AUTOMATIC FIRST DOWN' in desc_upper) or bool(re.search(r'\bAFD\b', desc_upper))
             if offense_or_defense == 'offense':
-                penalty_type = 'Offensive Holding'
+                penalty_type = 'Offensive Holding (10y)'
             elif offense_or_defense == 'defense':
-                penalty_type = 'Defensive Holding'
+                penalty_type = 'Defensive Holding (5y, AFD)' if is_afd else 'Defensive Holding (5y)'
+            elif yards == 10:
+                penalty_type = 'Offensive Holding (10y)'
+            elif yards == 5 and is_afd:
+                penalty_type = 'Defensive Holding (5y, AFD)'
+            else:
+                # Ambiguous or missing context defaults to offensive holding.
+                penalty_type = 'Offensive Holding (10y)'
         
         penalty_details.append({
             'type': penalty_type,
@@ -1733,7 +1738,9 @@ def process_team_games(pdf_dir, team_identifier):
             is_power4 = False
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
-        fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
+        fourth_stats = compute_fourth_down_stats(g.plays, our_abbr)
+        fourth_attempts = fourth_stats.attempts
+        fourth_conversions = fourth_stats.conversions
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
@@ -1873,7 +1880,6 @@ def main():
 
     season_year = infer_active_season()
     ncaa_season = season_year
-
     # Fetch schedules from NCAA API for bye week detection
     print("\n=== Fetching NCAA Schedules ===")
     ncaa_schedules = {}
@@ -1881,7 +1887,6 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
-
     # Add week numbers from NCAA schedule data to each game
     add_week_from_schedule(georgia_games, ncaa_schedules.get("georgia"))
     add_week_from_schedule(asu_games, ncaa_schedules.get("arizona-st"))

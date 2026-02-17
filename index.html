@@ -1003,11 +1003,40 @@ function getRanking(team, key) {
     return rankings[key] || null;
 }
 
+function conferenceTeamCount(conference) {
+    const conf = (conference || '').trim().toUpperCase();
+    const byConference = {
+        'ACC': 17,
+        'BIG 10': 18,
+        'BIG TEN': 18,
+        'BIG 12': 16,
+        'SEC': 16,
+    };
+    return byConference[conf] || null;
+}
+
+function normalizeRankingEntry(entry) {
+    if (!entry) return null;
+    if (entry.rank) return entry;
+    if (typeof entry.text !== 'string') return entry;
+    const m = entry.text.match(/Ranks?\s+(\d+)\s+in\s+(.+?)\s+in\s+(.+?)\s*\(([^)]+)\)/i);
+    if (!m) return entry;
+    const conference = m[2].trim();
+    return {
+        ...entry,
+        rank: Number(m[1]),
+        conference,
+        label: m[3].trim(),
+        value: m[4].trim(),
+        total: conferenceTeamCount(conference),
+    };
+}
+
 function buildStatBadge(team, key) {
-    const entry = getRanking(team, key);
+    const entry = normalizeRankingEntry(getRanking(team, key));
     if (!entry) return '';
     const meta = RANKING_META[key] || {};
-    return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+    return renderStatBadge(entry.rank, entry.total || conferenceTeamCount(entry.conference), !!meta.reverse, entry.conference);
 }
 
 function buildFirstAvailableStatBadge(team, keys=[]) {
@@ -1021,11 +1050,13 @@ function buildFirstAvailableStatBadge(team, keys=[]) {
 }
 
 function formatRankingLabel(entry) {
-    if (!entry) return '';
-    const value = entry.value ? ` (${entry.value})` : '';
-    const label = entry.label ? ` in ${entry.label}` : '';
-    const conf = entry.conference ? ` in ${entry.conference}` : '';
-    return `${ordinal(entry.rank)}${conf}${label}${value}`;
+    const parsed = normalizeRankingEntry(entry);
+    if (!parsed) return '';
+    if (!parsed.rank && parsed.text) return parsed.text;
+    const value = parsed.value ? ` (${parsed.value})` : '';
+    const label = parsed.label ? ` in ${parsed.label}` : '';
+    const conf = parsed.conference ? ` in ${parsed.conference}` : '';
+    return `${ordinal(parsed.rank)}${conf}${label}${value}`;
 }
 
 function statCard(label, value, sub, teamClass, quality, badge='') {
@@ -1208,14 +1239,17 @@ function parseScheduleDate(dateStr) {
 
 const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
 const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
-const PENALTY_TYPE_BUCKETS_TOP = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+const HOLDING_DEF_NO_AFD_LABEL = 'Defensive Holding (5y)';
+const PENALTY_TYPE_BUCKETS_TOP = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, HOLDING_DEF_NO_AFD_LABEL, 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
 
 function classifyPenalty(p) {
     const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
     if (text.includes('holding')) {
-        if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
+        const typeText = (p.type || '').toLowerCase();
+        if (typeText.includes('defensive holding')) return typeText.includes('afd') ? HOLDING_DEF_LABEL : HOLDING_DEF_NO_AFD_LABEL;
+        if (typeText.includes('offensive holding')) return HOLDING_OFF_LABEL;
         if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
-        return 'Holding';
+        return HOLDING_OFF_LABEL;
     }
     if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
     if (text.includes('false start')) return 'False Start';
@@ -2649,7 +2683,7 @@ function initPenaltyCharts() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
     const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
-    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, HOLDING_DEF_NO_AFD_LABEL, 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
     const countByType = (details) => details.reduce((acc, p) => {
         const bucket = classifyPenalty(p);
         acc[bucket] = (acc[bucket] || 0) + 1;
