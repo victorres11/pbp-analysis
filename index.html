@@ -996,11 +996,11 @@ function extractTurnoverPlaymaker(desc) {
     const type = getTurnoverType(desc);
     let match = null;
     if (type === 'INT') {
-        match = desc.match(/intercepted by (.+?)(?: at | return |,|\.|$)/i);
+        match = desc.match(/intercepted by (.+?)(?: at | return |,|;\s*|\.\s+|$)/i);
     } else if (type === 'FUM') {
-        match = desc.match(/recovered by (.+?)(?: at |,|\.|$)/i);
+        match = desc.match(/recovered by (.+?)(?: at |,|;\s*|\.\s+|$)/i);
         if (!match || !match[1]) {
-            match = desc.match(/forced by (.+?)(?: recovered| at |,|\.|$)/i);
+            match = desc.match(/forced by (.+?)(?: recovered| at |,|;\s*|\.\s+|$)/i);
         }
     }
     if (!match || !match[1]) return '';
