@@ -1515,18 +1515,17 @@ def main():
     print("\n=== Parsing Washington Games ===")
     washington_games, washington_agg, _ = process_team_games(washington_dir, 'washington')
 
-    def infer_season_year(paths):
-        years = set()
-        for path in paths:
-            m = re.search(r'-(20\\d{2})$', path.name)
-            if m:
-                years.add(int(m.group(1)))
-        if len(years) == 1:
-            return years.pop()
-        return date.today().year
+    def infer_active_season(today=None):
+        """
+        Return the active CFB season year.
+        Offseason months (Jan-Jul) map to the previous season year;
+        in-season months (Aug-Dec) map to the current calendar year.
+        """
+        today = today or date.today()
+        return today.year if today.month >= 8 else today.year - 1
 
-    season_year = 2024  # CFBStats uses academic year start
-    ncaa_season = 2025   # NCAA API uses calendar year of the season
+    season_year = infer_active_season()
+    ncaa_season = season_year
     scraper = CfbstatsScraper()
 
     # Fetch schedules from NCAA API for bye week detection
