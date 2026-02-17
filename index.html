@@ -213,6 +213,9 @@
             .print-section { margin-top: 24px; }
             .print-section:first-of-type { margin-top: 0; }
             .print-section + .print-section { margin-top: 18px; }
+            .printable-report table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+            .printable-report th, .printable-report td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+            .printable-report thead th { background: #f4f4f5 !important; font-weight: 700; }
             .pt-20 { padding-top: 0 !important; }
             .chart-shell { display: none !important; }
             .dq-tooltip { display: none !important; }
@@ -244,7 +247,7 @@
             <div class="relative" id="exportMenu">
                 <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
                 <div class="menu-panel hidden" id="exportPanel">
-                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export current view as PDF</button>
+                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export clean printable report (PDF)</button>
                     <button class="menu-item" type="button" onclick="exportCurrentTabCsv()">📄 Export current tab as CSV</button>
                     <button class="menu-item" type="button" onclick="downloadRawJson()">🗂️ Export data.json</button>
                     <div class="menu-divider"></div>
@@ -3608,10 +3611,134 @@ const renderers = {
 };
 
 let printState = null;
-let printMode = 'all';
+let printMode = 'report';
+
+const PRINT_RANKINGS = [
+    { key: 'scoring_offense', label: 'Scoring Offense' },
+    { key: 'scoring_defense', label: 'Scoring Defense' },
+    { key: 'turnover_margin', label: 'Turnover Margin' },
+    { key: 'red_zone', label: 'Red Zone TD%' },
+    { key: 'third_down', label: 'Third Down %' },
+    { key: 'fourth_down', label: 'Fourth Down %' },
+];
+
+function escHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatRankCell(team, key) {
+    const ranking = getRanking(team, key);
+    if (!ranking || !ranking.rank || !ranking.total) return '—';
+    const value = ranking.value !== undefined && ranking.value !== null ? ` (${ranking.value})` : '';
+    return `${ordinal(ranking.rank)} / ${ranking.total}${value}`;
+}
+
+function renderRecentRows(games, limit = 6) {
+    const recent = games.slice(-limit).reverse();
+    if (!recent.length) return '<tr><td colspan="7">No games available.</td></tr>';
+    return recent.map(g => {
+        const margin = g.points_for - g.points_against;
+        const result = margin > 0 ? 'W' : (margin < 0 ? 'L' : 'T');
+        const toMargin = (g.turnovers_gained || 0) - (g.turnovers_lost || 0);
+        return `<tr>
+            <td>W${escHtml(g.week || g.game_number || '—')}</td>
+            <td>${escHtml(g.opponent || '—')}</td>
+            <td>${escHtml(result)}</td>
+            <td>${escHtml(`${g.points_for}-${g.points_against}`)}</td>
+            <td>${escHtml(g.explosives || 0)}</td>
+            <td>${escHtml(formatSigned(toMargin, 0))}</td>
+            <td>${escHtml(g.penalties || 0)}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderPrintableReport() {
+    const ga = DATA.teams.georgia;
+    const aa = DATA.teams.asu;
+    const gf = filterGames(ga.games || []);
+    const af = filterGames(aa.games || []);
+    const gs = agg(gf);
+    const as_ = agg(af);
+    const filterLabel = FILTERS.find(f => f.id === currentFilter)?.label || 'All Games';
+    const printedAt = new Date().toLocaleString();
+    const edgeRows = [
+        { label: 'Points / Game', ga: Number(gs.ppg), aa: Number(as_.ppg), higherBetter: true },
+        { label: 'Opponent Points / Game', ga: Number(gs.oppg), aa: Number(as_.oppg), higherBetter: false },
+        { label: 'Explosive Plays / Game', ga: Number(gs.explpg), aa: Number(as_.explpg), higherBetter: true },
+        { label: 'Turnover Margin', ga: gs.tom, aa: as_.tom, higherBetter: true },
+        { label: 'Penalties / Game', ga: Number(gs.penpg), aa: Number(as_.penpg), higherBetter: false },
+        { label: 'Red Zone TD%', ga: Number(gs.rztdpct), aa: Number(as_.rztdpct), higherBetter: true },
+    ];
+    const edgeHtml = edgeRows.map(row => {
+        const better = row.ga === row.aa ? 'Even' : (
+            row.higherBetter
+                ? (row.ga > row.aa ? ga.name : aa.name)
+                : (row.ga < row.aa ? ga.name : aa.name)
+        );
+        return `<tr>
+            <td>${escHtml(row.label)}</td>
+            <td>${escHtml(row.ga)}</td>
+            <td>${escHtml(row.aa)}</td>
+            <td>${escHtml(better)}</td>
+        </tr>`;
+    }).join('');
+    const rankingsHtml = PRINT_RANKINGS.map(item => `<tr>
+        <td>${escHtml(item.label)}</td>
+        <td>${escHtml(formatRankCell(ga, item.key))}</td>
+        <td>${escHtml(formatRankCell(aa, item.key))}</td>
+    </tr>`).join('');
+
+    return `<section class="print-section printable-report">
+        <h1 class="print-section-title">Matchup Report: ${escHtml(ga.name)} vs ${escHtml(aa.name)}</h1>
+        <div class="text-sm mb-3">Filter: ${escHtml(filterLabel)} | Generated: ${escHtml(printedAt)}</div>
+        <table class="w-full text-sm mb-4">
+            <thead>
+                <tr><th>Metric</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Record</td><td>${escHtml(gs.record)}</td><td>${escHtml(as_.record)}</td></tr>
+                <tr><td>Points / Game</td><td>${escHtml(gs.ppg)}</td><td>${escHtml(as_.ppg)}</td></tr>
+                <tr><td>Opponent Points / Game</td><td>${escHtml(gs.oppg)}</td><td>${escHtml(as_.oppg)}</td></tr>
+                <tr><td>Explosive Plays / Game</td><td>${escHtml(gs.explpg)}</td><td>${escHtml(as_.explpg)}</td></tr>
+                <tr><td>Turnover Margin</td><td>${escHtml(gs.tom)}</td><td>${escHtml(as_.tom)}</td></tr>
+                <tr><td>Penalties / Game</td><td>${escHtml(gs.penpg)}</td><td>${escHtml(as_.penpg)}</td></tr>
+                <tr><td>Red Zone TD%</td><td>${escHtml(gs.rztdpct)}%</td><td>${escHtml(as_.rztdpct)}%</td></tr>
+            </tbody>
+        </table>
+        <h2 class="print-section-title">Conference Rankings</h2>
+        <table class="w-full text-sm mb-4">
+            <thead>
+                <tr><th>Category</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th></tr>
+            </thead>
+            <tbody>${rankingsHtml}</tbody>
+        </table>
+        <h2 class="print-section-title">Matchup Edges</h2>
+        <table class="w-full text-sm mb-4">
+            <thead>
+                <tr><th>Category</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th><th>Edge</th></tr>
+            </thead>
+            <tbody>${edgeHtml}</tbody>
+        </table>
+        <h2 class="print-section-title">${escHtml(ga.name)} Recent Games</h2>
+        <table class="w-full text-sm mb-4">
+            <thead><tr><th>Week</th><th>Opponent</th><th>W/L</th><th>Score</th><th>Expl</th><th>TO Mgn</th><th>Pen</th></tr></thead>
+            <tbody>${renderRecentRows(gf)}</tbody>
+        </table>
+        <h2 class="print-section-title">${escHtml(aa.name)} Recent Games</h2>
+        <table class="w-full text-sm">
+            <thead><tr><th>Week</th><th>Opponent</th><th>W/L</th><th>Score</th><th>Expl</th><th>TO Mgn</th><th>Pen</th></tr></thead>
+            <tbody>${renderRecentRows(af)}</tbody>
+        </table>
+    </section>`;
+}
 
 function renderAllTabsForPrint() {
-    return buildPrintReport();
+    return renderPrintableReport();
 }
 
 function printHeader() {
@@ -4230,8 +4357,8 @@ function beforePrint() {
     if (!DATA || printState) return;
     const main = document.getElementById('mainContent');
     printState = { html: main.innerHTML, tab: currentTab };
-    if (printMode === 'all') {
-        main.innerHTML = buildPrintReport();
+    if (printMode === 'report') {
+        main.innerHTML = renderPrintableReport();
     }
 }
 
@@ -4342,9 +4469,9 @@ function fallbackCopy(text) {
 }
 
 function exportCurrentViewPdf() {
-    printMode = 'current';
+    printMode = 'report';
     window.print();
-    setTimeout(() => { printMode = 'all'; }, 0);
+    setTimeout(() => { printMode = 'report'; }, 0);
     closeMenus();
 }
 
