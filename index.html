@@ -187,29 +187,30 @@
             .glass, .zone-section, .team-a-bg, .team-b-bg { background: #ffffff !important; border-color: #d1d5db !important; }
             .zone-green, .zone-red, .zone-tight { background: none !important; border-left-color: #111111 !important; }
             .vs-badge { background: none !important; -webkit-text-fill-color: #111111 !important; color: #111111 !important; }
-            .team-a, .team-b, .zone-title { color: #111111 !important; }
-            .team-a-bar, .team-b-bar { background: #111111 !important; }
+            .team-a, .zone-title { color: #111111 !important; }
+            .team-b { color: #555555 !important; }
+            .team-a-bar { background: #111111 !important; }
+            .team-b-bar { background: #999999 !important; }
             .text-zinc-400, .text-zinc-500, .text-zinc-200 { color: #111111 !important; }
             .bg-zinc-900, .bg-white\\/5 { background: #ffffff !important; }
             .border-white\\/5, .border-white\\/10 { border-color: #d1d5db !important; }
             .sticky { position: static !important; }
-            .collapsible-body { max-height: none !important; overflow: visible !important; }
-            .collapsible-toggle { pointer-events: none !important; cursor: default !important; color: #111111 !important; background: none !important; border-bottom: 1px solid #d1d5db !important; }
+            .pt-20 { padding-top: 0 !important; }
+            .chart-shell { display: none !important; }
+            .collapsible-toggle, .collapsible-body { display: none !important; }
+            .dq-tooltip { display: none !important; }
             details { display: block !important; }
             details > summary { list-style: none; cursor: default !important; pointer-events: none !important; color: #111111 !important; }
             details > summary::-webkit-details-marker { display: none !important; }
             details:not([open]) > * { display: block !important; }
             details:not([open]) > summary { display: block !important; }
-            table, thead, tbody, tfoot, tr, td, th, .glass, .zone-section, .stat-card, .collapsible-body, .print-section {
+            table, thead, tbody, tfoot, tr, td, th, .glass, .zone-section, .stat-card, .print-section {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
-            .chart-shell { height: 320px !important; min-height: 320px !important; }
-            .chart-surface { height: 320px !important; min-height: 320px !important; }
-            canvas, svg { filter: none !important; }
             .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
-            .print-section { break-before: page; page-break-before: always; }
-            .print-section:first-of-type { break-before: auto; page-break-before: auto; }
+            .print-section { margin-top: 24px; }
+            .print-section:first-of-type { margin-top: 0; }
             .print-section + .print-section { margin-top: 18px; }
             .text-xs { font-size: 9pt !important; }
             .text-sm { font-size: 10pt !important; }
@@ -3614,7 +3615,7 @@ let printMode = 'all';
 
 function renderAllTabsForPrint() {
     return TABS.map(t => {
-        if (t.id === 'allplays') return '';
+        if (t.id === 'allplays' || t.id === 'glossary') return '';
         const r = renderers[t.id];
         if (!r) return '';
         return `<section class="print-section">
@@ -3744,73 +3745,6 @@ function exportCurrentViewPdf() {
     printMode = 'current';
     window.print();
     setTimeout(() => { printMode = 'all'; }, 0);
-    closeMenus();
-}
-
-function downloadRawJson() {
-    if (!DATA) return;
-    const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'data.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    closeMenus();
-}
-
-function csvEscape(value) {
-    const str = (value ?? '').toString().replace(/\r?\n/g, ' ').trim();
-    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-    return str;
-}
-
-function tableToCsv(table) {
-    const rows = Array.from(table.querySelectorAll('tr'));
-    return rows.map(row => {
-        const cells = Array.from(row.querySelectorAll('th,td')).map(cell => csvEscape(cell.textContent));
-        return cells.join(',');
-    }).join('\n');
-}
-
-function getTableTitle(table) {
-    const collapsible = table.closest('.collapsible-body');
-    if (collapsible && collapsible.previousElementSibling?.classList.contains('collapsible-toggle')) {
-        return collapsible.previousElementSibling.textContent.trim();
-    }
-    const tab = TABS.find(t => t.id === currentTab);
-    return tab ? tab.label : 'Export';
-}
-
-function exportCurrentTabCsv() {
-    const main = document.getElementById('mainContent');
-    if (!main) return;
-    const tables = Array.from(main.querySelectorAll('table'));
-    if (!tables.length) {
-        alert('No tables found in the current tab.');
-        closeMenus();
-        return;
-    }
-    let csv = '';
-    tables.forEach((table, idx) => {
-        if (tables.length > 1) {
-            if (idx > 0) csv += '\n\n';
-            csv += `${csvEscape(getTableTitle(table))}\n`;
-        }
-        csv += tableToCsv(table);
-    });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const tabLabel = (TABS.find(t => t.id === currentTab)?.label || 'tab').toLowerCase().replace(/\s+/g, '-');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `matchup-${tabLabel}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     closeMenus();
 }
 
