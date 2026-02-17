@@ -2375,7 +2375,7 @@ function renderPenalties() {
             })
             .filter(name => name.length >= 3);
     };
-    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
     const renderPenaltyTypeList = (details, side, teamClass) => {
         const filtered = details.filter(p => (p.offense_or_defense || 'unknown') === side);
         if (!filtered.length) return `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
@@ -2571,7 +2571,7 @@ function initPenaltyCharts() {
     };
     const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
     const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
-    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
     const countByType = (details) => details.reduce((acc, p) => {
         const bucket = classifyPenalty(p);
         acc[bucket] = (acc[bucket] || 0) + 1;

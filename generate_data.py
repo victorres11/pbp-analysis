@@ -643,10 +643,7 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         penalty_type = 'Unknown'
         for pattern, name in penalty_patterns:
             if re.search(pattern, desc_upper):
-                penalty_type = re.sub(pattern, name, desc_upper, count=1)
-                # Clean up the penalty type
-                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
-                penalty_type = penalty_type.title()
+                penalty_type = name
                 break
         
         # Parse yards
@@ -677,10 +674,11 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
 
         # Differentiate holding by side when possible
         if penalty_type == 'Holding':
-            if offense_or_defense == 'offense':
-                penalty_type = 'Offensive Holding'
-            elif offense_or_defense == 'defense':
-                penalty_type = 'Defensive Holding'
+            is_afd = 'AUTOMATIC FIRST DOWN' in desc_upper or 'FIRST DOWN' in desc_upper
+            if yards == 10:
+                penalty_type = 'Offensive Holding (10y)'
+            elif yards == 5:
+                penalty_type = 'Defensive Holding (5y, AFD)' if is_afd else 'Defensive Holding (5y)'
         
         penalty_details.append({
             'type': penalty_type,
