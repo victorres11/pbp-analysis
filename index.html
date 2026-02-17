@@ -268,17 +268,11 @@
         <div class="text-right">
             <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
             <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
-            <div class="mt-1 flex items-center justify-end gap-2">
-                <span class="dq-tooltip" id="teamAQuality"></span>
-            </div>
         </div>
         <div class="text-4xl font-black vs-badge">VS</div>
         <div class="text-left">
             <h1 class="text-3xl font-extrabold team-b" id="teamBName">Arizona State</h1>
             <p class="text-sm text-zinc-400" id="teamBRecord">5-7 · Big 12</p>
-            <div class="mt-1 flex items-center justify-start gap-2">
-                <span class="dq-tooltip" id="teamBQuality"></span>
-            </div>
         </div>
     </div>
 </div>
@@ -4372,8 +4366,12 @@ function updateHeader() {
     const aQuality = computeTeamQuality(af);
     const teamAQuality = document.getElementById('teamAQuality');
     const teamBQuality = document.getElementById('teamBQuality');
-    teamAQuality.innerHTML = `${qualityBadge(gQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', gQuality)}</span>`;
-    teamBQuality.innerHTML = `${qualityBadge(aQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', aQuality)}</span>`;
+    if (teamAQuality) {
+        teamAQuality.innerHTML = `${qualityBadge(gQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', gQuality)}</span>`;
+    }
+    if (teamBQuality) {
+        teamBQuality.innerHTML = `${qualityBadge(aQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', aQuality)}</span>`;
+    }
 }
 
 function switchFilter(id) {
