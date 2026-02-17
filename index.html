@@ -187,8 +187,10 @@
             .glass, .zone-section, .team-a-bg, .team-b-bg { background: #ffffff !important; border-color: #d1d5db !important; }
             .zone-green, .zone-red, .zone-tight { background: none !important; border-left-color: #111111 !important; }
             .vs-badge { background: none !important; -webkit-text-fill-color: #111111 !important; color: #111111 !important; }
-            .team-a, .team-b, .zone-title { color: #111111 !important; }
-            .team-a-bar, .team-b-bar { background: #111111 !important; }
+            .team-a, .zone-title { color: #111111 !important; }
+            .team-b { color: #555555 !important; }
+            .team-a-bar { background: #111111 !important; }
+            .team-b-bar { background: #999999 !important; }
             .text-zinc-400, .text-zinc-500, .text-zinc-200 { color: #111111 !important; }
             .bg-zinc-900, .bg-white\\/5 { background: #ffffff !important; }
             .border-white\\/5, .border-white\\/10 { border-color: #d1d5db !important; }
@@ -204,13 +206,19 @@
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
-            .chart-shell { height: 320px !important; min-height: 320px !important; }
-            .chart-surface { height: 320px !important; min-height: 320px !important; }
-            canvas, svg { filter: none !important; }
-            .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
-            .print-section { break-before: page; page-break-before: always; }
-            .print-section:first-of-type { break-before: auto; page-break-before: auto; }
+            canvas, svg { filter: grayscale(1) contrast(1.1); }
+            .print-report { max-width: none; }
+            .print-report-header { break-after: avoid; }
+            .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; }
+            .print-section { margin-top: 24px; }
+            .print-section:first-of-type { margin-top: 0; }
             .print-section + .print-section { margin-top: 18px; }
+            .printable-report table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+            .printable-report th, .printable-report td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+            .printable-report thead th { background: #f4f4f5 !important; font-weight: 700; }
+            .pt-20 { padding-top: 0 !important; }
+            .chart-shell { display: none !important; }
+            .dq-tooltip { display: none !important; }
             .text-xs { font-size: 9pt !important; }
             .text-sm { font-size: 10pt !important; }
             .text-lg { font-size: 12pt !important; }
@@ -239,9 +247,7 @@
             <div class="relative" id="exportMenu">
                 <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
                 <div class="menu-panel hidden" id="exportPanel">
-                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export current view as PDF</button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy shareable link</button>
+                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export full sectioned report (PDF)</button>
                 </div>
             </div>
             <div class="relative" id="shareMenu">
@@ -262,17 +268,11 @@
         <div class="text-right">
             <h1 class="text-3xl font-extrabold team-a" id="teamAName">Georgia</h1>
             <p class="text-sm text-zinc-400" id="teamARecord">12-1 · SEC</p>
-            <div class="mt-1 flex items-center justify-end gap-2">
-                <span class="dq-tooltip" id="teamAQuality"></span>
-            </div>
         </div>
         <div class="text-4xl font-black vs-badge">VS</div>
         <div class="text-left">
             <h1 class="text-3xl font-extrabold team-b" id="teamBName">Arizona State</h1>
             <p class="text-sm text-zinc-400" id="teamBRecord">5-7 · Big 12</p>
-            <div class="mt-1 flex items-center justify-start gap-2">
-                <span class="dq-tooltip" id="teamBQuality"></span>
-            </div>
         </div>
     </div>
 </div>
@@ -781,6 +781,29 @@ function maxSpecial(games, field) {
     return games.reduce((m,g) => Math.max(m, (g.special_teams && g.special_teams[field]) || 0), 0);
 }
 
+function buildMissedFgBreakdown(games) {
+    return games.map(g => {
+        const st = g.special_teams || {};
+        const attempts = Array.isArray(st.field_goal_attempts_detail) ? st.field_goal_attempts_detail : [];
+        const misses = attempts.filter(a => a && a.made === false);
+        if (!misses.length) return null;
+        const yardages = misses
+            .map(a => Number(a.yards))
+            .filter(y => Number.isFinite(y))
+            .sort((a, b) => a - b);
+        const value = yardages.length
+            ? yardages.map(y => `${y}y`).join(', ')
+            : `${misses.length} missed`;
+        return {
+            game_number: g.game_number,
+            opponent: g.opponent,
+            opponent_abbr: g.opponent_abbr,
+            date: g.date,
+            value,
+        };
+    }).filter(Boolean);
+}
+
 function normalizePlayerName(raw) {
     if (!raw || typeof raw !== 'string') return '';
     let name = raw.trim().replace(/\s+/g, ' ');
@@ -841,7 +864,7 @@ function renderExplosiveLeaders(title, leaders, teamClass) {
             <div class="text-xs text-zinc-500">No explosive play player data found.</div>
         </div>`;
     }
-    const fmt = (n) => n ? `longest: ${n} yards` : 'longest: —';
+    const fmt = (n) => n ? `${n}+ yards` : '—';
     const formatExplosiveLine = (player) => {
         const parts = [];
         if (player.rush > 0) {
@@ -985,6 +1008,16 @@ function buildStatBadge(team, key) {
     if (!entry) return '';
     const meta = RANKING_META[key] || {};
     return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+}
+
+function buildFirstAvailableStatBadge(team, keys=[]) {
+    for (const key of keys) {
+        const entry = getRanking(team, key);
+        if (!entry || Array.isArray(entry)) continue;
+        const meta = RANKING_META[key] || {};
+        return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+    }
+    return '';
 }
 
 function formatRankingLabel(entry) {
@@ -1170,6 +1203,181 @@ function parseScheduleDate(dateStr) {
     const fallback = new Date(trimmed);
     return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
+
+// ── Extracted helpers (shared by renderers + print) ──────────────────────
+
+const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
+const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
+const PENALTY_TYPE_BUCKETS_TOP = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+
+function classifyPenalty(p) {
+    const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
+    if (text.includes('holding')) {
+        if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
+        if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
+        return 'Holding';
+    }
+    if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
+    if (text.includes('false start')) return 'False Start';
+    if (text.includes('offside')) return 'Offsides/Offside';
+    if (text.includes('illegal formation')) return 'Illegal Formation';
+    if (text.includes('unsportsmanlike')) return 'Unsportsmanlike';
+    return 'Other';
+}
+
+function extractPenaltyNames(desc) {
+    if (!desc || typeof desc !== 'string') return [];
+    const penaltyIdx = desc.toUpperCase().indexOf('PENALTY');
+    const searchText = penaltyIdx >= 0 ? desc.slice(penaltyIdx) : desc;
+    const matches = [];
+    let m;
+    const re = /\(([^)]+)\)/g;
+    while ((m = re.exec(searchText)) !== null) {
+        matches.push(m[1]);
+    }
+    if (!matches.length) return [];
+    return matches.flatMap(chunk => chunk.split(/\/|&| and |;|\|/i))
+        .map(part => part.trim())
+        .filter(part => /[a-z]/i.test(part))
+        .map(part => {
+            if (part.includes(',')) {
+                const parts = part.split(',').map(s => s.trim()).filter(Boolean);
+                if (parts.length >= 2) return `${parts[1]} ${parts[0]}`.trim();
+            }
+            return part;
+        })
+        .filter(name => name.length >= 3);
+}
+
+function renderOffenders(details, teamClass) {
+    const counts = {};
+    details.forEach(p => {
+        extractPenaltyNames(p.description).forEach(name => {
+            counts[name] = (counts[name] || 0) + 1;
+        });
+    });
+    const top = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0,5);
+    if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No player penalties found.</div>`;
+    return `<div class="space-y-2">
+        ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
+            <span class="${teamClass}">${i+1}. ${t[0]}</span>
+            <span class="text-zinc-500">${t[1]}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderPenaltyTypeList(details, side, teamClass) {
+    const filtered = details.filter(p => (p.offense_or_defense || 'unknown') === side);
+    if (!filtered.length) return `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
+    const counts = filtered.reduce((acc, p) => {
+        const bucket = classifyPenalty(p);
+        acc[bucket] = (acc[bucket] || 0) + 1;
+        return acc;
+    }, {});
+    const rows = PENALTY_TYPE_BUCKETS_TOP.filter(t => counts[t]).map(t => (
+        `<div class="flex items-center justify-between text-xs">
+            <span class="text-zinc-300">${t}</span>
+            <span class="${teamClass}">${counts[t]}</span>
+        </div>`
+    )).join('');
+    return rows || `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
+}
+
+function renderPlaymakers(games, teamAbbr, teamClass) {
+    const counts = {};
+    games.forEach(g => {
+        const typeLookup = buildTurnoverTypeLookup(g);
+        (g.play_tree || []).forEach(q => {
+            q.drives.forEach(d => {
+                d.plays.filter(p => p.is_turnover).forEach(p => {
+                    if (!p.offense || p.offense === teamAbbr) return;
+                    const name = extractTurnoverPlaymaker(p.description || '');
+                    if (!name) return;
+                    const type = resolveTurnoverType(p, typeLookup);
+                    if (!counts[name]) counts[name] = {int: 0, fum: 0, other: 0, total: 0};
+                    if (type === 'INT') counts[name].int += 1;
+                    else if (type === 'FUM') counts[name].fum += 1;
+                    else counts[name].other += 1;
+                    counts[name].total += 1;
+                });
+            });
+        });
+    });
+    const top = Object.entries(counts).sort((a,b) => b[1].total - a[1].total).slice(0,5);
+    if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No turnover playmakers found.</div>`;
+    const formatBreakdown = row => {
+        const parts = [];
+        if (row.int) parts.push(`${row.int} INT${row.int > 1 ? 's' : ''}`);
+        if (row.fum) parts.push(`${row.fum} fumble ${row.fum === 1 ? 'recovery' : 'recoveries'}`);
+        if (row.other) parts.push(`${row.other} TO`);
+        return parts.join(', ') || '0';
+    };
+    return `<div class="space-y-2">
+        ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
+            <span class="${teamClass}">${i+1}. ${t[0]}</span>
+            <span class="text-zinc-500">${formatBreakdown(t[1])}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderFourthDownGameTable(games, teamClass) {
+    return `<div class="glass rounded-xl overflow-hidden mt-4">
+        <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">4th Down</span></div>
+        <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Att</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Conv</th>
+            <th class="py-2 px-2 text-right text-zinc-500">%</th>
+        </tr></thead><tbody>${games.map(g => {
+            const att = g['4th_down_attempts'] || 0;
+            const conv = g['4th_down_conversions'] || 0;
+            const pct = att ? (conv/att*100).toFixed(1) : '0.0';
+            return `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
+                <td class="py-1 px-2">${g.opponent}</td>
+                <td class="py-1 px-2 text-right">${att}</td>
+                <td class="py-1 px-2 text-right font-bold">${conv}</td>
+                <td class="py-1 px-2 text-right text-zinc-400">${pct}%</td>
+            </tr>`;
+        }).join('')}</tbody></table>
+    </div>`;
+}
+
+function renderStGameTable(games, teamClass) {
+    return `<div class="glass rounded-xl overflow-hidden mt-4">
+        <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">Special Teams</span></div>
+        <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+            <th class="py-2 px-2 text-right text-zinc-500">KO 30+</th>
+            <th class="py-2 px-2 text-right text-zinc-500">PR 20+</th>
+            <th class="py-2 px-2 text-right text-zinc-500">ST TD</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Blocks</th>
+        </tr></thead><tbody>${games.map(g => {
+            const st = g.special_teams || {};
+            const blocks = (st.fg_blocks||0) + (st.punt_blocks||0);
+            return `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
+                <td class="py-1 px-2">${g.opponent}</td>
+                <td class="py-1 px-2 text-right">${st.kick_return_30_plus||0}</td>
+                <td class="py-1 px-2 text-right">${st.punt_return_20_plus||0}</td>
+                <td class="py-1 px-2 text-right">${st.special_teams_tds||0}</td>
+                <td class="py-1 px-2 text-right">${blocks}</td>
+            </tr>`;
+        }).join('')}</tbody></table>
+    </div>`;
+}
+
+function getPenaltyDetails(games) {
+    return games.flatMap(g => (g.penalty_details || []).map(p => ({
+        ...p,
+        game: g.game_number,
+        opponent: g.opponent
+    })));
+}
+
+// ── End extracted helpers ────────────────────────────────────────────────
 
 function scheduleTable(team, games, teamClass) {
     const outliers = computeOutlierMap(games);
@@ -2015,43 +2223,6 @@ function renderTurnovers() {
         <div class="glass rounded-xl p-4">${chartContainer('toSplitLost', '260px')}</div>
     </div>`;
 
-    const renderPlaymakers = (games, teamAbbr, teamClass) => {
-        const counts = {};
-        games.forEach(g => {
-            const typeLookup = buildTurnoverTypeLookup(g);
-            (g.play_tree || []).forEach(q => {
-                q.drives.forEach(d => {
-                    d.plays.filter(p => p.is_turnover).forEach(p => {
-                        if (!p.offense || p.offense === teamAbbr) return;
-                        const name = extractTurnoverPlaymaker(p.description || '');
-                        if (!name) return;
-                        const type = resolveTurnoverType(p, typeLookup);
-                        if (!counts[name]) counts[name] = {int: 0, fum: 0, other: 0, total: 0};
-                        if (type === 'INT') counts[name].int += 1;
-                        else if (type === 'FUM') counts[name].fum += 1;
-                        else counts[name].other += 1;
-                        counts[name].total += 1;
-                    });
-                });
-            });
-        });
-        const top = Object.entries(counts).sort((a,b) => b[1].total - a[1].total).slice(0,5);
-        if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No turnover playmakers found.</div>`;
-        const formatBreakdown = row => {
-            const parts = [];
-            if (row.int) parts.push(`${row.int} INT${row.int > 1 ? 's' : ''}`);
-            if (row.fum) parts.push(`${row.fum} fumble ${row.fum === 1 ? 'recovery' : 'recoveries'}`);
-            if (row.other) parts.push(`${row.other} TO`);
-            return parts.join(', ') || '0';
-        };
-        return `<div class="space-y-2">
-            ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
-                <span class="${teamClass}">${i+1}. ${t[0]}</span>
-                <span class="text-zinc-500">${formatBreakdown(t[1])}</span>
-            </div>`).join('')}
-        </div>`;
-    };
-
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${ga.name} Top Playmakers</div>
@@ -2224,8 +2395,14 @@ function renderPostTurnover() {
     html += compBar('Points Off Turnovers', gPointsOff, aPointsOff);
     html += compBar('Points Allowed After TO', gPointsAllowed, aPointsAllowed);
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="glass rounded-xl p-4">${chartContainer('postToTotalsChart', '260px')}</div>
-        <div class="glass rounded-xl p-4">${chartContainer('postToPerGameChart', '260px')}</div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Total points after takeaways by turnover type</div>
+            ${chartContainer('postToTotalsChart', '260px')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Points scored off takeaways per game</div>
+            ${chartContainer('postToPerGameChart', '300px')}
+        </div>
     </div>`;
 
     // Post-turnover drive tables (collapsed by default)
@@ -2286,10 +2463,8 @@ function initPostTurnoverCharts() {
     const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
     const maxGames = Math.max(gf.length, af.length);
     const labels = Array.from({length: maxGames}, (_,i) => `G${i+1}`);
-    const gIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'INT', ga.abbr));
-    const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM', ga.abbr));
-    const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT', aa.abbr));
-    const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM', aa.abbr));
+    const gPointsByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], null, ga.abbr));
+    const aPointsByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], null, aa.abbr));
     const totalsChart = safeInitChart('postToTotalsChart');
     if (totalsChart) safeSetOption(totalsChart, 'postToTotalsChart', {
         backgroundColor: 'transparent',
@@ -2307,15 +2482,13 @@ function initPostTurnoverCharts() {
     if (perGameChart) safeSetOption(perGameChart, 'postToPerGameChart', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
-        legend: { data: ['UGA INT', 'UGA FUM', 'ASU INT', 'ASU FUM'], textStyle: { color: '#a1a1aa' } },
-        grid: { left: 30, right: 20, top: 30, bottom: 30, containLabel: true },
+        legend: { top: 0, data: ['UGA Pts Off TO', 'ASU Pts Off TO'], textStyle: { color: '#a1a1aa' } },
+        grid: { left: 30, right: 20, top: 52, bottom: 30, containLabel: true },
         xAxis: { type: 'category', data: labels, axisLabel: { color: '#71717a' } },
-        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
         series: [
-            { name: 'UGA INT', type: 'bar', stack: 'UGA', data: gIntByGame, itemStyle: { color: '#ef4444' } },
-            { name: 'UGA FUM', type: 'bar', stack: 'UGA', data: gFumByGame, itemStyle: { color: '#fca5a5' } },
-            { name: 'ASU INT', type: 'bar', stack: 'ASU', data: aIntByGame, itemStyle: { color: '#f97316' } },
-            { name: 'ASU FUM', type: 'bar', stack: 'ASU', data: aFumByGame, itemStyle: { color: '#fdba74' } },
+            { name: 'UGA Pts Off TO', type: 'bar', data: gPointsByGame, itemStyle: { color: '#ef4444' } },
+            { name: 'ASU Pts Off TO', type: 'bar', data: aPointsByGame, itemStyle: { color: '#f97316' } },
         ]
     });
     const charts = [totalsChart, perGameChart].filter(Boolean);
@@ -2328,89 +2501,12 @@ function renderPenalties() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
-    const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
-    const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
-    const getPenaltyDetails = (games) => games.flatMap(g => (g.penalty_details || []).map(p => ({
-        ...p,
-        game: g.game_number,
-        opponent: g.opponent
-    })));
     const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
     const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
     const gaOffensePens = gaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
     const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
-    const classifyPenalty = (p) => {
-        const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
-        if (text.includes('holding')) {
-            if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
-            if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
-            return 'Holding';
-        }
-        if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
-        if (text.includes('false start')) return 'False Start';
-        if (text.includes('offside')) return 'Offsides/Offside';
-        if (text.includes('illegal formation')) return 'Illegal Formation';
-        if (text.includes('unsportsmanlike')) return 'Unsportsmanlike';
-        return 'Other';
-    };
-    const extractPenaltyNames = (desc) => {
-        if (!desc || typeof desc !== 'string') return [];
-        const penaltyIdx = desc.toUpperCase().indexOf('PENALTY');
-        const searchText = penaltyIdx >= 0 ? desc.slice(penaltyIdx) : desc;
-        const matches = [];
-        let m;
-        const re = /\(([^)]+)\)/g;
-        while ((m = re.exec(searchText)) !== null) {
-            matches.push(m[1]);
-        }
-        if (!matches.length) return [];
-        return matches.flatMap(chunk => chunk.split(/\/|&| and |;|\|/i))
-            .map(part => part.trim())
-            .filter(part => /[a-z]/i.test(part))
-            .map(part => {
-                if (part.includes(',')) {
-                    const parts = part.split(',').map(s => s.trim()).filter(Boolean);
-                    if (parts.length >= 2) return `${parts[1]} ${parts[0]}`.trim();
-                }
-                return part;
-            })
-            .filter(name => name.length >= 3);
-    };
-    const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
-    const renderPenaltyTypeList = (details, side, teamClass) => {
-        const filtered = details.filter(p => (p.offense_or_defense || 'unknown') === side);
-        if (!filtered.length) return `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
-        const counts = filtered.reduce((acc, p) => {
-            const bucket = classifyPenalty(p);
-            acc[bucket] = (acc[bucket] || 0) + 1;
-            return acc;
-        }, {});
-        const rows = typeBuckets.filter(t => counts[t]).map(t => (
-            `<div class="flex items-center justify-between text-xs">
-                <span class="text-zinc-300">${t}</span>
-                <span class="${teamClass}">${counts[t]}</span>
-            </div>`
-        )).join('');
-        return rows || `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
-    };
-    const renderOffenders = (details, teamClass) => {
-        const counts = {};
-        details.forEach(p => {
-            extractPenaltyNames(p.description).forEach(name => {
-                counts[name] = (counts[name] || 0) + 1;
-            });
-        });
-        const top = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0,5);
-        if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No player penalties found.</div>`;
-        return `<div class="space-y-2">
-            ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
-                <span class="${teamClass}">${i+1}. ${t[0]}</span>
-                <span class="text-zinc-500">${t[1]}</span>
-            </div>`).join('')}
-        </div>`;
-    };
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
@@ -2551,27 +2647,6 @@ function renderPenalties() {
 function initPenaltyCharts() {
     const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
-    const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
-    const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
-    const getPenaltyDetails = (games) => games.flatMap(g => (g.penalty_details || []).map(p => ({
-        ...p,
-        game: g.game_number,
-        opponent: g.opponent
-    })));
-    const classifyPenalty = (p) => {
-        const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
-        if (text.includes('holding')) {
-            if (p.offense_or_defense === 'offense') return HOLDING_OFF_LABEL;
-            if (p.offense_or_defense === 'defense') return HOLDING_DEF_LABEL;
-            return 'Holding';
-        }
-        if (text.includes('pass interference') || /\b(dpi|opi)\b/.test(text)) return 'Pass Interference';
-        if (text.includes('false start')) return 'False Start';
-        if (text.includes('offside')) return 'Offsides/Offside';
-        if (text.includes('illegal formation')) return 'Illegal Formation';
-        if (text.includes('unsportsmanlike')) return 'Unsportsmanlike';
-        return 'Other';
-    };
     const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
     const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
     const typeBuckets = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, 'Holding', 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
@@ -2790,33 +2865,9 @@ function renderFourthDown() {
     html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('fourthChart')}</div>`;
 
-    const renderGameTable = (games, teamClass) => {
-        return `<div class="glass rounded-xl overflow-hidden mt-4">
-            <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">4th Down</span></div>
-            <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
-                <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
-                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
-                <th class="py-2 px-2 text-right text-zinc-500">Att</th>
-                <th class="py-2 px-2 text-right text-zinc-500">Conv</th>
-                <th class="py-2 px-2 text-right text-zinc-500">%</th>
-            </tr></thead><tbody>${games.map(g => {
-                const att = g['4th_down_attempts'] || 0;
-                const conv = g['4th_down_conversions'] || 0;
-                const pct = att ? (conv/att*100).toFixed(1) : '0.0';
-                return `<tr class="border-b border-white/5 table-row">
-                    <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
-                    <td class="py-1 px-2">${g.opponent}</td>
-                    <td class="py-1 px-2 text-right">${att}</td>
-                    <td class="py-1 px-2 text-right font-bold">${conv}</td>
-                    <td class="py-1 px-2 text-right text-zinc-400">${pct}%</td>
-                </tr>`;
-            }).join('')}</tbody></table>
-        </div>`;
-    };
-
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        ${renderGameTable(gf, 'team-a')}
-        ${renderGameTable(af, 'team-b')}
+        ${renderFourthDownGameTable(gf, 'team-a')}
+        ${renderFourthDownGameTable(af, 'team-b')}
     </div>`;
 
     // 4th down play details
@@ -2904,9 +2955,15 @@ function initFourthDownCharts() {
 }
 
 function renderSpecialTeams() {
-    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
+    const rankingKeys = {
+        puntAvg: ['punt_avg', 'punting_avg', 'punting'],
+        puntsInside20: ['punts_inside_20', 'punt_inside_20', 'inside_20_punts'],
+        fgPct: ['field_goal_pct', 'fg_pct', 'field_goals_pct'],
+    };
     const buildStBreakdown = (games, getter) => games.map(g => {
         const st = g.special_teams || {};
         const value = Number(getter(st, g) || 0);
@@ -2923,14 +2980,12 @@ function renderSpecialTeams() {
     // Aggregate special teams data
     const gPunts = sumSpecial(gf, 'punts');
     const gPuntYds = sumSpecial(gf, 'punt_yards');
-    const gPuntNetYds = sumSpecial(gf, 'punt_net_yards');
     const gPuntAvg = gPunts ? (gPuntYds / gPunts).toFixed(1) : '0.0';
     const gPuntInside20 = sumSpecial(gf, 'punts_inside_20');
     const gPuntTouchbacks = sumSpecial(gf, 'punt_touchbacks');
     
     const aPunts = sumSpecial(af, 'punts');
     const aPuntYds = sumSpecial(af, 'punt_yards');
-    const aPuntNetYds = sumSpecial(af, 'punt_net_yards');
     const aPuntAvg = aPunts ? (aPuntYds / aPunts).toFixed(1) : '0.0';
     const aPuntInside20 = sumSpecial(af, 'punts_inside_20');
     const aPuntTouchbacks = sumSpecial(af, 'punt_touchbacks');
@@ -2946,6 +3001,8 @@ function renderSpecialTeams() {
     const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
     const aFgMissed = aFgAtt - aFgMade;
     const aFgLong = maxSpecial(af, 'field_goal_long');
+    const gFgMissedBreakdown = buildMissedFgBreakdown(gf);
+    const aFgMissedBreakdown = buildMissedFgBreakdown(af);
     
     const gKo30 = sumSpecial(gf, 'kick_return_30_plus');
     const gPr20 = sumSpecial(gf, 'punt_return_20_plus');
@@ -2962,20 +3019,16 @@ function renderSpecialTeams() {
     // Punting section
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', gPuntYds, '', 'team-a', gq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', gPuntNetYds, '', 'team-a', gq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(ga, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', aPuntYds, '', 'team-b', aq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', aPuntNetYds, '', 'team-b', aq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(aa, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
     </div></div>`;
@@ -2986,15 +3039,15 @@ function renderSpecialTeams() {
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
-            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCardWithBreakdown('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), gFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct))}
             ${statCard('Longest', gFgLong || '—', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
-            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCardWithBreakdown('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), aFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct))}
             ${statCard('Longest', aFgLong || '—', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
     </div></div>`;
@@ -3024,34 +3077,9 @@ function renderSpecialTeams() {
         ${chartContainer('stChart')}
     </div>`;
 
-    const renderStTable = (games, teamClass) => {
-        return `<div class="glass rounded-xl overflow-hidden mt-4">
-            <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">Special Teams</span></div>
-            <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
-                <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
-                <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
-                <th class="py-2 px-2 text-right text-zinc-500">KO 30+</th>
-                <th class="py-2 px-2 text-right text-zinc-500">PR 20+</th>
-                <th class="py-2 px-2 text-right text-zinc-500">ST TD</th>
-                <th class="py-2 px-2 text-right text-zinc-500">Blocks</th>
-            </tr></thead><tbody>${games.map(g => {
-                const st = g.special_teams || {};
-                const blocks = (st.fg_blocks||0) + (st.punt_blocks||0);
-                return `<tr class="border-b border-white/5 table-row">
-                    <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
-                    <td class="py-1 px-2">${g.opponent}</td>
-                    <td class="py-1 px-2 text-right">${st.kick_return_30_plus||0}</td>
-                    <td class="py-1 px-2 text-right">${st.punt_return_20_plus||0}</td>
-                    <td class="py-1 px-2 text-right">${st.special_teams_tds||0}</td>
-                    <td class="py-1 px-2 text-right">${blocks}</td>
-                </tr>`;
-            }).join('')}</tbody></table>
-        </div>`;
-    };
-
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        ${renderStTable(gf, 'team-a')}
-        ${renderStTable(af, 'team-b')}
+        ${renderStGameTable(gf, 'team-a')}
+        ${renderStGameTable(af, 'team-b')}
     </div>`;
 
     html += `</div>`;
@@ -3610,27 +3638,680 @@ const renderers = {
 };
 
 let printState = null;
-let printMode = 'all';
+let printMode = 'report';
+
+const PRINT_RANKINGS = [
+    { key: 'scoring_offense', label: 'Scoring Offense' },
+    { key: 'scoring_defense', label: 'Scoring Defense' },
+    { key: 'turnover_margin', label: 'Turnover Margin' },
+    { key: 'red_zone', label: 'Red Zone TD%' },
+    { key: 'third_down', label: 'Third Down %' },
+    { key: 'fourth_down', label: 'Fourth Down %' },
+];
+
+function escHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatRankCell(team, key) {
+    const ranking = getRanking(team, key);
+    if (!ranking || !ranking.rank || !ranking.total) return '—';
+    const value = ranking.value !== undefined && ranking.value !== null ? ` (${ranking.value})` : '';
+    return `${ordinal(ranking.rank)} / ${ranking.total}${value}`;
+}
+
+function renderRecentRows(games, limit = 6) {
+    const recent = games.slice(-limit).reverse();
+    if (!recent.length) return '<tr><td colspan="7">No games available.</td></tr>';
+    return recent.map(g => {
+        const margin = g.points_for - g.points_against;
+        const result = margin > 0 ? 'W' : (margin < 0 ? 'L' : 'T');
+        const toMargin = (g.turnovers_gained || 0) - (g.turnovers_lost || 0);
+        return `<tr>
+            <td>W${escHtml(g.week || g.game_number || '—')}</td>
+            <td>${escHtml(g.opponent || '—')}</td>
+            <td>${escHtml(result)}</td>
+            <td>${escHtml(`${g.points_for}-${g.points_against}`)}</td>
+            <td>${escHtml(g.explosives || 0)}</td>
+            <td>${escHtml(formatSigned(toMargin, 0))}</td>
+            <td>${escHtml(g.penalties || 0)}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderPrintableReport() {
+    return buildPrintReport();
+}
 
 function renderAllTabsForPrint() {
-    return TABS.map(t => {
-        if (t.id === 'allplays') return '';
-        const r = renderers[t.id];
-        if (!r) return '';
-        return `<section class="print-section">
-            <div class="print-section-title">${t.icon} ${t.label}</div>
-            ${r.render()}
+    return renderPrintableReport();
+}
+
+function printHeader() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const filterLabel = (FILTERS.find(f => f.id === currentFilter) || {}).label || 'All Games';
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `<div class="print-report-header" style="margin-bottom:18px;border-bottom:2px solid #d1d5db;padding-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div style="font-size:18pt;font-weight:700;">${ga.name} <span style="font-weight:400;font-size:12pt;color:#555;">vs</span> ${aa.name}</div>
+            <div style="font-size:9pt;color:#777;">${today}</div>
+        </div>
+        <div style="display:flex;gap:24px;margin-top:4px;font-size:9pt;color:#555;">
+            <span>${ga.name}: ${gs.record} (${gs.ppg} PPG)${ga.conference ? ' — ' + ga.conference : ''}</span>
+            <span>${aa.name}: ${as_.record} (${as_.ppg} PPG)${aa.conference ? ' — ' + aa.conference : ''}</span>
+            <span style="margin-left:auto;">Filter: ${filterLabel}</span>
+        </div>
+    </div>`;
+}
+
+function printOverviewSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gQuality = computeTeamQuality(gf), aQuality = computeTeamQuality(af);
+    const splitLabels = { all: 'All Games', conf: 'Conference Games', nonconf: 'Non-Conference Games' };
+    const activeSplit = FILTER_TO_SPLIT[currentFilter] || 'all';
+
+    let html = renderQualityScoreCard(ga, aa, gQuality, aQuality);
+
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium mb-1">Conference Context</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — scoring offense/defense and third down rankings</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadgeGroup(ga, 'team-a-badge', ['scoring_offense', 'scoring_defense', 'third_down'], 'No scoring or third down rankings available.')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadgeGroup(aa, 'team-b-badge', ['scoring_offense', 'scoring_defense', 'third_down'], 'No scoring or third down rankings available.')}
+            </div>
+        </div>
+    </div>`;
+
+    const rankingCard = (team, label, key, teamClass) => {
+        const entry = getRanking(team, key);
+        const value = entry && entry.value ? entry.value : '\u2014';
+        return statCard(label, value, '', teamClass, null, buildStatBadge(team, key));
+    };
+    html += `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
+        <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — team ranks within conference (CFBStats)</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-3">
+                ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a')}
+                ${rankingCard(ga, 'Time of Possession', 'time_of_possession', 'team-a')}
+                ${rankingCard(ga, 'Total Offense Yds/G', 'total_offense', 'team-a')}
+                ${rankingCard(ga, 'Total Defense Yds/G', 'total_defense', 'team-a')}
+                ${rankingCard(ga, 'Rushing Off Yds/G', 'rushing_offense', 'team-a')}
+                ${rankingCard(ga, 'Rushing Def Yds/G', 'rushing_defense', 'team-a')}
+                ${rankingCard(ga, 'Passing Off Yds/G', 'passing_offense', 'team-a')}
+                ${rankingCard(ga, 'Passing Def Yds/G', 'passing_defense', 'team-a')}
+                ${rankingCard(ga, 'Sacks Allowed', 'sacks_offense', 'team-a')}
+                ${rankingCard(ga, 'Sacks (Defense)', 'sacks_defense', 'team-a')}
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                ${rankingCard(aa, 'Scoring Margin', 'scoring_margin', 'team-b')}
+                ${rankingCard(aa, 'Time of Possession', 'time_of_possession', 'team-b')}
+                ${rankingCard(aa, 'Total Offense Yds/G', 'total_offense', 'team-b')}
+                ${rankingCard(aa, 'Total Defense Yds/G', 'total_defense', 'team-b')}
+                ${rankingCard(aa, 'Rushing Off Yds/G', 'rushing_offense', 'team-b')}
+                ${rankingCard(aa, 'Rushing Def Yds/G', 'rushing_defense', 'team-b')}
+                ${rankingCard(aa, 'Passing Off Yds/G', 'passing_offense', 'team-b')}
+                ${rankingCard(aa, 'Passing Def Yds/G', 'passing_defense', 'team-b')}
+                ${rankingCard(aa, 'Sacks Allowed', 'sacks_offense', 'team-b')}
+                ${rankingCard(aa, 'Sacks (Defense)', 'sacks_defense', 'team-b')}
+            </div>
+        </div>
+    </div>`;
+
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a', gq(['points_for','points_against'], 'Record'))}
+            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b', aq(['points_for','points_against'], 'Record'))}
+            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
+        </div>
+    </div>`;
+
+    html += compBar('Points Per Game', gs.ppg, as_.ppg);
+    html += compBar('Opp PPG', gs.oppg, as_.oppg);
+    html += compBar('Explosives/Game', gs.explpg, as_.explpg);
+    html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += compBar('RZ TD%', gs.rztdpct, as_.rztdpct, '%');
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${scheduleTable(ga, gf, 'team-a')}
+        ${scheduleTable(aa, af, 'team-b')}
+    </div>`;
+    return html;
+}
+
+function printMiddle8Section() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gaFor = sumField(gf, 'middle8_points_for');
+    const gaAgainst = sumField(gf, 'middle8_points_against');
+    const aaFor = sumField(af, 'middle8_points_for');
+    const aaAgainst = sumField(af, 'middle8_points_against');
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Middle 8 PF', gaFor, '', 'team-a', gq(['middle8_points_for'], 'Middle 8 PF'))}
+            ${statCard('Middle 8 PA', gaAgainst, '', 'team-a', gq(['middle8_points_against'], 'Middle 8 PA'))}
+            ${statCard('Middle 8 Diff', gaFor-gaAgainst, '', 'team-a', gq(['middle8_points_for','middle8_points_against'], 'Middle 8 Diff'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Middle 8 PF', aaFor, '', 'team-b', aq(['middle8_points_for'], 'Middle 8 PF'))}
+            ${statCard('Middle 8 PA', aaAgainst, '', 'team-b', aq(['middle8_points_against'], 'Middle 8 PA'))}
+            ${statCard('Middle 8 Diff', aaFor-aaAgainst, '', 'team-b', aq(['middle8_points_for','middle8_points_against'], 'Middle 8 Diff'))}
+        </div>
+    </div>`;
+    html += compBar('Middle 8 Point Diff', gaFor-gaAgainst, aaFor-aaAgainst);
+    return html;
+}
+
+function printExplosivesSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gExplRush = sumField(gf, 'explosive_rushes');
+    const gExplPass = sumField(gf, 'explosive_passes');
+    const aExplRush = sumField(af, 'explosive_rushes');
+    const aExplPass = sumField(af, 'explosive_passes');
+    const gExplRushPg = (gExplRush / (gf.length || 1)).toFixed(1);
+    const gExplPassPg = (gExplPass / (gf.length || 1)).toFixed(1);
+    const aExplRushPg = (aExplRush / (af.length || 1)).toFixed(1);
+    const aExplPassPg = (aExplPass / (af.length || 1)).toFixed(1);
+    const gLeaders = buildExplosiveLeaders(gf);
+    const aLeaders = buildExplosiveLeaders(af);
+
+    const computeExplosivesAllowed = (game, teamAbbr) => {
+        const playTree = game.play_tree || [];
+        let total = 0, rush = 0, pass = 0, plays = 0, drives = 0;
+        playTree.forEach(q => {
+            (q.drives || []).forEach(d => {
+                const dPlays = d.plays || [];
+                const defDrive = d.offense && d.offense !== teamAbbr;
+                let driveHasPlay = false;
+                dPlays.forEach(p => {
+                    if (!p || !p.offense || p.offense === teamAbbr || p.is_no_play) return;
+                    plays += 1;
+                    driveHasPlay = true;
+                    const yards = p.yards;
+                    if (yards === undefined || yards === null) return;
+                    const desc = (p.description || '').toUpperCase();
+                    const isPass = desc.includes('PASS') || desc.includes('COMPLETE') || desc.includes('CAUGHT');
+                    const threshold = isPass ? 20 : 15;
+                    if (yards >= threshold) { total += 1; if (isPass) pass += 1; else rush += 1; }
+                });
+                if (defDrive && driveHasPlay) drives += 1;
+            });
+        });
+        return { total, rush, pass, plays, drives };
+    };
+    const gDefStats = gf.map(g => computeExplosivesAllowed(g, ga.abbr));
+    const aDefStats = af.map(g => computeExplosivesAllowed(g, aa.abbr));
+    const sumDef = (arr, key) => arr.reduce((s, d) => s + (d[key] || 0), 0);
+    const gDefTotal = sumDef(gDefStats, 'total');
+    const aDefTotal = sumDef(aDefStats, 'total');
+    const gDefRush = sumDef(gDefStats, 'rush');
+    const aDefRush = sumDef(aDefStats, 'rush');
+    const gDefPass = sumDef(gDefStats, 'pass');
+    const aDefPass = sumDef(aDefStats, 'pass');
+    const gDefPlays = sumDef(gDefStats, 'plays');
+    const aDefPlays = sumDef(aDefStats, 'plays');
+    const gDefDrives = sumDef(gDefStats, 'drives');
+    const aDefDrives = sumDef(aDefStats, 'drives');
+    const gDefTotalPg = (gDefTotal / (gf.length || 1)).toFixed(1);
+    const aDefTotalPg = (aDefTotal / (af.length || 1)).toFixed(1);
+    const gDefRate = gDefPlays ? ((gDefTotal / gDefPlays) * 100).toFixed(1) : '0.0';
+    const aDefRate = aDefPlays ? ((aDefTotal / aDefPlays) * 100).toFixed(1) : '0.0';
+    const gDefPerDrive = gDefDrives ? (gDefTotal / gDefDrives).toFixed(2) : '0.00';
+    const aDefPerDrive = aDefDrives ? (aDefTotal / aDefDrives).toFixed(2) : '0.00';
+
+    let html = `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm text-zinc-300 font-medium mb-3">Conference Context</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadges(ga, 'team-a-badge', 'explosives', 'No explosive plays ranking available.')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadges(aa, 'team-b-badge', 'explosives', 'No explosive plays ranking available.')}
+            </div>
+        </div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a', gq(['explosives'], 'Total Explosives'))}
+        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b', aq(['explosives'], 'Total Explosives'))}
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes', gExplRush, gExplRushPg+'/game', 'team-a', gq(['explosive_rushes'], 'Explosive Rushes'))}
+            ${statCard('Explosive Passes', gExplPass, gExplPassPg+'/game', 'team-a', gq(['explosive_passes'], 'Explosive Passes'))}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes', aExplRush, aExplRushPg+'/game', 'team-b', aq(['explosive_rushes'], 'Explosive Rushes'))}
+            ${statCard('Explosive Passes', aExplPass, aExplPassPg+'/game', 'team-b', aq(['explosive_passes'], 'Explosive Passes'))}
+        </div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        ${renderExplosiveLeaders('Georgia Explosive Leaders', gLeaders, 'team-a')}
+        ${renderExplosiveLeaders('Arizona State Explosive Leaders', aLeaders, 'team-b')}
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        ${statCard('Explosives Allowed', gDefTotal, gDefTotalPg+'/game', 'team-a')}
+        ${statCard('Explosives Allowed', aDefTotal, aDefTotalPg+'/game', 'team-b')}
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes Allowed', gDefRush, '', 'team-a')}
+            ${statCard('Explosive Passes Allowed', gDefPass, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rushes Allowed', aDefRush, '', 'team-b')}
+            ${statCard('Explosive Passes Allowed', aDefPass, '', 'team-b')}
+        </div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rate Allowed', gDefRate+'%', gDefTotal+'/'+gDefPlays+' plays', 'team-a')}
+            ${statCard('Explosives/Drive Allowed', gDefPerDrive, gDefTotal+'/'+gDefDrives+' drives', 'team-a')}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Explosive Rate Allowed', aDefRate+'%', aDefTotal+'/'+aDefPlays+' plays', 'team-b')}
+            ${statCard('Explosives/Drive Allowed', aDefPerDrive, aDefTotal+'/'+aDefDrives+' drives', 'team-b')}
+        </div>
+    </div>`;
+    html += compBar('Explosives Allowed/Game', parseFloat(gDefTotalPg), parseFloat(aDefTotalPg));
+    html += compBar('Explosives/Game', gs.explpg, as_.explpg);
+    return html;
+}
+
+function printRedZoneSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+
+    const printZone = (zoneName, zoneDesc, gStats, aStats, zoneKey) => {
+        const zoneFields = [zoneKey+'_trips', zoneKey+'_tds', zoneKey+'_fgs', zoneKey+'_failed', 'red_zone_plays'];
+        const gTrips = gStats[zoneKey+'_trips'] || 0;
+        const gTds = gStats[zoneKey+'_tds'] || 0;
+        const gFgs = gStats[zoneKey+'_fgs'] || 0;
+        const gFailedBreakdown = computeFailedBreakdown(gf, zoneKey);
+        const gFailed = Object.values(gFailedBreakdown).reduce((s,v) => s+v, 0);
+        const gTdPct = gTrips > 0 ? ((gTds / gTrips) * 100).toFixed(1) : '0.0';
+        const gScorePct = gTrips > 0 ? (((gTds + gFgs) / gTrips) * 100).toFixed(1) : '0.0';
+        const aTrips = aStats[zoneKey+'_trips'] || 0;
+        const aTds = aStats[zoneKey+'_tds'] || 0;
+        const aFgs = aStats[zoneKey+'_fgs'] || 0;
+        const aFailedBreakdown = computeFailedBreakdown(af, zoneKey);
+        const aFailed = Object.values(aFailedBreakdown).reduce((s,v) => s+v, 0);
+        const aTdPct = aTrips > 0 ? ((aTds / aTrips) * 100).toFixed(1) : '0.0';
+        const aScorePct = aTrips > 0 ? (((aTds + aFgs) / aTrips) * 100).toFixed(1) : '0.0';
+        let h = `<div class="mb-4"><h3 style="font-size:11pt;font-weight:700;margin:0 0 6px 0;">${zoneName} <span style="font-weight:400;font-size:9pt;color:#777;">${zoneDesc}</span></h3>`;
+        h += `<div class="grid grid-cols-2 gap-4 mb-3">
+            <div class="grid grid-cols-4 gap-3">
+                ${statCard('Trips', gTrips, '', 'team-a', gq(zoneFields, zoneName+' Trips'))}
+                ${statCard('TDs', gTds, gTdPct+'%', 'team-a', gq(zoneFields, zoneName+' TDs'))}
+                ${statCard('FGs', gFgs, '', 'team-a', gq(zoneFields, zoneName+' FGs'))}
+                ${failedStatCard(gFailed, 'team-a', gFailedBreakdown, gq(zoneFields, zoneName+' Failed'))}
+            </div>
+            <div class="grid grid-cols-4 gap-3">
+                ${statCard('Trips', aTrips, '', 'team-b', aq(zoneFields, zoneName+' Trips'))}
+                ${statCard('TDs', aTds, aTdPct+'%', 'team-b', aq(zoneFields, zoneName+' TDs'))}
+                ${statCard('FGs', aFgs, '', 'team-b', aq(zoneFields, zoneName+' FGs'))}
+                ${failedStatCard(aFailed, 'team-b', aFailedBreakdown, aq(zoneFields, zoneName+' Failed'))}
+            </div>
+        </div>`;
+        h += compBar('TD Rate', parseFloat(gTdPct), parseFloat(aTdPct), '%');
+        h += compBar('Score Rate', parseFloat(gScorePct), parseFloat(aScorePct), '%');
+        h += `</div>`;
+        return h;
+    };
+
+    let html = `<div class="glass rounded-xl p-4 mb-4">
+        <div class="text-sm font-medium text-white mb-3">Conference Context</div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${ga.name}</div>
+                ${renderContextBadges(ga, 'team-a-badge', 'red_zone', 'No red zone ranking available.')}
+            </div>
+            <div>
+                <div class="text-xs text-zinc-500 mb-2">${aa.name}</div>
+                ${renderContextBadges(aa, 'team-b-badge', 'red_zone', 'No red zone ranking available.')}
+            </div>
+        </div>
+    </div>`;
+    html += printZone('Green Zone', '(30 yards & in)', gs, as_, 'green_zone');
+    html += printZone('Red Zone', '(20 yards & in)', gs, as_, 'red_zone');
+    html += printZone('Tight Red Zone', '(10 yards & in)', gs, as_, 'tight_red_zone');
+    return html;
+}
+
+function printPenaltiesSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gaDetails = getPenaltyDetails(gf).filter(p => p.team === ga.abbr);
+    const aaDetails = getPenaltyDetails(af).filter(p => p.team === aa.abbr);
+    const gaOffensePens = gaDetails.filter(p => p.offense_or_defense === 'offense').length;
+    const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
+    const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
+    const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'))}
+            ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
+            ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'))}
+            ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
+            ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
+        </div>
+    </div>`;
+    html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${ga.name} Biggest Offenders</div>
+            ${renderOffenders(gaDetails, 'team-a')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${aa.name} Biggest Offenders</div>
+            ${renderOffenders(aaDetails, 'team-b')}
+        </div>
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${ga.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Offense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(gaDetails, 'offense', 'team-a')}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Defense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(gaDetails, 'defense', 'team-a')}</div>
+                </div>
+            </div>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${aa.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Offense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(aaDetails, 'offense', 'team-b')}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-zinc-500 mb-2">Defense</div>
+                    <div class="space-y-1">${renderPenaltyTypeList(aaDetails, 'defense', 'team-b')}</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    return html;
+}
+
+function printFourthDownSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gaAtt = sumField(gf, '4th_down_attempts');
+    const gaConv = sumField(gf, '4th_down_conversions');
+    const aaAtt = sumField(af, '4th_down_attempts');
+    const aaConv = sumField(af, '4th_down_conversions');
+    const gaPct = gaAtt ? (gaConv/gaAtt*100).toFixed(1) : '0.0';
+    const aaPct = aaAtt ? (aaConv/aaAtt*100).toFixed(1) : '0.0';
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('4th Att', gaAtt, '', 'team-a', gq(['4th_down_attempts'], '4th Att'))}
+            ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a', gq(['4th_down_conversions'], '4th Conv'))}
+            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(ga, 'fourth_down'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('4th Att', aaAtt, '', 'team-b', aq(['4th_down_attempts'], '4th Att'))}
+            ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b', aq(['4th_down_conversions'], '4th Conv'))}
+            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(aa, 'fourth_down'))}
+        </div>
+    </div>`;
+    html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderFourthDownGameTable(gf, 'team-a')}
+        ${renderFourthDownGameTable(af, 'team-b')}
+    </div>`;
+    return html;
+}
+
+function printTurnoversSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gIntLost = sumField(gf, 'interceptions_lost');
+    const gIntGained = sumField(gf, 'interceptions_gained');
+    const gFumLost = sumField(gf, 'fumbles_lost');
+    const gFumGained = sumField(gf, 'fumbles_gained');
+    const aIntLost = sumField(af, 'interceptions_lost');
+    const aIntGained = sumField(af, 'interceptions_gained');
+    const aFumLost = sumField(af, 'fumbles_lost');
+    const aFumGained = sumField(af, 'fumbles_gained');
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
+        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
+    </div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-4 gap-3">
+            ${statCard('INT Gained', gIntGained, '', 'team-a', gq(['interceptions_gained'], 'INT Gained'))}
+            ${statCard('INT Lost', gIntLost, '', 'team-a', gq(['interceptions_lost'], 'INT Lost'))}
+            ${statCard('Fum Gained', gFumGained, '', 'team-a', gq(['fumbles_gained'], 'Fum Gained'))}
+            ${statCard('Fum Lost', gFumLost, '', 'team-a', gq(['fumbles_lost'], 'Fum Lost'))}
+        </div>
+        <div class="grid grid-cols-4 gap-3">
+            ${statCard('INT Gained', aIntGained, '', 'team-b', aq(['interceptions_gained'], 'INT Gained'))}
+            ${statCard('INT Lost', aIntLost, '', 'team-b', aq(['interceptions_lost'], 'INT Lost'))}
+            ${statCard('Fum Gained', aFumGained, '', 'team-b', aq(['fumbles_gained'], 'Fum Gained'))}
+            ${statCard('Fum Lost', aFumLost, '', 'team-b', aq(['fumbles_lost'], 'Fum Lost'))}
+        </div>
+    </div>`;
+    html += compBar('Turnovers Forced', gs.tof, as_.tof);
+    html += compBar('Turnovers Lost', gs.tol, as_.tol);
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${ga.name} Top Playmakers</div>
+            ${renderPlaymakers(gf, ga.abbr, 'team-a')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${aa.name} Top Playmakers</div>
+            ${renderPlaymakers(af, aa.abbr, 'team-b')}
+        </div>
+    </div>`;
+    return html;
+}
+
+function printPostTurnoverSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gs = agg(gf), as_ = agg(af);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gPointsOff = sumField(gf, 'points_off_turnovers_for');
+    const aPointsOff = sumField(af, 'points_off_turnovers_for');
+    const gPointsAllowed = sumField(gf, 'points_off_turnovers_against');
+    const aPointsAllowed = sumField(af, 'points_off_turnovers_against');
+    const gPointsOffInt = sumPostTurnoverPointsByType(gf, 'INT', ga.abbr);
+    const gPointsOffFum = sumPostTurnoverPointsByType(gf, 'FUM', ga.abbr);
+    const aPointsOffInt = sumPostTurnoverPointsByType(af, 'INT', aa.abbr);
+    const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-5 gap-3">
+            ${statCard('TO Gained', gs.tof, '', 'team-a', gq(['turnovers_gained'], 'TO Gained'))}
+            ${statCard('TO Lost', gs.tol, '', 'team-a', gq(['turnovers_lost'], 'TO Lost'))}
+            ${statCard('Pts Off INT', gPointsOffInt, '', 'team-a', gq(['post_turnover_drives'], 'Pts Off INT'))}
+            ${statCard('Pts Off FUM', gPointsOffFum, '', 'team-a', gq(['post_turnover_drives'], 'Pts Off FUM'))}
+            ${statCard('Pts Off TO', gPointsOff, '', 'team-a', gq(['points_off_turnovers_for'], 'Pts Off TO'))}
+        </div>
+        <div class="grid grid-cols-5 gap-3">
+            ${statCard('TO Gained', as_.tof, '', 'team-b', aq(['turnovers_gained'], 'TO Gained'))}
+            ${statCard('TO Lost', as_.tol, '', 'team-b', aq(['turnovers_lost'], 'TO Lost'))}
+            ${statCard('Pts Off INT', aPointsOffInt, '', 'team-b', aq(['post_turnover_drives'], 'Pts Off INT'))}
+            ${statCard('Pts Off FUM', aPointsOffFum, '', 'team-b', aq(['post_turnover_drives'], 'Pts Off FUM'))}
+            ${statCard('Pts Off TO', aPointsOff, '', 'team-b', aq(['points_off_turnovers_for'], 'Pts Off TO'))}
+        </div>
+    </div>`;
+    html += compBar('Points Off Turnovers', gPointsOff, aPointsOff);
+    html += compBar('Points Allowed After TO', gPointsAllowed, aPointsAllowed);
+    return html;
+}
+
+function printSpecialTeamsSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const rankingKeys = {
+        puntAvg: ['punt_avg', 'punting_avg', 'punting'],
+        puntsInside20: ['punts_inside_20', 'punt_inside_20', 'inside_20_punts'],
+        fgPct: ['field_goal_pct', 'fg_pct', 'field_goals_pct'],
+    };
+    const gPunts = sumSpecial(gf, 'punts');
+    const gPuntYds = sumSpecial(gf, 'punt_yards');
+    const gPuntAvg = gPunts ? (gPuntYds / gPunts).toFixed(1) : '0.0';
+    const gPuntInside20 = sumSpecial(gf, 'punts_inside_20');
+    const gPuntTouchbacks = sumSpecial(gf, 'punt_touchbacks');
+    const aPunts = sumSpecial(af, 'punts');
+    const aPuntYds = sumSpecial(af, 'punt_yards');
+    const aPuntAvg = aPunts ? (aPuntYds / aPunts).toFixed(1) : '0.0';
+    const aPuntInside20 = sumSpecial(af, 'punts_inside_20');
+    const aPuntTouchbacks = sumSpecial(af, 'punt_touchbacks');
+    const gFgMade = sumSpecial(gf, 'field_goals_made');
+    const gFgAtt = sumSpecial(gf, 'field_goals_attempts');
+    const gFgPct = gFgAtt ? (gFgMade / gFgAtt * 100).toFixed(1) : '0.0';
+    const gFgMissed = gFgAtt - gFgMade;
+    const gFgLong = maxSpecial(gf, 'field_goal_long');
+    const aFgMade = sumSpecial(af, 'field_goals_made');
+    const aFgAtt = sumSpecial(af, 'field_goals_attempts');
+    const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
+    const aFgMissed = aFgAtt - aFgMade;
+    const aFgLong = maxSpecial(af, 'field_goal_long');
+    const gFgMissedBreakdown = buildMissedFgBreakdown(gf);
+    const aFgMissedBreakdown = buildMissedFgBreakdown(af);
+    const gKo30 = sumSpecial(gf, 'kick_return_30_plus');
+    const gPr20 = sumSpecial(gf, 'punt_return_20_plus');
+    const gStTds = sumSpecial(gf, 'special_teams_tds');
+    const gBlocks = sumSpecial(gf, 'fg_blocks') + sumSpecial(gf, 'punt_blocks');
+    const aKo30 = sumSpecial(af, 'kick_return_30_plus');
+    const aPr20 = sumSpecial(af, 'punt_return_20_plus');
+    const aStTds = sumSpecial(af, 'special_teams_tds');
+    const aBlocks = sumSpecial(af, 'fg_blocks') + sumSpecial(af, 'punt_blocks');
+
+    let html = `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>
+    <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(ga, rankingKeys.puntsInside20))}
+            ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(aa, rankingKeys.puntsInside20))}
+            ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
+        </div>
+    </div></div>`;
+
+    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Field Goals</div>
+    <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
+            ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
+            ${statCardWithBreakdown('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), gFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct))}
+            ${statCard('Longest', gFgLong || '\u2014', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
+            ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
+            ${statCardWithBreakdown('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), aFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct))}
+            ${statCard('Longest', aFgLong || '\u2014', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
+        </div>
+    </div></div>`;
+
+    html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">ST Explosives</div>
+    <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Kick Return 30+', gKo30, '', 'team-a')}
+            ${statCard('Punt Return 20+', gPr20, '', 'team-a')}
+            ${statCard('ST TDs', gStTds, '', 'team-a')}
+            ${statCard('Blocks', gBlocks, '', 'team-a')}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            ${statCard('Kick Return 30+', aKo30, '', 'team-b')}
+            ${statCard('Punt Return 20+', aPr20, '', 'team-b')}
+            ${statCard('ST TDs', aStTds, '', 'team-b')}
+            ${statCard('Blocks', aBlocks, '', 'team-b')}
+        </div>
+    </div></div>`;
+
+    html += compBar('Punt Avg', Number(gPuntAvg), Number(aPuntAvg));
+    html += compBar('FG %', Number(gFgPct), Number(aFgPct), '%');
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderStGameTable(gf, 'team-a')}
+        ${renderStGameTable(af, 'team-b')}
+    </div>`;
+    return html;
+}
+
+function buildPrintReport() {
+    const sections = [
+        { title: 'Overview', fn: printOverviewSection },
+        { title: 'Middle 8', fn: printMiddle8Section },
+        { title: 'Explosive Plays', fn: printExplosivesSection },
+        { title: 'Red Zone', fn: printRedZoneSection },
+        { title: 'Penalties', fn: printPenaltiesSection },
+        { title: '4th Down', fn: printFourthDownSection },
+        { title: 'Turnovers', fn: printTurnoversSection },
+        { title: 'Post-Turnover', fn: printPostTurnoverSection },
+        { title: 'Special Teams', fn: printSpecialTeamsSection },
+    ];
+    let html = `<div class="print-report">`;
+    html += printHeader();
+    sections.forEach(s => {
+        html += `<section class="print-section">
+            <div class="print-section-title">${s.title}</div>
+            ${s.fn()}
         </section>`;
-    }).join('');
+    });
+    html += `</div>`;
+    return html;
 }
 
 function beforePrint() {
     if (!DATA || printState) return;
     const main = document.getElementById('mainContent');
     printState = { html: main.innerHTML, tab: currentTab };
-    if (printMode === 'all') {
-        main.innerHTML = renderAllTabsForPrint();
-        Object.values(renderers).forEach(r => { if (r.init) r.init(); });
+    if (printMode === 'report') {
+        main.innerHTML = renderPrintableReport();
     }
 }
 
@@ -3685,8 +4366,12 @@ function updateHeader() {
     const aQuality = computeTeamQuality(af);
     const teamAQuality = document.getElementById('teamAQuality');
     const teamBQuality = document.getElementById('teamBQuality');
-    teamAQuality.innerHTML = `${qualityBadge(gQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', gQuality)}</span>`;
-    teamBQuality.innerHTML = `${qualityBadge(aQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', aQuality)}</span>`;
+    if (teamAQuality) {
+        teamAQuality.innerHTML = `${qualityBadge(gQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', gQuality)}</span>`;
+    }
+    if (teamBQuality) {
+        teamBQuality.innerHTML = `${qualityBadge(aQuality, 'Data')}<span class="dq-tooltip-content">${qualityTooltipHtml('Team data quality', aQuality)}</span>`;
+    }
 }
 
 function switchFilter(id) {
@@ -3741,9 +4426,9 @@ function fallbackCopy(text) {
 }
 
 function exportCurrentViewPdf() {
-    printMode = 'current';
+    printMode = 'report';
     window.print();
-    setTimeout(() => { printMode = 'all'; }, 0);
+    setTimeout(() => { printMode = 'report'; }, 0);
     closeMenus();
 }
 
