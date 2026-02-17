@@ -247,11 +247,7 @@
             <div class="relative" id="exportMenu">
                 <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
                 <div class="menu-panel hidden" id="exportPanel">
-                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export clean printable report (PDF)</button>
-                    <button class="menu-item" type="button" onclick="exportCurrentTabCsv()">📄 Export current tab as CSV</button>
-                    <button class="menu-item" type="button" onclick="downloadRawJson()">🗂️ Export data.json</button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy shareable link</button>
+                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export full sectioned report (PDF)</button>
                 </div>
             </div>
             <div class="relative" id="shareMenu">
@@ -3658,83 +3654,7 @@ function renderRecentRows(games, limit = 6) {
 }
 
 function renderPrintableReport() {
-    const ga = DATA.teams.georgia;
-    const aa = DATA.teams.asu;
-    const gf = filterGames(ga.games || []);
-    const af = filterGames(aa.games || []);
-    const gs = agg(gf);
-    const as_ = agg(af);
-    const filterLabel = FILTERS.find(f => f.id === currentFilter)?.label || 'All Games';
-    const printedAt = new Date().toLocaleString();
-    const edgeRows = [
-        { label: 'Points / Game', ga: Number(gs.ppg), aa: Number(as_.ppg), higherBetter: true },
-        { label: 'Opponent Points / Game', ga: Number(gs.oppg), aa: Number(as_.oppg), higherBetter: false },
-        { label: 'Explosive Plays / Game', ga: Number(gs.explpg), aa: Number(as_.explpg), higherBetter: true },
-        { label: 'Turnover Margin', ga: gs.tom, aa: as_.tom, higherBetter: true },
-        { label: 'Penalties / Game', ga: Number(gs.penpg), aa: Number(as_.penpg), higherBetter: false },
-        { label: 'Red Zone TD%', ga: Number(gs.rztdpct), aa: Number(as_.rztdpct), higherBetter: true },
-    ];
-    const edgeHtml = edgeRows.map(row => {
-        const better = row.ga === row.aa ? 'Even' : (
-            row.higherBetter
-                ? (row.ga > row.aa ? ga.name : aa.name)
-                : (row.ga < row.aa ? ga.name : aa.name)
-        );
-        return `<tr>
-            <td>${escHtml(row.label)}</td>
-            <td>${escHtml(row.ga)}</td>
-            <td>${escHtml(row.aa)}</td>
-            <td>${escHtml(better)}</td>
-        </tr>`;
-    }).join('');
-    const rankingsHtml = PRINT_RANKINGS.map(item => `<tr>
-        <td>${escHtml(item.label)}</td>
-        <td>${escHtml(formatRankCell(ga, item.key))}</td>
-        <td>${escHtml(formatRankCell(aa, item.key))}</td>
-    </tr>`).join('');
-
-    return `<section class="print-section printable-report">
-        <h1 class="print-section-title">Matchup Report: ${escHtml(ga.name)} vs ${escHtml(aa.name)}</h1>
-        <div class="text-sm mb-3">Filter: ${escHtml(filterLabel)} | Generated: ${escHtml(printedAt)}</div>
-        <table class="w-full text-sm mb-4">
-            <thead>
-                <tr><th>Metric</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>Record</td><td>${escHtml(gs.record)}</td><td>${escHtml(as_.record)}</td></tr>
-                <tr><td>Points / Game</td><td>${escHtml(gs.ppg)}</td><td>${escHtml(as_.ppg)}</td></tr>
-                <tr><td>Opponent Points / Game</td><td>${escHtml(gs.oppg)}</td><td>${escHtml(as_.oppg)}</td></tr>
-                <tr><td>Explosive Plays / Game</td><td>${escHtml(gs.explpg)}</td><td>${escHtml(as_.explpg)}</td></tr>
-                <tr><td>Turnover Margin</td><td>${escHtml(gs.tom)}</td><td>${escHtml(as_.tom)}</td></tr>
-                <tr><td>Penalties / Game</td><td>${escHtml(gs.penpg)}</td><td>${escHtml(as_.penpg)}</td></tr>
-                <tr><td>Red Zone TD%</td><td>${escHtml(gs.rztdpct)}%</td><td>${escHtml(as_.rztdpct)}%</td></tr>
-            </tbody>
-        </table>
-        <h2 class="print-section-title">Conference Rankings</h2>
-        <table class="w-full text-sm mb-4">
-            <thead>
-                <tr><th>Category</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th></tr>
-            </thead>
-            <tbody>${rankingsHtml}</tbody>
-        </table>
-        <h2 class="print-section-title">Matchup Edges</h2>
-        <table class="w-full text-sm mb-4">
-            <thead>
-                <tr><th>Category</th><th>${escHtml(ga.abbr || ga.name)}</th><th>${escHtml(aa.abbr || aa.name)}</th><th>Edge</th></tr>
-            </thead>
-            <tbody>${edgeHtml}</tbody>
-        </table>
-        <h2 class="print-section-title">${escHtml(ga.name)} Recent Games</h2>
-        <table class="w-full text-sm mb-4">
-            <thead><tr><th>Week</th><th>Opponent</th><th>W/L</th><th>Score</th><th>Expl</th><th>TO Mgn</th><th>Pen</th></tr></thead>
-            <tbody>${renderRecentRows(gf)}</tbody>
-        </table>
-        <h2 class="print-section-title">${escHtml(aa.name)} Recent Games</h2>
-        <table class="w-full text-sm">
-            <thead><tr><th>Week</th><th>Opponent</th><th>W/L</th><th>Score</th><th>Expl</th><th>TO Mgn</th><th>Pen</th></tr></thead>
-            <tbody>${renderRecentRows(af)}</tbody>
-        </table>
-    </section>`;
+    return buildPrintReport();
 }
 
 function renderAllTabsForPrint() {
