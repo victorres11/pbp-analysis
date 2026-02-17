@@ -204,8 +204,12 @@
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
-            canvas, svg { filter: grayscale(1) contrast(1.1); }
+            .chart-shell { height: 320px !important; min-height: 320px !important; }
+            .chart-surface { height: 320px !important; min-height: 320px !important; }
+            canvas, svg { filter: none !important; }
             .print-section-title { font-size: 14pt; font-weight: 700; margin: 0 0 8px 0; }
+            .print-section { break-before: page; page-break-before: always; }
+            .print-section:first-of-type { break-before: auto; page-break-before: auto; }
             .print-section + .print-section { margin-top: 18px; }
             .text-xs { font-size: 9pt !important; }
             .text-sm { font-size: 10pt !important; }
@@ -236,8 +240,6 @@
                 <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
                 <div class="menu-panel hidden" id="exportPanel">
                     <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export current view as PDF</button>
-                    <button class="menu-item" type="button" onclick="exportCurrentTabCsv()">📄 Export current tab as CSV</button>
-                    <button class="menu-item" type="button" onclick="downloadRawJson()">🗂️ Export data.json</button>
                     <div class="menu-divider"></div>
                     <button class="menu-item" type="button" onclick="copyShareLink()">🔗 Copy shareable link</button>
                 </div>
@@ -839,7 +841,7 @@ function renderExplosiveLeaders(title, leaders, teamClass) {
             <div class="text-xs text-zinc-500">No explosive play player data found.</div>
         </div>`;
     }
-    const fmt = (n) => n ? `${n}+ yards` : '—';
+    const fmt = (n) => n ? `longest: ${n} yards` : 'longest: —';
     const formatExplosiveLine = (player) => {
         const parts = [];
         if (player.rush > 0) {
@@ -3612,6 +3614,7 @@ let printMode = 'all';
 
 function renderAllTabsForPrint() {
     return TABS.map(t => {
+        if (t.id === 'allplays') return '';
         const r = renderers[t.id];
         if (!r) return '';
         return `<section class="print-section">
