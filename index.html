@@ -787,6 +787,29 @@ function maxSpecial(games, field) {
     return games.reduce((m,g) => Math.max(m, (g.special_teams && g.special_teams[field]) || 0), 0);
 }
 
+function buildMissedFgBreakdown(games) {
+    return games.map(g => {
+        const st = g.special_teams || {};
+        const attempts = Array.isArray(st.field_goal_attempts_detail) ? st.field_goal_attempts_detail : [];
+        const misses = attempts.filter(a => a && a.made === false);
+        if (!misses.length) return null;
+        const yardages = misses
+            .map(a => Number(a.yards))
+            .filter(y => Number.isFinite(y))
+            .sort((a, b) => a - b);
+        const value = yardages.length
+            ? yardages.map(y => `${y}y`).join(', ')
+            : `${misses.length} missed`;
+        return {
+            game_number: g.game_number,
+            opponent: g.opponent,
+            opponent_abbr: g.opponent_abbr,
+            date: g.date,
+            value,
+        };
+    }).filter(Boolean);
+}
+
 function normalizePlayerName(raw) {
     if (!raw || typeof raw !== 'string') return '';
     let name = raw.trim().replace(/\s+/g, ' ');
@@ -991,6 +1014,16 @@ function buildStatBadge(team, key) {
     if (!entry) return '';
     const meta = RANKING_META[key] || {};
     return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+}
+
+function buildFirstAvailableStatBadge(team, keys=[]) {
+    for (const key of keys) {
+        const entry = getRanking(team, key);
+        if (!entry || Array.isArray(entry)) continue;
+        const meta = RANKING_META[key] || {};
+        return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
+    }
+    return '';
 }
 
 function formatRankingLabel(entry) {
@@ -2368,8 +2401,14 @@ function renderPostTurnover() {
     html += compBar('Points Off Turnovers', gPointsOff, aPointsOff);
     html += compBar('Points Allowed After TO', gPointsAllowed, aPointsAllowed);
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
-        <div class="glass rounded-xl p-4">${chartContainer('postToTotalsChart', '260px')}</div>
-        <div class="glass rounded-xl p-4">${chartContainer('postToPerGameChart', '260px')}</div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Total points after takeaways by turnover type</div>
+            ${chartContainer('postToTotalsChart', '260px')}
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-xs text-zinc-400 mb-2">Points scored off takeaways per game</div>
+            ${chartContainer('postToPerGameChart', '300px')}
+        </div>
     </div>`;
 
     // Post-turnover drive tables (collapsed by default)
@@ -2430,10 +2469,8 @@ function initPostTurnoverCharts() {
     const aPointsOffFum = sumPostTurnoverPointsByType(af, 'FUM', aa.abbr);
     const maxGames = Math.max(gf.length, af.length);
     const labels = Array.from({length: maxGames}, (_,i) => `G${i+1}`);
-    const gIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'INT', ga.abbr));
-    const gFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], 'FUM', ga.abbr));
-    const aIntByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'INT', aa.abbr));
-    const aFumByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], 'FUM', aa.abbr));
+    const gPointsByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(gf[i], null, ga.abbr));
+    const aPointsByGame = Array.from({length: maxGames}, (_,i) => sumPostTurnoverPoints(af[i], null, aa.abbr));
     const totalsChart = safeInitChart('postToTotalsChart');
     if (totalsChart) safeSetOption(totalsChart, 'postToTotalsChart', {
         backgroundColor: 'transparent',
@@ -2451,15 +2488,13 @@ function initPostTurnoverCharts() {
     if (perGameChart) safeSetOption(perGameChart, 'postToPerGameChart', {
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
-        legend: { data: ['UGA INT', 'UGA FUM', 'ASU INT', 'ASU FUM'], textStyle: { color: '#a1a1aa' } },
-        grid: { left: 30, right: 20, top: 30, bottom: 30, containLabel: true },
+        legend: { top: 0, data: ['UGA Pts Off TO', 'ASU Pts Off TO'], textStyle: { color: '#a1a1aa' } },
+        grid: { left: 30, right: 20, top: 52, bottom: 30, containLabel: true },
         xAxis: { type: 'category', data: labels, axisLabel: { color: '#71717a' } },
-        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
         series: [
-            { name: 'UGA INT', type: 'bar', stack: 'UGA', data: gIntByGame, itemStyle: { color: '#ef4444' } },
-            { name: 'UGA FUM', type: 'bar', stack: 'UGA', data: gFumByGame, itemStyle: { color: '#fca5a5' } },
-            { name: 'ASU INT', type: 'bar', stack: 'ASU', data: aIntByGame, itemStyle: { color: '#f97316' } },
-            { name: 'ASU FUM', type: 'bar', stack: 'ASU', data: aFumByGame, itemStyle: { color: '#fdba74' } },
+            { name: 'UGA Pts Off TO', type: 'bar', data: gPointsByGame, itemStyle: { color: '#ef4444' } },
+            { name: 'ASU Pts Off TO', type: 'bar', data: aPointsByGame, itemStyle: { color: '#f97316' } },
         ]
     });
     const charts = [totalsChart, perGameChart].filter(Boolean);
@@ -2926,9 +2961,15 @@ function initFourthDownCharts() {
 }
 
 function renderSpecialTeams() {
-    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
+    const rankingKeys = {
+        puntAvg: ['punt_avg', 'punting_avg', 'punting'],
+        puntsInside20: ['punts_inside_20', 'punt_inside_20', 'inside_20_punts'],
+        fgPct: ['field_goal_pct', 'fg_pct', 'field_goals_pct'],
+    };
     const buildStBreakdown = (games, getter) => games.map(g => {
         const st = g.special_teams || {};
         const value = Number(getter(st, g) || 0);
@@ -2945,14 +2986,12 @@ function renderSpecialTeams() {
     // Aggregate special teams data
     const gPunts = sumSpecial(gf, 'punts');
     const gPuntYds = sumSpecial(gf, 'punt_yards');
-    const gPuntNetYds = sumSpecial(gf, 'punt_net_yards');
     const gPuntAvg = gPunts ? (gPuntYds / gPunts).toFixed(1) : '0.0';
     const gPuntInside20 = sumSpecial(gf, 'punts_inside_20');
     const gPuntTouchbacks = sumSpecial(gf, 'punt_touchbacks');
     
     const aPunts = sumSpecial(af, 'punts');
     const aPuntYds = sumSpecial(af, 'punt_yards');
-    const aPuntNetYds = sumSpecial(af, 'punt_net_yards');
     const aPuntAvg = aPunts ? (aPuntYds / aPunts).toFixed(1) : '0.0';
     const aPuntInside20 = sumSpecial(af, 'punts_inside_20');
     const aPuntTouchbacks = sumSpecial(af, 'punt_touchbacks');
@@ -2968,6 +3007,8 @@ function renderSpecialTeams() {
     const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
     const aFgMissed = aFgAtt - aFgMade;
     const aFgLong = maxSpecial(af, 'field_goal_long');
+    const gFgMissedBreakdown = buildMissedFgBreakdown(gf);
+    const aFgMissedBreakdown = buildMissedFgBreakdown(af);
     
     const gKo30 = sumSpecial(gf, 'kick_return_30_plus');
     const gPr20 = sumSpecial(gf, 'punt_return_20_plus');
@@ -2984,20 +3025,16 @@ function renderSpecialTeams() {
     // Punting section
     html += `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>`;
     html += `<div class="grid grid-cols-2 gap-4">
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', gPuntYds, '', 'team-a', gq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', gPuntNetYds, '', 'team-a', gq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(ga, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', aPuntYds, '', 'team-b', aq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', aPuntNetYds, '', 'team-b', aq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(aa, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
     </div></div>`;
@@ -3008,15 +3045,15 @@ function renderSpecialTeams() {
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
-            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCardWithBreakdown('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), gFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct))}
             ${statCard('Longest', gFgLong || '—', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'))}
-            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'))}
+            ${statCardWithBreakdown('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), aFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct))}
             ${statCard('Longest', aFgLong || '—', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
     </div></div>`;
@@ -4153,17 +4190,21 @@ function printPostTurnoverSection() {
 }
 
 function printSpecialTeamsSection() {
-    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gq = makeQuality(gf), aq = makeQuality(af);
+    const rankingKeys = {
+        puntAvg: ['punt_avg', 'punting_avg', 'punting'],
+        puntsInside20: ['punts_inside_20', 'punt_inside_20', 'inside_20_punts'],
+        fgPct: ['field_goal_pct', 'fg_pct', 'field_goals_pct'],
+    };
     const gPunts = sumSpecial(gf, 'punts');
     const gPuntYds = sumSpecial(gf, 'punt_yards');
-    const gPuntNetYds = sumSpecial(gf, 'punt_net_yards');
     const gPuntAvg = gPunts ? (gPuntYds / gPunts).toFixed(1) : '0.0';
     const gPuntInside20 = sumSpecial(gf, 'punts_inside_20');
     const gPuntTouchbacks = sumSpecial(gf, 'punt_touchbacks');
     const aPunts = sumSpecial(af, 'punts');
     const aPuntYds = sumSpecial(af, 'punt_yards');
-    const aPuntNetYds = sumSpecial(af, 'punt_net_yards');
     const aPuntAvg = aPunts ? (aPuntYds / aPunts).toFixed(1) : '0.0';
     const aPuntInside20 = sumSpecial(af, 'punts_inside_20');
     const aPuntTouchbacks = sumSpecial(af, 'punt_touchbacks');
@@ -4177,6 +4218,8 @@ function printSpecialTeamsSection() {
     const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
     const aFgMissed = aFgAtt - aFgMade;
     const aFgLong = maxSpecial(af, 'field_goal_long');
+    const gFgMissedBreakdown = buildMissedFgBreakdown(gf);
+    const aFgMissedBreakdown = buildMissedFgBreakdown(af);
     const gKo30 = sumSpecial(gf, 'kick_return_30_plus');
     const gPr20 = sumSpecial(gf, 'punt_return_20_plus');
     const gStTds = sumSpecial(gf, 'special_teams_tds');
@@ -4188,20 +4231,16 @@ function printSpecialTeamsSection() {
 
     let html = `<div class="glass rounded-xl p-4 mb-4"><div class="text-sm font-medium text-white mb-3">Punting</div>
     <div class="grid grid-cols-2 gap-4">
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', gPuntYds, '', 'team-a', gq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', gPuntNetYds, '', 'team-a', gq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(ga, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Gross Yds', aPuntYds, '', 'team-b', aq(['special_teams.punt_yards'], 'Gross Yds'))}
-            ${statCard('Net Yds', aPuntNetYds, '', 'team-b', aq(['special_teams.punt_net_yards'], 'Net Yds'))}
-            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'))}
-            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg))}
+            ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(aa, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
     </div></div>`;
@@ -4211,15 +4250,15 @@ function printSpecialTeamsSection() {
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', gFgMissed, '', 'team-a')}
-            ${statCard('FG %', gFgPct + '%', '', 'team-a')}
+            ${statCardWithBreakdown('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), gFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct))}
             ${statCard('Longest', gFgLong || '\u2014', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
-            ${statCard('Missed', aFgMissed, '', 'team-b')}
-            ${statCard('FG %', aFgPct + '%', '', 'team-b')}
+            ${statCardWithBreakdown('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), aFgMissedBreakdown, 'No missed field goals recorded.')}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct))}
             ${statCard('Longest', aFgLong || '\u2014', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
     </div></div>`;
