@@ -308,6 +308,9 @@ let currentFilter = 'all';
 let allPlaysQuery = '';
 let allPlaysFilters = { team: 'all', type: 'all', scoring: false, turnover: false };
 let allPlaysSelected = null;
+let PLAYER_INITIAL_LAST_LOOKUP = new Map();
+let PLAYER_LASTNAME_LOOKUP = new Map();
+let PLAYER_JERSEY_LOOKUP = new Map();
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -804,13 +807,155 @@ function buildMissedFgBreakdown(games) {
     }).filter(Boolean);
 }
 
+function canonicalLastName(last) {
+    return (last || '')
+        .toUpperCase()
+        .replace(/\b(JR|SR|II|III|IV|V)\.?$/g, '')
+        .replace(/[^A-Z]/g, '');
+}
+
+function registerPlayerAlias(aliasCounts, first, last) {
+    if (!first || !last) return;
+    const firstToken = String(first).trim().split(/\s+/)[0] || '';
+    const firstInitial = firstToken.charAt(0).toUpperCase();
+    if (!firstInitial) return;
+    const cleanedLast = String(last).trim();
+    const key = `${firstInitial}|${canonicalLastName(cleanedLast)}`;
+    if (!key || key.endsWith('|')) return;
+    const fullName = `${firstToken.replace(/[^\w'.-]/g, '')} ${cleanedLast}`.replace(/\s+/g, ' ').trim();
+    if (!fullName) return;
+    if (!aliasCounts.has(key)) aliasCounts.set(key, new Map());
+    const candidates = aliasCounts.get(key);
+    candidates.set(fullName, (candidates.get(fullName) || 0) + 1);
+}
+
+function registerLastName(lastCounts, first, last) {
+    if (!first || !last) return;
+    const firstToken = String(first).trim().split(/\s+/)[0] || '';
+    const cleanedLast = String(last).trim();
+    if (!firstToken || !cleanedLast) return;
+    const key = canonicalLastName(cleanedLast);
+    if (!key) return;
+    const fullName = `${firstToken.replace(/[^\w'.-]/g, '')} ${cleanedLast}`.replace(/\s+/g, ' ').trim();
+    if (!fullName) return;
+    if (!lastCounts.has(key)) lastCounts.set(key, new Map());
+    const candidates = lastCounts.get(key);
+    candidates.set(fullName, (candidates.get(fullName) || 0) + 1);
+}
+
+function scanTextForPlayerAliases(text, aliasCounts, lastCounts) {
+    if (!text || typeof text !== 'string') return;
+    const NAME_RE = /([A-Z][A-Za-z'.-]*(?:\s+(?:[A-Z][A-Za-z'.-]*|Jr\.?|Sr\.?|II|III|IV|V))?),\s*([A-Z][A-Za-z0-9'.-]*)/g;
+    let m;
+    while ((m = NAME_RE.exec(text)) !== null) {
+        registerPlayerAlias(aliasCounts, m[2], m[1]);
+        registerLastName(lastCounts, m[2], m[1]);
+    }
+}
+
+function getDataTextFields(data) {
+    const fields = [];
+    const teams = (data && data.teams) || {};
+    Object.values(teams).forEach(team => {
+        (team.games || []).forEach(game => {
+            (game.explosive_details || []).forEach(e => {
+                fields.push(e.player, e.description);
+            });
+            (game.penalty_details || []).forEach(p => fields.push(p.description));
+            (game.post_turnover_drives || []).forEach(d => fields.push(d.turnover_description));
+            (game.play_tree || []).forEach(q => {
+                (q.drives || []).forEach(d => {
+                    (d.plays || []).forEach(p => fields.push(p.description, p.type));
+                });
+            });
+        });
+    });
+    return fields;
+}
+
+function pickBestName(candidates) {
+    const best = Array.from(candidates.entries()).sort((a, b) => b[1] - a[1])[0];
+    return best && best[0] ? best[0] : '';
+}
+
+function buildPlayerLookups(data) {
+    const aliasCounts = new Map();
+    const lastCounts = new Map();
+    const fields = getDataTextFields(data);
+    fields.forEach(text => {
+        scanTextForPlayerAliases(text, aliasCounts, lastCounts);
+    });
+
+    const initialLastLookup = new Map();
+    aliasCounts.forEach((candidates, key) => {
+        const best = pickBestName(candidates);
+        if (best) initialLastLookup.set(key, best);
+    });
+
+    const lastNameLookup = new Map();
+    lastCounts.forEach((candidates, key) => {
+        const best = pickBestName(candidates);
+        if (best) lastNameLookup.set(key, best);
+    });
+
+    const jerseyCounts = new Map();
+    const JERSEY_INITIAL_LAST_RE = /#\s?(\d{1,2})\s+([A-Z])\.\s*([A-Za-z][A-Za-z'.-]*(?:\s+(?:Jr\.?|Sr\.?|II|III|IV|V))?)/g;
+    fields.forEach(text => {
+        if (!text || typeof text !== 'string') return;
+        let m;
+        while ((m = JERSEY_INITIAL_LAST_RE.exec(text)) !== null) {
+            const jersey = m[1];
+            const initial = m[2];
+            const last = m[3];
+            const key = `${initial.toUpperCase()}|${canonicalLastName(last)}`;
+            const resolved = initialLastLookup.get(key) || `${initial}. ${last}`.trim();
+            const nameKey = resolved.toLowerCase();
+            if (!jerseyCounts.has(nameKey)) jerseyCounts.set(nameKey, new Map());
+            const candidates = jerseyCounts.get(nameKey);
+            candidates.set(jersey, (candidates.get(jersey) || 0) + 1);
+        }
+    });
+
+    const jerseyLookup = new Map();
+    jerseyCounts.forEach((candidates, key) => {
+        const best = Array.from(candidates.entries()).sort((a, b) => b[1] - a[1])[0];
+        if (best && best[0]) jerseyLookup.set(key, best[0]);
+    });
+    return { initialLastLookup, lastNameLookup, jerseyLookup };
+}
+
+function resolveInitialLastName(initial, last) {
+    const key = `${String(initial || '').toUpperCase()}|${canonicalLastName(last)}`;
+    return PLAYER_INITIAL_LAST_LOOKUP.get(key) || '';
+}
+
+function resolveLastOnlyName(last) {
+    return PLAYER_LASTNAME_LOOKUP.get(canonicalLastName(last)) || '';
+}
+
+function resolveJerseyForName(name) {
+    return PLAYER_JERSEY_LOOKUP.get(String(name || '').toLowerCase()) || '';
+}
+
 function normalizePlayerName(raw) {
     if (!raw || typeof raw !== 'string') return '';
     let name = raw.trim().replace(/\s+/g, ' ');
-    name = name.replace(/^[A-Z]{2,4}\s+/, '');
+    name = name.replace(/^(?:[A-Z]{2,4}\s+)+/, '');
+    name = name.replace(/^(?:#?\d+\s+)+/, '');
     if (name.includes(',')) {
         const [last, first] = name.split(',').map(s => s.trim()).filter(Boolean);
         if (first && last) return `${first} ${last}`.trim();
+    }
+    const initialLast = name.match(/^([A-Z])\.\s*([A-Za-z][A-Za-z'.-]*(?:\s+(?:Jr\.?|Sr\.?|II|III|IV|V))?)$/);
+    if (initialLast) {
+        const resolved = resolveInitialLastName(initialLast[1], initialLast[2]);
+        if (resolved) return resolved;
+        return `${initialLast[1]}. ${initialLast[2]}`.trim();
+    }
+    const lastOnly = name.match(/^[A-Za-z][A-Za-z'.-]*(?:\s+(?:Jr\.?|Sr\.?|II|III|IV|V))?$/);
+    if (lastOnly) {
+        const resolved = resolveLastOnlyName(name);
+        if (resolved) return resolved;
     }
     return name;
 }
@@ -901,6 +1046,30 @@ function getTurnoverType(desc) {
     return '';
 }
 
+function formatTurnoverPlaymakerLabel(name, jersey) {
+    const cleanName = (name || '').trim().replace(/\s+/g, ' ');
+    const cleanJersey = String(jersey || '').replace(/[^\d]/g, '');
+    if (!cleanName) return cleanJersey ? `#${cleanJersey}` : '';
+
+    const parts = cleanName.split(' ').filter(Boolean);
+    let initial = '';
+    let last = cleanName;
+    if (parts.length >= 2) {
+        const first = parts[0].replace(/\./g, '');
+        initial = first ? first.charAt(0).toUpperCase() : '';
+        last = parts.slice(1).join(' ');
+    } else {
+        const dotted = cleanName.match(/^([A-Z])\.\s*(.+)$/);
+        if (dotted) {
+            initial = dotted[1];
+            last = dotted[2];
+        }
+    }
+
+    const namePart = initial ? `${initial}. ${last}` : last;
+    return cleanJersey ? `#${cleanJersey} ${namePart}` : namePart;
+}
+
 function buildTurnoverTypeLookup(game) {
     const lookup = {};
     (game.post_turnover_drives || []).forEach(d => {
@@ -917,20 +1086,31 @@ function resolveTurnoverType(play, lookup) {
     return getTurnoverType(play && play.description ? play.description : '');
 }
 
-function extractTurnoverPlaymaker(desc) {
-    if (!desc || typeof desc !== 'string') return '';
+function extractTurnoverPlaymakerDetails(desc) {
+    if (!desc || typeof desc !== 'string') return { key: '', name: '', jersey: '', display: '' };
     const type = getTurnoverType(desc);
     let match = null;
     if (type === 'INT') {
-        match = desc.match(/intercepted by (.+?)(?: at | return |,|\.|$)/i);
+        match = desc.match(/intercepted by (.+?)(?: at | return |,|;\s*|\.\s+|$)/i);
     } else if (type === 'FUM') {
-        match = desc.match(/recovered by (.+?)(?: at |,|\.|$)/i);
+        match = desc.match(/recovered by (.+?)(?: at |,|;\s*|\.\s+|$)/i);
         if (!match || !match[1]) {
-            match = desc.match(/forced by (.+?)(?: recovered| at |,|\.|$)/i);
+            match = desc.match(/forced by (.+?)(?: recovered| at |,|;\s*|\.\s+|$)/i);
         }
     }
-    if (!match || !match[1]) return '';
-    return normalizePlayerName(match[1]);
+    if (!match || !match[1]) return { key: '', name: '', jersey: '', display: '' };
+    const raw = match[1].trim();
+    const jerseyMatch = raw.match(/#\s?(\d{1,2})\b/);
+    const parsedJersey = jerseyMatch ? jerseyMatch[1] : '';
+    const name = normalizePlayerName(raw);
+    const jersey = parsedJersey || resolveJerseyForName(name);
+    const key = name.toLowerCase();
+    const display = formatTurnoverPlaymakerLabel(name, jersey);
+    return { key, name, jersey, display };
+}
+
+function extractTurnoverPlaymaker(desc) {
+    return extractTurnoverPlaymakerDetails(desc).display;
 }
 
 function compBar(label, valA, valB, unit='') {
@@ -1325,19 +1505,22 @@ function renderPlaymakers(games, teamAbbr, teamClass) {
             q.drives.forEach(d => {
                 d.plays.filter(p => p.is_turnover).forEach(p => {
                     if (!p.offense || p.offense === teamAbbr) return;
-                    const name = extractTurnoverPlaymaker(p.description || '');
-                    if (!name) return;
+                    const player = extractTurnoverPlaymakerDetails(p.description || '');
+                    if (!player.key) return;
                     const type = resolveTurnoverType(p, typeLookup);
-                    if (!counts[name]) counts[name] = {int: 0, fum: 0, other: 0, total: 0};
-                    if (type === 'INT') counts[name].int += 1;
-                    else if (type === 'FUM') counts[name].fum += 1;
-                    else counts[name].other += 1;
-                    counts[name].total += 1;
+                    if (!counts[player.key]) counts[player.key] = {name: player.name, int: 0, fum: 0, other: 0, total: 0, displays: {}};
+                    if (type === 'INT') counts[player.key].int += 1;
+                    else if (type === 'FUM') counts[player.key].fum += 1;
+                    else counts[player.key].other += 1;
+                    counts[player.key].total += 1;
+                    if (player.display) {
+                        counts[player.key].displays[player.display] = (counts[player.key].displays[player.display] || 0) + 1;
+                    }
                 });
             });
         });
     });
-    const top = Object.entries(counts).sort((a,b) => b[1].total - a[1].total).slice(0,5);
+    const top = Object.values(counts).sort((a,b) => b.total - a.total).slice(0,5);
     if (!top.length) return `<div class="text-zinc-500 text-xs p-4">No turnover playmakers found.</div>`;
     const formatBreakdown = row => {
         const parts = [];
@@ -1346,10 +1529,16 @@ function renderPlaymakers(games, teamAbbr, teamClass) {
         if (row.other) parts.push(`${row.other} TO`);
         return parts.join(', ') || '0';
     };
+    const pickDisplay = (row) => {
+        const entries = Object.entries(row.displays || {});
+        if (!entries.length) return formatTurnoverPlaymakerLabel(row.name, '');
+        entries.sort((a, b) => b[1] - a[1]);
+        return entries[0][0];
+    };
     return `<div class="space-y-2">
-        ${top.map((t,i) => `<div class="flex items-center justify-between text-sm">
-            <span class="${teamClass}">${i+1}. ${t[0]}</span>
-            <span class="text-zinc-500">${formatBreakdown(t[1])}</span>
+        ${top.map((row,i) => `<div class="flex items-center justify-between text-sm">
+            <span class="${teamClass}">${i+1}. ${pickDisplay(row)}</span>
+            <span class="text-zinc-500">${formatBreakdown(row)}</span>
         </div>`).join('')}
     </div>`;
 }
@@ -4815,6 +5004,10 @@ function initApp() {
             return;
         }
         DATA = d;
+        const lookups = buildPlayerLookups(d);
+        PLAYER_INITIAL_LAST_LOOKUP = lookups.initialLastLookup;
+        PLAYER_LASTNAME_LOOKUP = lookups.lastNameLookup;
+        PLAYER_JERSEY_LOOKUP = lookups.jerseyLookup;
         applyHashState();
         const ga = d.teams.georgia, aa = d.teams.asu;
         document.getElementById('teamAName').textContent = ga.name;
