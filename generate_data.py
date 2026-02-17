@@ -14,7 +14,7 @@ from datetime import date, datetime
 from collections import defaultdict
 
 # Add src to path to import pbp_parser without executing its __init__
-repo_root = Path("/Users/vicmacmini/clawd/pbp-parser")
+repo_root = Path(__file__).parent.parent / "pbp-parser"
 sys.path.insert(0, str(repo_root / "src"))
 pbp_pkg = types.ModuleType("pbp_parser")
 pbp_pkg.__path__ = [str(repo_root / "src" / "pbp_parser")]
@@ -42,15 +42,19 @@ EXPLOSIVE_NAME_PATTERN = re.compile(
         HASH_FULLNAME_PATTERN.pattern,
     ]) + r")"
 )
-# Match: to LastName,FirstName (with optional Jr./Sr./II/III/IV/V suffixes)
-# This specifically matches the Last,First format without capturing trailing text
+# Player name sub-patterns used in receiver/rusher extraction
+_LAST_FIRST = r'[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?\s*,\s*[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?'
+_HASH_INITIAL_LAST = r'#\d+\s+[A-Z]\.[A-Za-z.\'\-]+'
+_PLAYER_NAME = rf'(?:{_LAST_FIRST}|{_HASH_INITIAL_LAST})'
+
+# Match: "to Last,First" or "to #XX I.Last" (receiver in pass plays)
 PASS_RECEIVER_RE = re.compile(
-    r'\bto\s+([A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?,[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?)\b',
+    rf'\bto\s+({_PLAYER_NAME})',
     re.IGNORECASE
 )
-# Match: LastName,FirstName before rush/run keywords
+# Match: "Last,First rush" or "#XX I.Last rush" (ball carrier in rush plays)
 RUSH_PLAYER_RE = re.compile(
-    r'\b([A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?,[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?)\s+(?:rush|rushes|run|runs)\b',
+    rf'({_PLAYER_NAME})\s+(?:rush|rushes|run|runs)\b',
     re.IGNORECASE
 )
 PLAYER_NAME_BLACKLIST = [
