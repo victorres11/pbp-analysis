@@ -14,7 +14,7 @@ from datetime import date, datetime
 from collections import defaultdict
 
 # Add src to path to import pbp_parser without executing its __init__
-repo_root = Path(__file__).parent.parent / "pbp-parser"
+repo_root = Path("/Users/vicmacmini/clawd/pbp-parser")
 sys.path.insert(0, str(repo_root / "src"))
 pbp_pkg = types.ModuleType("pbp_parser")
 pbp_pkg.__path__ = [str(repo_root / "src" / "pbp_parser")]
