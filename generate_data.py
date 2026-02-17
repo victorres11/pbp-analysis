@@ -672,13 +672,21 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         else:
             offense_or_defense = 'unknown'
 
-        # Differentiate holding by side when possible
+        # Differentiate holding by side when possible.
+        # Prefer side attribution first; only fall back to yardage/AFD hints when side is unknown.
         if penalty_type == 'Holding':
-            is_afd = 'AUTOMATIC FIRST DOWN' in desc_upper or 'FIRST DOWN' in desc_upper
-            if yards == 10:
+            is_afd = ('AUTOMATIC FIRST DOWN' in desc_upper) or bool(re.search(r'\bAFD\b', desc_upper))
+            if offense_or_defense == 'offense':
                 penalty_type = 'Offensive Holding (10y)'
-            elif yards == 5:
+            elif offense_or_defense == 'defense':
                 penalty_type = 'Defensive Holding (5y, AFD)' if is_afd else 'Defensive Holding (5y)'
+            elif yards == 10:
+                penalty_type = 'Offensive Holding (10y)'
+            elif yards == 5 and is_afd:
+                penalty_type = 'Defensive Holding (5y, AFD)'
+            else:
+                # Ambiguous or missing context defaults to offensive holding.
+                penalty_type = 'Offensive Holding (10y)'
         
         penalty_details.append({
             'type': penalty_type,
