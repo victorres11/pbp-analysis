@@ -8,6 +8,7 @@ Supports conference context badges for red zone, third down, explosives, and sco
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://cfbstats.com"
 
@@ -162,14 +165,26 @@ def parse_leaderboard_table(html: str) -> Optional[Dict[str, List[Dict[str, str]
 
     headers = rows[header_index]
     data_rows = rows[header_index + 1 :]
+
+    # Validate headers: warn if all non-empty headers are duplicates
+    non_empty_headers = [h for h in headers if h.strip()]
+    if non_empty_headers and len(set(non_empty_headers)) == 1:
+        logger.warning(
+            f"All table headers have duplicate name '{non_empty_headers[0]}'. "
+            "Column detection may fail. Headers: %s",
+            headers,
+        )
+
     parsed_rows: List[Dict[str, str]] = []
+    raw_data_rows: List[List[str]] = []
     for row in data_rows:
         if len(row) < 2:
             continue
         padded = row[: len(headers)] + [""] * max(0, len(headers) - len(row))
         parsed_rows.append({headers[i]: padded[i] for i in range(len(headers))})
+        raw_data_rows.append(padded)
 
-    return {"headers": headers, "rows": parsed_rows}
+    return {"headers": headers, "rows": parsed_rows, "raw_rows": raw_data_rows}
 
 
 def find_column(headers: Iterable[str], candidates: Iterable[str]) -> Optional[str]:
@@ -202,6 +217,20 @@ def find_column(headers: Iterable[str], candidates: Iterable[str]) -> Optional[s
     if {"rank", "rk", "#"} & normalized_candidates and header_list:
         if normalized_headers[0] == "":
             return header_list[0]
+    return None
+
+
+def _get_column_value_by_index(row: Dict[str, str], headers: List[str], index: int) -> Optional[str]:
+    """Get value from row by column index, handling duplicate header names.
+
+    For tables with duplicate headers (like LONG_PLAYS category 30 where
+    all columns are named 'Yards'), we need to access by index rather than
+    header name since dict lookups return only the last value for duplicates.
+    """
+    # Convert dict back to list preserving order - this is lossy for duplicate keys
+    # so we need to work with raw rows. This function is a workaround for
+    # when we already have the dict but need index-based access.
+    # For proper fix, we store raw rows in LeaderboardResult.
     return None
 
 
@@ -245,6 +274,7 @@ class LeaderboardResult:
     headers: List[str]
     rows: List[Dict[str, str]]
     fetched_at: str
+    raw_rows: Optional[List[List[str]]] = None  # For tables with duplicate headers
 
 
 class CfbstatsScraper:
@@ -299,6 +329,7 @@ class CfbstatsScraper:
                 headers=payload.get("headers", []),
                 rows=payload.get("rows", []),
                 fetched_at=payload.get("fetched_at", ""),
+                raw_rows=payload.get("raw_rows"),
             )
         except (OSError, json.JSONDecodeError):
             return None
@@ -308,6 +339,7 @@ class CfbstatsScraper:
             "headers": result.headers,
             "rows": result.rows,
             "fetched_at": result.fetched_at,
+            "raw_rows": result.raw_rows,
         }
         with path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
@@ -365,6 +397,7 @@ class CfbstatsScraper:
             headers=parsed["headers"],
             rows=parsed["rows"],
             fetched_at=datetime.utcnow().isoformat() + "Z",
+            raw_rows=parsed.get("raw_rows"),
         )
         self.save_cache(cache_path, result)
         return result
@@ -603,6 +636,7 @@ class CfbstatsScraper:
                 "stat_candidates": ["20+", "20", "20+ Plays", "20+ Yds", "20+Yds"],
                 "formatter": lambda v: str(v).strip() if v is not None else "",
                 "offense": "offense",
+                "sort": "sort02",  # sort02 = sorted by 20+ plays (column 4 has count)
             },
             {
                 "key": "fourth_down",
@@ -744,6 +778,7 @@ class CfbstatsScraper:
                     scope,
                     cfg["category"],
                     split=split,
+                    sort=cfg.get("sort", "sort01"),
                     offense=cfg["offense"],
                 )
                 if not leaderboard:
@@ -751,11 +786,36 @@ class CfbstatsScraper:
                 team_col = find_column(leaderboard.headers, ["Team", "Name"])
                 rank_col = find_column(leaderboard.headers, ["Rank", "Rk", "#"])
                 stat_col = find_column(leaderboard.headers, cfg["stat_candidates"])
+
+                # Fallback for LONG_PLAYS (category 30) with corrupted headers
+                # cfbstats.com returns "Yards" for all columns in category 30
+                # Known structure: col 4 = 20+ plays count (when sorted by 20+)
+                use_fallback = False
+                fallback_col_index = None
+                if stat_col is None and cfg["category"] == CATEGORY_IDS["LONG_PLAYS"]:
+                    # Check if we have raw_rows for fallback
+                    if leaderboard.raw_rows and len(leaderboard.headers) >= 5:
+                        logger.warning(
+                            "Using fallback column detection for LONG_PLAYS (category 30). "
+                            "Headers were: %s",
+                            leaderboard.headers,
+                        )
+                        use_fallback = True
+                        fallback_col_index = 4  # 20+ plays count column (0-indexed: 4)
+
                 # Check 'is None' because rank_col can be empty string ""
-                if team_col is None or rank_col is None or stat_col is None:
+                if team_col is None or rank_col is None:
                     continue
+                if stat_col is None and not use_fallback:
+                    continue
+
                 total_ranked = sum(1 for row in leaderboard.rows if row.get(team_col))
-                for row in leaderboard.rows:
+
+                # Get team name column index for fallback mode
+                team_col_index = leaderboard.headers.index(team_col) if team_col in leaderboard.headers else 1
+                rank_col_index = leaderboard.headers.index(rank_col) if rank_col in leaderboard.headers else 0
+
+                for row_idx, row in enumerate(leaderboard.rows):
                     team_name = row.get(team_col, "")
                     team_id = team_lookup.get(normalize_team_name(team_name))
                     if not team_id or team_id not in team_ids:
@@ -764,7 +824,17 @@ class CfbstatsScraper:
                         rank = int(re.sub(r"[^0-9]", "", row.get(rank_col, "")))
                     except ValueError:
                         continue
-                    stat_value = row.get(stat_col, "")
+
+                    # Get stat value using fallback if needed
+                    if use_fallback and fallback_col_index is not None:
+                        raw_row = leaderboard.raw_rows[row_idx] if row_idx < len(leaderboard.raw_rows) else None
+                        if raw_row and fallback_col_index < len(raw_row):
+                            stat_value = raw_row[fallback_col_index]
+                        else:
+                            continue
+                    else:
+                        stat_value = row.get(stat_col, "")
+
                     display_value = cfg["formatter"](stat_value)
                     if not display_value:
                         continue

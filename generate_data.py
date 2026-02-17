@@ -42,8 +42,46 @@ EXPLOSIVE_NAME_PATTERN = re.compile(
         HASH_FULLNAME_PATTERN.pattern,
     ]) + r")"
 )
-PASS_RECEIVER_RE = re.compile(r"\bto\s+(" + EXPLOSIVE_NAME_PATTERN.pattern + r")", re.IGNORECASE)
-RUSH_PLAYER_RE = re.compile(r"(" + EXPLOSIVE_NAME_PATTERN.pattern + r")\s+(?:rush|run)\b", re.IGNORECASE)
+# Player name sub-patterns used in receiver/rusher extraction
+_LAST_FIRST = r'[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?\s*,\s*[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?'
+_HASH_INITIAL_LAST = r'#\d+\s+[A-Z]\.[A-Za-z.\'\-]+'
+_PLAYER_NAME = rf'(?:{_LAST_FIRST}|{_HASH_INITIAL_LAST})'
+
+# Match: "to Last,First" or "to #XX I.Last" (receiver in pass plays)
+PASS_RECEIVER_RE = re.compile(
+    rf'\bto\s+({_PLAYER_NAME})',
+    re.IGNORECASE
+)
+# Match: "Last,First rush" or "#XX I.Last rush" (ball carrier in rush plays)
+RUSH_PLAYER_RE = re.compile(
+    rf'({_PLAYER_NAME})\s+(?:rush|rushes|run|runs)\b',
+    re.IGNORECASE
+)
+PLAYER_NAME_BLACKLIST = [
+    "caught",
+    "pass",
+    "rush",
+    "run",
+    "No Huddle",
+    "Shotgun",
+    "No Huddle-Shotgun",
+    "incomplete",
+    "complete",
+    "fumble",
+    "sack",
+    "penalty",
+    "tackle",
+    "intercepted",
+    "lateral",
+    "handoff",
+    "snap",
+    "hurry",
+]
+PLAYER_NAME_BLACKLIST_RE = re.compile(
+    r"(?i)(?<![A-Za-z0-9])(?:"
+    + "|".join(sorted((re.escape(term) for term in PLAYER_NAME_BLACKLIST), key=len, reverse=True))
+    + r")(?![A-Za-z0-9])"
+)
 
 
 def normalize_player_name(raw):
@@ -51,6 +89,10 @@ def normalize_player_name(raw):
         return None
     cleaned = re.sub(r'\s+', ' ', raw.strip())
     cleaned = re.sub(r'^#\d+\s+', '', cleaned)
+    cleaned = PLAYER_NAME_BLACKLIST_RE.sub(' ', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip(' ,;-')
+    if not cleaned:
+        return None
     cleaned = re.sub(r'\b([A-Z])\.(?=[A-Za-z])', r'\1. ', cleaned)
     if ',' not in cleaned:
         return cleaned
@@ -1473,18 +1515,17 @@ def main():
     print("\n=== Parsing Washington Games ===")
     washington_games, washington_agg, _ = process_team_games(washington_dir, 'washington')
 
-    def infer_season_year(paths):
-        years = set()
-        for path in paths:
-            m = re.search(r'-(20\\d{2})$', path.name)
-            if m:
-                years.add(int(m.group(1)))
-        if len(years) == 1:
-            return years.pop()
-        return date.today().year
+    def infer_active_season(today=None):
+        """
+        Return the active CFB season year.
+        Offseason months (Jan-Jul) map to the previous season year;
+        in-season months (Aug-Dec) map to the current calendar year.
+        """
+        today = today or date.today()
+        return today.year if today.month >= 8 else today.year - 1
 
-    season_year = 2024  # CFBStats uses academic year start
-    ncaa_season = 2025   # NCAA API uses calendar year of the season
+    season_year = infer_active_season()
+    ncaa_season = season_year
     scraper = CfbstatsScraper()
 
     # Fetch schedules from NCAA API for bye week detection
