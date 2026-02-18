@@ -85,6 +85,10 @@ PLAYER_NAME_BLACKLIST_RE = re.compile(
     + r")(?![A-Za-z0-9])"
 )
 
+# Maps team identifier → conference name used for is_conference game detection.
+# Conference membership is resolved via pbp_parser.reference.teams.FBS_CONFERENCE_MEMBERS
+# which handles PDF abbreviation matching (e.g. 'TEN'→Tennessee, 'ALA'→Alabama).
+# Add new team identifiers here when onboarding additional programs.
 TEAM_CONFERENCE_BY_ID = {
     "georgia": "SEC",
     "asu": "Big 12",
@@ -95,7 +99,11 @@ TEAM_CONFERENCE_BY_ID = {
 POWER4_CONFERENCES = ("SEC", "Big 12", "Big Ten", "ACC")
 NON_POWER4_TERMS = tuple(
     normalize_ref_team(t) for t in (
-        "Northern Arizona", "Texas State", "NAU", "TXST", "UMass", "Tennessee Tech"
+        # Known non-P4 opponents seen in PBP PDFs
+        "Northern Arizona", "Texas State", "NAU", "TXST", "UMass", "Tennessee Tech",
+        "Marshall", "MAR", "Appalachian State", "APS", "App State",
+        "Charlotte", "CLT", "Boise State", "BSU", "Colorado State", "CSU",
+        "UC Davis", "UCD",
     )
 )
 
