@@ -319,6 +319,7 @@ const TABS = [
     { id: 'redzone', label: 'Red Zone', icon: '🔴' },
     { id: 'penalties', label: 'Penalties', icon: '🚩' },
     { id: '4thdown', label: '4th Down', icon: '🎯' },
+    { id: 'twopoint', label: '2-Point', icon: '2️⃣' },
     { id: 'turnovers', label: 'Turnovers', icon: '🔄' },
     { id: 'negativeplays', label: 'Negative Plays', icon: '📉' },
     { id: 'postturnovers', label: 'Post-Turnover', icon: '🔄' },
@@ -335,6 +336,7 @@ const TAB_TITLES = {
     redzone: 'Red Zone',
     penalties: 'Penalties',
     '4thdown': '4th Down',
+    twopoint: '2-Point Conversions',
     turnovers: 'Turnovers',
     negativeplays: 'Negative Plays',
     postturnovers: 'Post-Turnover',
@@ -592,6 +594,10 @@ const EXPECTED_GAME_PATHS = [
     'middle8_points_for', 'middle8_points_against', 'middle8_scoring_plays',
     'post_turnover_drives', 'points_off_turnovers_for', 'points_off_turnovers_against',
     '4th_down_attempts', '4th_down_conversions',
+    'two_pt_attempts', 'two_pt_conversions',
+    'two_pt_rush_attempts', 'two_pt_rush_conversions',
+    'two_pt_pass_attempts', 'two_pt_pass_conversions',
+    'two_pt_details', 'opp_two_pt_attempts', 'opp_two_pt_conversions',
     'play_tree',
     'special_teams.punts', 'special_teams.punt_yards', 'special_teams.punt_net_yards',
     'special_teams.punt_long', 'special_teams.punts_inside_20', 'special_teams.punt_touchbacks',
@@ -1570,6 +1576,59 @@ function renderFourthDownGameTable(games, teamClass) {
             </tr>`;
         }).join('')}</tbody></table>
     </div>`;
+}
+
+function renderTwoPointGameTable(games, teamClass) {
+    return `<div class="glass rounded-xl overflow-hidden mt-4">
+        <div class="px-4 py-3 border-b border-white/5"><span class="font-semibold ${teamClass}">By Game</span> <span class="text-zinc-500 text-sm">2-Point</span></div>
+        <table class="w-full text-xs"><thead class="bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">Gm</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Att</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Conv</th>
+            <th class="py-2 px-2 text-right text-zinc-500">%</th>
+        </tr></thead><tbody>${games.map(g => {
+            const att = g.two_pt_attempts || 0;
+            const conv = g.two_pt_conversions || 0;
+            const pct = att ? (conv / att * 100).toFixed(1) : '\u2014';
+            return `<tr class="border-b border-white/5 table-row">
+                <td class="py-1 px-2 text-zinc-400">G${g.game_number}</td>
+                <td class="py-1 px-2">${g.opponent}</td>
+                <td class="py-1 px-2 text-right">${att}</td>
+                <td class="py-1 px-2 text-right font-bold">${conv}</td>
+                <td class="py-1 px-2 text-right text-zinc-400">${pct}${pct === '\u2014' ? '' : '%'}</td>
+            </tr>`;
+        }).join('')}</tbody></table>
+    </div>`;
+}
+
+function renderTwoPointDetailTable(games) {
+    const details = games.flatMap(g => (g.two_pt_details || []).map(d => ({
+        ...d,
+        game_number: g.game_number,
+        opponent: g.opponent,
+        date: g.date || '',
+    })));
+    if (!details.length) return `<div class="text-zinc-500 text-xs p-4">No two-point attempts recorded.</div>`;
+    return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+        <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Opp</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Q</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Clock</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Type</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Result</th>
+        <th class="py-2 px-2 text-left text-zinc-500">Description</th>
+    </tr></thead><tbody>${details.map(d => `
+        <tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${d.game_number}</td>
+            <td class="py-1 px-2">${d.opponent || ''}</td>
+            <td class="py-1 px-2">${d.quarter ?? ''}</td>
+            <td class="py-1 px-2 text-zinc-400">${d.clock || ''}</td>
+            <td class="py-1 px-2 capitalize">${d.play_type || 'unknown'}</td>
+            <td class="py-1 px-2 ${d.successful ? 'text-green-400' : 'text-red-400'}">${d.successful ? 'Success' : 'Failed'}</td>
+            <td class="py-1 px-2 text-zinc-300">${(d.description || '').substring(0, 140)}</td>
+        </tr>
+    `).join('')}</tbody></table>`;
 }
 
 function renderStGameTable(games, teamClass) {
@@ -3512,6 +3571,131 @@ function initFourthDownCharts() {
     window.addEventListener('resize', () => c.resize());
 }
 
+function renderTwoPoint() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf);
+    const aq = makeQuality(af);
+
+    const gaAtt = sumField(gf, 'two_pt_attempts');
+    const gaConv = sumField(gf, 'two_pt_conversions');
+    const aaAtt = sumField(af, 'two_pt_attempts');
+    const aaConv = sumField(af, 'two_pt_conversions');
+    const gaPctNum = gaAtt ? +(gaConv / gaAtt * 100).toFixed(1) : 0;
+    const aaPctNum = aaAtt ? +(aaConv / aaAtt * 100).toFixed(1) : 0;
+    const gaPct = gaAtt ? gaPctNum.toFixed(1) : '\u2014';
+    const aaPct = aaAtt ? aaPctNum.toFixed(1) : '\u2014';
+
+    const gaRushAtt = sumField(gf, 'two_pt_rush_attempts');
+    const gaRushConv = sumField(gf, 'two_pt_rush_conversions');
+    const gaPassAtt = sumField(gf, 'two_pt_pass_attempts');
+    const gaPassConv = sumField(gf, 'two_pt_pass_conversions');
+    const aaRushAtt = sumField(af, 'two_pt_rush_attempts');
+    const aaRushConv = sumField(af, 'two_pt_rush_conversions');
+    const aaPassAtt = sumField(af, 'two_pt_pass_attempts');
+    const aaPassConv = sumField(af, 'two_pt_pass_conversions');
+
+    const pctText = (conv, att) => att ? `${(conv / att * 100).toFixed(1)}%` : '\u2014';
+    const gOppAtt = sumField(gf, 'opp_two_pt_attempts');
+    const gOppConv = sumField(gf, 'opp_two_pt_conversions');
+    const aOppAtt = sumField(af, 'opp_two_pt_attempts');
+    const aOppConv = sumField(af, 'opp_two_pt_conversions');
+
+    let html = `<div class="section-enter">`;
+    html += `<div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('2-Pt Att', gaAtt, '', 'team-a', gq(['two_pt_attempts'], '2-Pt Att'))}
+            ${statCard('2-Pt Conv', gaConv, gaAtt ? gaPct + '%' : '\u2014', 'team-a', gq(['two_pt_conversions'], '2-Pt Conv'))}
+            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('2-Pt Att', aaAtt, '', 'team-b', aq(['two_pt_attempts'], '2-Pt Att'))}
+            ${statCard('2-Pt Conv', aaConv, aaAtt ? aaPct + '%' : '\u2014', 'team-b', aq(['two_pt_conversions'], '2-Pt Conv'))}
+            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'))}
+        </div>
+    </div>`;
+    html += compBar('2-Pt Conversion %', gaPctNum, aaPctNum, '%');
+    html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('twoPointChart')}</div>`;
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${ga.name} Rush vs Pass</div>
+            <table class="w-full text-xs">
+                <thead><tr class="text-zinc-500 border-b border-white/5">
+                    <th class="py-2 px-2 text-left">Type</th><th class="py-2 px-2 text-right">Att</th><th class="py-2 px-2 text-right">Conv</th><th class="py-2 px-2 text-right">%</th>
+                </tr></thead>
+                <tbody>
+                    <tr class="border-b border-white/5 table-row"><td class="py-1 px-2">Rush</td><td class="py-1 px-2 text-right">${gaRushAtt}</td><td class="py-1 px-2 text-right">${gaRushConv}</td><td class="py-1 px-2 text-right text-zinc-400">${pctText(gaRushConv, gaRushAtt)}</td></tr>
+                    <tr class="table-row"><td class="py-1 px-2">Pass</td><td class="py-1 px-2 text-right">${gaPassAtt}</td><td class="py-1 px-2 text-right">${gaPassConv}</td><td class="py-1 px-2 text-right text-zinc-400">${pctText(gaPassConv, gaPassAtt)}</td></tr>
+                </tbody>
+            </table>
+            <div class="text-xs text-zinc-500 mt-3">Opponent attempts: ${gOppAtt}, conversions: ${gOppConv} (${pctText(gOppConv, gOppAtt)})</div>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <div class="text-sm font-medium text-white mb-3">${aa.name} Rush vs Pass</div>
+            <table class="w-full text-xs">
+                <thead><tr class="text-zinc-500 border-b border-white/5">
+                    <th class="py-2 px-2 text-left">Type</th><th class="py-2 px-2 text-right">Att</th><th class="py-2 px-2 text-right">Conv</th><th class="py-2 px-2 text-right">%</th>
+                </tr></thead>
+                <tbody>
+                    <tr class="border-b border-white/5 table-row"><td class="py-1 px-2">Rush</td><td class="py-1 px-2 text-right">${aaRushAtt}</td><td class="py-1 px-2 text-right">${aaRushConv}</td><td class="py-1 px-2 text-right text-zinc-400">${pctText(aaRushConv, aaRushAtt)}</td></tr>
+                    <tr class="table-row"><td class="py-1 px-2">Pass</td><td class="py-1 px-2 text-right">${aaPassAtt}</td><td class="py-1 px-2 text-right">${aaPassConv}</td><td class="py-1 px-2 text-right text-zinc-400">${pctText(aaPassConv, aaPassAtt)}</td></tr>
+                </tbody>
+            </table>
+            <div class="text-xs text-zinc-500 mt-3">Opponent attempts: ${aOppAtt}, conversions: ${aOppConv} (${pctText(aOppConv, aOppAtt)})</div>
+        </div>
+    </div>`;
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderTwoPointGameTable(gf, 'team-a')}
+        ${renderTwoPointGameTable(af, 'team-b')}
+    </div>`;
+
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible('Georgia 2-Point Details', gf.flatMap(g => g.two_pt_details || []).length, renderTwoPointDetailTable(gf))}
+        ${collapsible('Arizona State 2-Point Details', af.flatMap(g => g.two_pt_details || []).length, renderTwoPointDetailTable(af))}
+    </div>`;
+
+    html += `</div>`;
+    return html;
+}
+
+function initTwoPointCharts() {
+    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const c = safeInitChart('twoPointChart');
+    if (!c) return;
+    safeSetOption(c, 'twoPointChart', {
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params) => {
+                const i = params[0].dataIndex;
+                const gGame = gf[i];
+                const aGame = af[i];
+                let tip = '';
+                params.forEach(p => {
+                    const game = p.seriesName.includes('Georgia') ? gGame : aGame;
+                    tip += `${p.marker} ${p.seriesName}: ${p.value}<br/>`;
+                    if (game) tip += `vs ${game.opponent} ${game.date ? '(' + game.date + ')' : ''}<br/>`;
+                });
+                return tip;
+            }
+        },
+        legend: {
+            data: ['Georgia Rush Att', 'Georgia Pass Att', 'Arizona State Rush Att', 'Arizona State Pass Att'],
+            textStyle: { color: '#a1a1aa' }
+        },
+        xAxis: { type: 'category', data: gf.map((g,i) => 'G' + (i + 1)), axisLabel: { color: '#71717a' } },
+        yAxis: { type: 'value', axisLabel: { color: '#71717a' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+        series: [
+            { name: 'Georgia Rush Att', type: 'bar', stack: 'ga', data: gf.map(g => g.two_pt_rush_attempts || 0), itemStyle: { color: '#f87171' } },
+            { name: 'Georgia Pass Att', type: 'bar', stack: 'ga', data: gf.map(g => g.two_pt_pass_attempts || 0), itemStyle: { color: '#ef4444' } },
+            { name: 'Arizona State Rush Att', type: 'bar', stack: 'aa', data: af.map(g => g.two_pt_rush_attempts || 0), itemStyle: { color: '#fb923c' } },
+            { name: 'Arizona State Pass Att', type: 'bar', stack: 'aa', data: af.map(g => g.two_pt_pass_attempts || 0), itemStyle: { color: '#f97316' } },
+        ]
+    });
+    window.addEventListener('resize', () => c.resize());
+}
+
 function renderSpecialTeams() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
@@ -4024,6 +4208,7 @@ function renderGlossary() {
                 { term: '4th Down Attempts', def: 'Conversion tries only (no punts or field goals).' },
                 { term: '4th Down Conversions', def: 'Successful 4th down attempts.' },
                 { term: '4th Down Conv %', def: 'Conversions divided by attempts.' },
+                { term: '2-Point Conversion', def: 'Try after a touchdown worth 2 points; tracked as attempts, makes, and conversion rate.' },
                 { term: 'Red Zone Trips', def: 'Offensive possessions with a snap at 20 yards or closer.' },
                 { term: 'Red Zone TD/FG/Failed', def: 'Result of red zone trips: touchdowns, field goals, or no score.' },
             ]
@@ -4239,6 +4424,7 @@ const renderers = {
     penalties: { render: renderPenalties, init: initPenaltyCharts },
     middle8: { render: renderMiddle8, init: initMiddle8Charts },
     '4thdown': { render: renderFourthDown, init: initFourthDownCharts },
+    twopoint: { render: renderTwoPoint, init: initTwoPointCharts },
     specialteams: { render: renderSpecialTeams, init: initSpecialTeamsCharts },
     glossary: { render: renderGlossary },
     allplays: { render: renderAllPlays },
@@ -4708,6 +4894,39 @@ function printFourthDownSection() {
     return html;
 }
 
+function printTwoPointSection() {
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
+    const gq = makeQuality(gf), aq = makeQuality(af);
+    const gaAtt = sumField(gf, 'two_pt_attempts');
+    const gaConv = sumField(gf, 'two_pt_conversions');
+    const aaAtt = sumField(af, 'two_pt_attempts');
+    const aaConv = sumField(af, 'two_pt_conversions');
+    const gaPctNum = gaAtt ? +(gaConv / gaAtt * 100).toFixed(1) : 0;
+    const aaPctNum = aaAtt ? +(aaConv / aaAtt * 100).toFixed(1) : 0;
+    const gaPct = gaAtt ? gaPctNum.toFixed(1) : '\u2014';
+    const aaPct = aaAtt ? aaPctNum.toFixed(1) : '\u2014';
+
+    let html = `<div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('2-Pt Att', gaAtt, '', 'team-a', gq(['two_pt_attempts'], '2-Pt Att'))}
+            ${statCard('2-Pt Conv', gaConv, gaAtt ? gaPct + '%' : '\u2014', 'team-a', gq(['two_pt_conversions'], '2-Pt Conv'))}
+            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'))}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            ${statCard('2-Pt Att', aaAtt, '', 'team-b', aq(['two_pt_attempts'], '2-Pt Att'))}
+            ${statCard('2-Pt Conv', aaConv, aaAtt ? aaPct + '%' : '\u2014', 'team-b', aq(['two_pt_conversions'], '2-Pt Conv'))}
+            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'))}
+        </div>
+    </div>`;
+    html += compBar('2-Pt Conversion %', gaPctNum, aaPctNum, '%');
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${renderTwoPointGameTable(gf, 'team-a')}
+        ${renderTwoPointGameTable(af, 'team-b')}
+    </div>`;
+    return html;
+}
+
 function printTurnoversSection() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
@@ -4897,6 +5116,7 @@ function buildPrintReport() {
         { title: 'Red Zone', fn: printRedZoneSection },
         { title: 'Penalties', fn: printPenaltiesSection },
         { title: '4th Down', fn: printFourthDownSection },
+        { title: '2-Point', fn: printTwoPointSection },
         { title: 'Turnovers', fn: printTurnoversSection },
         { title: 'Post-Turnover', fn: printPostTurnoverSection },
         { title: 'Special Teams', fn: printSpecialTeamsSection },
