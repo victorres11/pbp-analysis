@@ -951,12 +951,31 @@ def compute_two_point_stats(plays, our_abbr, opp_abbr, opp_name):
     our_abbr = (our_abbr or "").upper()
     opp_abbr = (opp_abbr or "").upper()
 
+    def is_dead_ball_uns_kickoff_enforcement(desc: str, offense_abbr: str) -> bool:
+        """
+        Keep successful 2PT plays when merged text includes a dead-ball UNS kickoff
+        enforcement note ending with "NO PLAY" (e.g., from TEAM35 to TEAM50).
+        """
+        if "NO PLAY" not in desc or "PENALTY" not in desc:
+            return False
+        if "UNS" not in desc and "UNSPORTSMANLIKE" not in desc:
+            return False
+        if "ATTEMPT" not in desc or "SUCCESSFUL" not in desc:
+            return False
+        if not offense_abbr:
+            return False
+        pattern = rf"\bFROM\s+{re.escape(offense_abbr)}\s*35\s+TO\s+{re.escape(offense_abbr)}\s*50\b"
+        return re.search(pattern, desc) is not None
+
     for p in plays:
-        if p.is_no_play:
-            continue
         desc_raw = p.description or ""
         desc = desc_raw.upper()
-        if not any(k in desc for k in two_pt_keywords):
+        has_two_pt_keyword = any(k in desc for k in two_pt_keywords)
+        has_attempt_phrase = (
+            ("PASS ATTEMPT" in desc or "RUSH ATTEMPT" in desc)
+            and any(k in desc for k in ("SUCCESSFUL", "FAILED"))
+        )
+        if not has_two_pt_keyword and not has_attempt_phrase:
             continue
         # Keep PAT and blocked-PAT-return plays out of 2PT bucket.
         if "EXTRA POINT" in desc or "POINT AFTER" in desc or " PAT " in f" {desc} ":
@@ -966,6 +985,8 @@ def compute_two_point_stats(plays, our_abbr, opp_abbr, opp_name):
         is_ours = offense == our_abbr
         is_opp = offense == opp_abbr
         if not is_ours and not is_opp:
+            continue
+        if p.is_no_play and not is_dead_ball_uns_kickoff_enforcement(desc, offense):
             continue
 
         successful = bool(p.is_scoring) or any(k in desc for k in success_keywords)
