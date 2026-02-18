@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "matchups": [
+    {
+      "slug": "oregon-vs-usc-2025",
+      "season": 2025,
+      "teams": [
+        "oregon",
+        "usc"
+      ],
+      "generated_at": "2026-02-18T03:09:29.182951+00:00",
+      "validation_status": "pass"
+    }
+  ]
+}

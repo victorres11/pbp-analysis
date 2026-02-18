@@ -179,6 +179,14 @@ CFBSTATS_METRIC_CONFIGS = (
         "stat_candidates": ("Sacks", "Sack", "Sk"),
     },
     {
+        "key": "tfl_offense",
+        "label": "tackles for loss allowed",
+        "category": 21,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("TFL", "TFLs", "Tackles For Loss", "Tackles for Loss"),
+    },
+    {
         "key": "total_offense",
         "label": "total offense",
         "category": 10,
@@ -1011,6 +1019,62 @@ def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
     return our_ints_lost, our_fumbles_lost, our_ints_gained, our_fumbles_gained
 
 
+def parse_negative_plays(plays, our_abbr):
+    """Extract offensive negative-yardage scrimmage plays with kneel-down tagging."""
+    negative_plays = []
+    non_scrimmage_terms = (
+        'PUNT',
+        'KICKOFF',
+        'FIELD GOAL',
+        'EXTRA POINT',
+        'PAT',
+        'TIMEOUT',
+        '2-POINT',
+        'TWO-POINT',
+        '2PT',
+        'CONVERSION',
+    )
+
+    for p in plays:
+        if p.offense != our_abbr or p.is_no_play:
+            continue
+        if p.yards is None or p.yards >= 0:
+            continue
+
+        desc = (p.description or '')
+        desc_upper = desc.upper()
+        if any(term in desc_upper for term in non_scrimmage_terms):
+            continue
+
+        # Prefer parser scrimmage signal when available; fall back to text heuristics.
+        is_scrimmage_play = getattr(p, 'is_scrimmage_play', None)
+        if is_scrimmage_play is False:
+            continue
+
+        is_pass = (
+            'PASS' in desc_upper
+            or 'COMPLETE' in desc_upper
+            or 'CAUGHT' in desc_upper
+            or 'SACK' in desc_upper
+            or 'INTERCEPT' in desc_upper
+        )
+        play_type = 'pass' if is_pass else 'rush'
+        player = extract_explosive_player(desc, play_type)
+
+        negative_plays.append({
+            'play_type': play_type,
+            'yards': p.yards,
+            'quarter': p.quarter,
+            'clock': p.clock or '',
+            'down_distance': p.down_distance or '',
+            'description': desc,
+            'player': player,
+            'is_kneel': 'KNEEL' in desc_upper,
+        })
+
+    return negative_plays
+
+
 def compute_turnover_totals(plays, our_abbr, opp_abbr):
     """Compute total turnovers gained/lost from play data."""
     lost = 0
@@ -1746,13 +1810,14 @@ def process_team_games(pdf_dir, team_identifier):
             is_power4 = False
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
-        fourth_stats = compute_fourth_down_stats(g.plays, our_abbr)
-        fourth_attempts = fourth_stats.attempts
-        fourth_conversions = fourth_stats.conversions
+        fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         turnovers_lost, turnovers_gained = compute_turnover_totals(g.plays, our_abbr, opp_abbr)
+        negative_plays_detail = parse_negative_plays(g.plays, our_abbr)
+        negative_plays_pass = sum(1 for p in negative_plays_detail if p['play_type'] == 'pass' and not p['is_kneel'])
+        negative_plays_rush = sum(1 for p in negative_plays_detail if p['play_type'] == 'rush' and not p['is_kneel'])
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -1776,6 +1841,10 @@ def process_team_games(pdf_dir, team_identifier):
             'fumbles_lost': fum_lost,
             'interceptions_gained': ints_gained,
             'fumbles_gained': fum_gained,
+            'negative_plays_detail': negative_plays_detail,
+            'negative_plays': negative_plays_pass + negative_plays_rush,
+            'negative_plays_pass': negative_plays_pass,
+            'negative_plays_rush': negative_plays_rush,
             'penalties': our_penalties,
             'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
@@ -1831,6 +1900,7 @@ def process_team_games(pdf_dir, team_identifier):
     total_expl = sum(g['explosives'] for g in games)
     total_tof = sum(g['turnovers_gained'] for g in games)
     total_tol = sum(g['turnovers_lost'] for g in games)
+    total_negative = sum(g.get('negative_plays', 0) for g in games)
     total_pen = sum(g['penalties'] for g in games)
     total_rzt = sum(g['red_zone_trips'] for g in games)
     total_rztd = sum(g['red_zone_tds'] for g in games)
@@ -1846,6 +1916,7 @@ def process_team_games(pdf_dir, team_identifier):
         'ppg': round(total_pf / n, 1),
         'opp_ppg': round(total_pa / n, 1),
         'explosives_per_game': round(total_expl / n, 1),
+        'negative_plays_per_game': round(total_negative / n, 1),
         'turnover_margin': total_tof - total_tol,
         'penalties_per_game': round(total_pen / n, 1),
         'red_zone_trips': total_rzt,
