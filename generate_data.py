@@ -243,6 +243,14 @@ CFBSTATS_METRIC_CONFIGS = (
         "stat_candidates": ("Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"),
     },
     {
+        "key": "two_point_conversions",
+        "label": "2-pt conversions made",
+        "category": 9,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("2XP",),
+    },
+    {
         "key": "scoring_defense",
         "label": "scoring defense",
         "category": 9,
@@ -915,6 +923,107 @@ def compute_fourth_down_stats(plays, our_abbr):
     """Thin wrapper around upstream pbp_parser.fourth_down (issue #60)."""
     stats = _upstream_fourth_down(plays, our_abbr)
     return stats.attempts, stats.conversions
+
+
+def compute_two_point_stats(plays, our_abbr, opp_abbr, opp_name):
+    """Extract two-point attempts/conversions for us and opponent."""
+    stats = {
+        "two_pt_attempts": 0,
+        "two_pt_conversions": 0,
+        "two_pt_rush_attempts": 0,
+        "two_pt_rush_conversions": 0,
+        "two_pt_pass_attempts": 0,
+        "two_pt_pass_conversions": 0,
+        "two_pt_details": [],
+        "opp_two_pt_attempts": 0,
+        "opp_two_pt_conversions": 0,
+    }
+
+    two_pt_keywords = ("TWO-POINT", "TWO POINT", "2-POINT", "2 POINT", "2PT")
+    success_keywords = ("SUCCESSFUL", "CONVERTED", "GOOD", "CONVERSION", "SUCCESS")
+    failure_keywords = ("FAILED", "FAIL", "NO GOOD", "UNSUCCESSFUL")
+    pass_keywords = ("PASS", "COMPLETE", "INCOMPLETE", "THROWN")
+    rush_keywords = (
+        "RUSH", "RUN", "SCRAMBLE", "UP THE MIDDLE", "LEFT END", "RIGHT END",
+        "LEFT TACKLE", "RIGHT TACKLE", "LEFT GUARD", "RIGHT GUARD",
+    )
+
+    our_abbr = (our_abbr or "").upper()
+    opp_abbr = (opp_abbr or "").upper()
+
+    def is_dead_ball_uns_kickoff_enforcement(desc: str, offense_abbr: str) -> bool:
+        """
+        Keep successful 2PT plays when merged text includes a dead-ball UNS kickoff
+        enforcement note ending with "NO PLAY" (e.g., from TEAM35 to TEAM50).
+        """
+        if "NO PLAY" not in desc or "PENALTY" not in desc:
+            return False
+        if "UNS" not in desc and "UNSPORTSMANLIKE" not in desc:
+            return False
+        if "ATTEMPT" not in desc or "SUCCESSFUL" not in desc:
+            return False
+        if not offense_abbr:
+            return False
+        pattern = rf"\bFROM\s+{re.escape(offense_abbr)}\s*35\s+TO\s+{re.escape(offense_abbr)}\s*50\b"
+        return re.search(pattern, desc) is not None
+
+    for p in plays:
+        desc_raw = p.description or ""
+        desc = desc_raw.upper()
+        has_two_pt_keyword = any(k in desc for k in two_pt_keywords)
+        has_attempt_phrase = (
+            ("PASS ATTEMPT" in desc or "RUSH ATTEMPT" in desc)
+            and any(k in desc for k in ("SUCCESSFUL", "FAILED"))
+        )
+        if not has_two_pt_keyword and not has_attempt_phrase:
+            continue
+        # Keep PAT and blocked-PAT-return plays out of 2PT bucket.
+        if "EXTRA POINT" in desc or "POINT AFTER" in desc or " PAT " in f" {desc} ":
+            continue
+
+        offense = (p.offense or "").upper()
+        is_ours = offense == our_abbr
+        is_opp = offense == opp_abbr
+        if not is_ours and not is_opp:
+            continue
+        if p.is_no_play and not is_dead_ball_uns_kickoff_enforcement(desc, offense):
+            continue
+
+        successful = bool(p.is_scoring) or any(k in desc for k in success_keywords)
+        if not successful and not any(k in desc for k in failure_keywords):
+            successful = False
+
+        is_pass = any(k in desc for k in pass_keywords)
+        is_rush = any(k in desc for k in rush_keywords)
+        play_type = "pass" if is_pass else ("rush" if is_rush else "unknown")
+
+        if is_ours:
+            stats["two_pt_attempts"] += 1
+            if successful:
+                stats["two_pt_conversions"] += 1
+            if play_type == "pass":
+                stats["two_pt_pass_attempts"] += 1
+                if successful:
+                    stats["two_pt_pass_conversions"] += 1
+            elif play_type == "rush":
+                stats["two_pt_rush_attempts"] += 1
+                if successful:
+                    stats["two_pt_rush_conversions"] += 1
+
+            stats["two_pt_details"].append({
+                "quarter": p.quarter,
+                "clock": p.clock or "",
+                "play_type": play_type,
+                "successful": successful,
+                "description": desc_raw,
+                "opponent": opp_name or "",
+            })
+        else:
+            stats["opp_two_pt_attempts"] += 1
+            if successful:
+                stats["opp_two_pt_conversions"] += 1
+
+    return stats
 
 
 def parse_all_penalties(desc: str, team_abbrs: list) -> list:
@@ -1811,6 +1920,7 @@ def process_team_games(pdf_dir, team_identifier):
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
+        two_pt_stats = compute_two_point_stats(g.plays, our_abbr, opp_abbr, opp_name)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
@@ -1867,6 +1977,15 @@ def process_team_games(pdf_dir, team_identifier):
             'middle8_scoring_plays': middle8_scoring,
             '4th_down_attempts': fourth_attempts,
             '4th_down_conversions': fourth_conversions,
+            'two_pt_attempts': two_pt_stats['two_pt_attempts'],
+            'two_pt_conversions': two_pt_stats['two_pt_conversions'],
+            'two_pt_rush_attempts': two_pt_stats['two_pt_rush_attempts'],
+            'two_pt_rush_conversions': two_pt_stats['two_pt_rush_conversions'],
+            'two_pt_pass_attempts': two_pt_stats['two_pt_pass_attempts'],
+            'two_pt_pass_conversions': two_pt_stats['two_pt_pass_conversions'],
+            'two_pt_details': two_pt_stats['two_pt_details'],
+            'opp_two_pt_attempts': two_pt_stats['opp_two_pt_attempts'],
+            'opp_two_pt_conversions': two_pt_stats['opp_two_pt_conversions'],
             'special_teams': special_teams,
             'play_tree': play_tree,
         }
@@ -1905,6 +2024,8 @@ def process_team_games(pdf_dir, team_identifier):
     total_rzt = sum(g['red_zone_trips'] for g in games)
     total_rztd = sum(g['red_zone_tds'] for g in games)
     total_rzfg = sum(g['red_zone_fgs'] for g in games)
+    total_2pt_att = sum(g.get('two_pt_attempts', 0) for g in games)
+    total_2pt_conv = sum(g.get('two_pt_conversions', 0) for g in games)
     
     conf_wins = sum(1 for g in games if g['conference'] and g['points_for'] > g['points_against'])
     conf_losses = sum(1 for g in games if g['conference'] and g['points_for'] <= g['points_against'])
@@ -1923,6 +2044,9 @@ def process_team_games(pdf_dir, team_identifier):
         'red_zone_tds': total_rztd,
         'red_zone_fgs': total_rzfg,
         'red_zone_td_pct': round(total_rztd / max(1, total_rzt) * 100, 1),
+        'two_pt_attempts': total_2pt_att,
+        'two_pt_conversions': total_2pt_conv,
+        'two_pt_pct': round(total_2pt_conv / max(1, total_2pt_att) * 100, 1),
     }
     
     return games, aggregates, parsed_games

@@ -11,6 +11,22 @@ from pathlib import Path
 REQUIRED_RANKING_FIELDS = {"rank", "conference", "value", "label", "total"}
 REQUIRED_SPLITS = ("all", "conf", "nonconf")
 REQUIRED_TEAMS = ("georgia", "asu")
+REQUIRED_TWO_POINT_GAME_FIELDS = (
+    "two_pt_attempts",
+    "two_pt_conversions",
+    "two_pt_rush_attempts",
+    "two_pt_rush_conversions",
+    "two_pt_pass_attempts",
+    "two_pt_pass_conversions",
+    "two_pt_details",
+    "opp_two_pt_attempts",
+    "opp_two_pt_conversions",
+)
+REQUIRED_TWO_POINT_AGG_FIELDS = (
+    "two_pt_attempts",
+    "two_pt_conversions",
+    "two_pt_pct",
+)
 
 
 def fail(message: str) -> None:
@@ -45,6 +61,18 @@ def main() -> None:
                 fail(f"teams.{team_id}.games[{idx}] missing boolean 'conference'")
             if "is_power4" not in game or not isinstance(game["is_power4"], bool):
                 fail(f"teams.{team_id}.games[{idx}] missing boolean 'is_power4'")
+            for field in REQUIRED_TWO_POINT_GAME_FIELDS:
+                if field not in game:
+                    fail(f"teams.{team_id}.games[{idx}] missing '{field}'")
+            if not isinstance(game.get("two_pt_details"), list):
+                fail(f"teams.{team_id}.games[{idx}].two_pt_details must be a list")
+
+        aggregates = team_data.get("aggregates")
+        if not isinstance(aggregates, dict):
+            fail(f"teams.{team_id}.aggregates missing or invalid")
+        for field in REQUIRED_TWO_POINT_AGG_FIELDS:
+            if field not in aggregates:
+                fail(f"teams.{team_id}.aggregates missing '{field}'")
 
         rankings = (team_data.get("cfbstats") or {}).get("rankings")
         if not isinstance(rankings, dict):
