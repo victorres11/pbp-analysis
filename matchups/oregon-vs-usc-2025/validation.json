@@ -1,0 +1,33 @@
+{
+  "matchup": "oregon-vs-usc-2025",
+  "generated_at": "2026-02-18T03:09:29.180525+00:00",
+  "status": "pass",
+  "summary": {
+    "hard_failures": 0,
+    "soft_failures": 0,
+    "warnings": 0,
+    "parsed_games": 28
+  },
+  "checks": [
+    {
+      "name": "config_valid",
+      "status": "pass"
+    },
+    {
+      "name": "two_teams_exact",
+      "status": "pass"
+    },
+    {
+      "name": "pdf_discovery_nonempty",
+      "status": "pass"
+    },
+    {
+      "name": "parse_completed",
+      "status": "pass"
+    }
+  ],
+  "notes": [
+    "Blocking validation gate is active.",
+    "cfbstats comparison is planned in a follow-up implementation."
+  ]
+}
