@@ -1215,6 +1215,9 @@ const SOURCE_COMPARE_TOLERANCE = {
     red_zone: 0.1,
     scoring_margin: 0.2,
     total_offense: 0.2,
+    explosives: 0.2,
+    punt_avg: 0.1,
+    field_goal_pct: 0.1,
 };
 
 const CFBSTATS_STAT_FALLBACKS = {
@@ -1231,6 +1234,9 @@ const SOURCE_COMPARE_FORMATTERS = {
     red_zone: value => formatPct(value),
     scoring_margin: value => formatSigned(value, 1),
     total_offense: value => value.toFixed(1),
+    explosives: value => value.toFixed(1),
+    punt_avg: value => value.toFixed(1),
+    field_goal_pct: value => formatPct(value),
 };
 
 // Explicit overview coverage matrix: cards with null PBP values render source-only badges.
@@ -1308,6 +1314,16 @@ function buildFirstAvailableStatBadge(team, keys=[]) {
         return renderStatBadge(entry.rank, entry.total, !!meta.reverse, entry.conference);
     }
     return '';
+}
+
+function getFirstAvailableRankingValue(team, keys=[]) {
+    for (const key of keys) {
+        const entry = normalizeRankingEntry(getRanking(team, key));
+        if (!entry || Array.isArray(entry)) continue;
+        const parsed = parseCompareNumber(entry.value);
+        if (parsed !== null) return parsed;
+    }
+    return null;
 }
 
 function formatRankingLabel(entry) {
@@ -2244,6 +2260,8 @@ function renderExplosives() {
     const gs = agg(gf), as_ = agg(af);
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
+    const gExplosivesCompare = buildComparePayload(Number(gs.explpg), getCfbstatsValue(ga, 'explosives'), 'explosives');
+    const aExplosivesCompare = buildComparePayload(Number(as_.explpg), getCfbstatsValue(aa, 'explosives'), 'explosives');
     const computeExplosivesAllowed = (game, teamAbbr) => {
         const playTree = game.play_tree || [];
         let total = 0;
@@ -2334,8 +2352,8 @@ function renderExplosives() {
         </div>
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a', gq(['explosives'], 'Total Explosives'))}
-        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b', aq(['explosives'], 'Total Explosives'))}
+        ${statCard('Total Explosives', gs.expl, gs.explpg+'/game', 'team-a', gq(['explosives'], 'Total Explosives'), '', sourceInfoBadge(gExplosivesCompare, 'Explosives/Game'))}
+        ${statCard('Total Explosives', as_.expl, as_.explpg+'/game', 'team-b', aq(['explosives'], 'Total Explosives'), '', sourceInfoBadge(aExplosivesCompare, 'Explosives/Game'))}
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
@@ -3329,17 +3347,19 @@ function renderPenalties() {
     const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
     const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
+    const gPenaltiesSource = buildComparePayload(null, getCfbstatsValue(ga, 'penalties'), 'penalties');
+    const aPenaltiesSource = buildComparePayload(null, getCfbstatsValue(aa, 'penalties'), 'penalties');
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'))}
+            ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'), sourceInfoBadge(gPenaltiesSource, 'Penalties/Game'))}
             ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
             ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
-            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'))}
+            ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'), sourceInfoBadge(aPenaltiesSource, 'Penalties/Game'))}
             ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
             ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
         </div>
@@ -3952,6 +3972,10 @@ function renderSpecialTeams() {
     const aFgPct = aFgAtt ? (aFgMade / aFgAtt * 100).toFixed(1) : '0.0';
     const aFgMissed = aFgAtt - aFgMade;
     const aFgLong = maxSpecial(af, 'field_goal_long');
+    const gPuntAvgCompare = buildComparePayload(Number(gPuntAvg), getFirstAvailableRankingValue(ga, rankingKeys.puntAvg), 'punt_avg');
+    const aPuntAvgCompare = buildComparePayload(Number(aPuntAvg), getFirstAvailableRankingValue(aa, rankingKeys.puntAvg), 'punt_avg');
+    const gFgPctCompare = buildComparePayload(Number(gFgPct), getFirstAvailableRankingValue(ga, rankingKeys.fgPct), 'field_goal_pct');
+    const aFgPctCompare = buildComparePayload(Number(aFgPct), getFirstAvailableRankingValue(aa, rankingKeys.fgPct), 'field_goal_pct');
     const gFgMissedBreakdown = buildMissedFgBreakdown(gf);
     const aFgMissedBreakdown = buildMissedFgBreakdown(af);
     
@@ -3972,13 +3996,13 @@ function renderSpecialTeams() {
     html += `<div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', gPunts, '', 'team-a', gq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg))}
+            ${statCard('Avg', gPuntAvg, '', 'team-a', gq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(ga, rankingKeys.puntAvg), sourceInfoBadge(gPuntAvgCompare, 'Punt Avg'))}
             ${statCard('Inside 20', gPuntInside20, '', 'team-a', gq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(ga, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', gPuntTouchbacks, '', 'team-a', gq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Punts', aPunts, '', 'team-b', aq(['special_teams.punts'], 'Punts'))}
-            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg))}
+            ${statCard('Avg', aPuntAvg, '', 'team-b', aq(['special_teams.punts','special_teams.punt_yards'], 'Avg'), buildFirstAvailableStatBadge(aa, rankingKeys.puntAvg), sourceInfoBadge(aPuntAvgCompare, 'Punt Avg'))}
             ${statCard('Inside 20', aPuntInside20, '', 'team-b', aq(['special_teams.punts_inside_20'], 'Inside 20'), buildFirstAvailableStatBadge(aa, rankingKeys.puntsInside20))}
             ${statCard('Touchbacks', aPuntTouchbacks, '', 'team-b', aq(['special_teams.punt_touchbacks'], 'Touchbacks'))}
         </div>
@@ -3991,14 +4015,14 @@ function renderSpecialTeams() {
             ${statCard('Att', gFgAtt, '', 'team-a', gq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', gFgMade, '', 'team-a', gq(['special_teams.field_goals_made'], 'FG Made'))}
             ${statCardWithBreakdown('Missed', gFgMissed, '', 'team-a', gq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), gFgMissedBreakdown, 'No missed field goals recorded.')}
-            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct))}
+            ${statCard('FG %', gFgPct + '%', '', 'team-a', gq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(ga, rankingKeys.fgPct), sourceInfoBadge(gFgPctCompare, 'FG %'))}
             ${statCard('Longest', gFgLong || '—', '', 'team-a', gq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('Att', aFgAtt, '', 'team-b', aq(['special_teams.field_goals_attempts'], 'FG Att'))}
             ${statCard('Made', aFgMade, '', 'team-b', aq(['special_teams.field_goals_made'], 'FG Made'))}
             ${statCardWithBreakdown('Missed', aFgMissed, '', 'team-b', aq(['special_teams.field_goals_attempts','special_teams.field_goals_made'], 'FG Missed'), aFgMissedBreakdown, 'No missed field goals recorded.')}
-            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct))}
+            ${statCard('FG %', aFgPct + '%', '', 'team-b', aq(['special_teams.field_goals_made','special_teams.field_goals_attempts'], 'FG %'), buildFirstAvailableStatBadge(aa, rankingKeys.fgPct), sourceInfoBadge(aFgPctCompare, 'FG %'))}
             ${statCard('Longest', aFgLong || '—', '', 'team-b', aq(['special_teams.field_goal_long'], 'FG Long'))}
         </div>
     </div></div>`;
