@@ -16,7 +16,7 @@
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background: #09090b; color: #fafafa; }
         .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-        .stat-card { transition: all 0.2s ease; }
+        .stat-card { position: relative; transition: all 0.2s ease; }
         .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4); }
         .stat-card:hover .dq-info { opacity: 0.85; }
         .dq-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid transparent; font-size: 0.68rem; letter-spacing: 0.02em; }
@@ -32,10 +32,7 @@
         .dq-info { opacity: 0.4; transition: opacity 0.2s ease; }
         .dq-warning { font-size: 0.7rem; line-height: 1; margin-left: 2px; opacity: 0.7; font-weight: 700; }
         .dq-outlier { font-size: 0.65rem; padding: 0.12rem 0.35rem; border-radius: 999px; border: 1px solid rgba(244,114,182,0.4); color: #f9a8d4; background: rgba(244,114,182,0.14); }
-        .dq-source-btn { border: 1px solid transparent; background: transparent; padding: 0.1rem 0.35rem; border-radius: 999px; font-size: 0.6rem; line-height: 1; font-weight: 600; letter-spacing: 0.02em; display: inline-flex; align-items: center; justify-content: center; }
-        .dq-source-green { color: #86efac; background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.45); }
-        .dq-source-yellow { color: #713f12; background: #fef9c3; border-color: #facc15; }
-        .dq-source-neutral { color: #a1a1aa; background: rgba(113,113,122,0.16); border-color: rgba(113,113,122,0.35); }
+        .dq-source-corner { position: absolute; top: 0.45rem; right: 0.45rem; border: 0; background: transparent; padding: 0; z-index: 5; }
         .nav-pill { transition: all 0.15s ease; }
         .nav-pill:hover { background: rgba(255,255,255,0.08); }
         .nav-pill.active { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
@@ -230,7 +227,7 @@
             .text-2xl { font-size: 16pt !important; }
             .text-3xl { font-size: 18pt !important; }
             .text-4xl { font-size: 20pt !important; }
-            .dq-source-btn { display: none !important; }
+            .dq-source-corner { display: none !important; }
         }
     </style>
 </head>
@@ -1230,7 +1227,7 @@ const CFBSTATS_STAT_FALLBACKS = {
 const SOURCE_COMPARE_FORMATTERS = {
     turnover_margin: value => formatSigned(value, 0),
     fourth_down: value => formatPct(value),
-    two_point_conversions: value => formatPct(value),
+    two_point_conversions: value => Number(value).toFixed(0),
     red_zone: value => formatPct(value),
     scoring_margin: value => formatSigned(value, 1),
     total_offense: value => value.toFixed(1),
@@ -1417,8 +1414,7 @@ function sourceInfoBadge(compare, label) {
     const tipId = `sourceTip_${sourceBadgeCounter++}`;
     const isMatch = compare.match === true;
     const isMismatch = compare.match === false;
-    const cls = isMatch ? 'dq-source-green' : (isMismatch ? 'dq-source-yellow' : 'dq-source-neutral');
-    const text = compare.match === null ? compare.sourceLabel : '(i)';
+    const cls = isMatch ? 'dq-green' : (isMismatch ? 'dq-yellow' : 'dq-neutral');
     const sourceName = compare.sourceLabel === 'pbp' ? 'PBP' : 'CFBStats';
     const tooltip = compare.match === null
         ? `Source: ${sourceName}`
@@ -1426,8 +1422,8 @@ function sourceInfoBadge(compare, label) {
     const ariaLabel = compare.match === null
         ? `${metricLabel} source ${sourceName}`
         : `${metricLabel} data source comparison`;
-    return `<button type="button" class="dq-tooltip dq-source-btn ${cls}" aria-label="${ariaLabel}" aria-describedby="${tipId}">
-        ${text}
+    return `<button type="button" class="dq-tooltip dq-info dq-source-corner ${cls}" aria-label="${ariaLabel}" aria-describedby="${tipId}">
+        <span class="dq-icon">i</span>
         <span id="${tipId}" class="dq-tooltip-content">${tooltip}</span>
     </button>`;
 }
@@ -1438,14 +1434,12 @@ function statCard(label, value, sub, teamClass, quality, badge='', infoBadge='')
     const infoIcon = showQuality && !infoBadge ? qualityInfoIcon(`${label} data`, infoQuality) : '';
     const warningIcon = showQuality && quality ? qualityWarningIcon(`${label} data`, quality) : '';
     return `<div class="stat-card glass rounded-xl p-4 text-center">
+        ${infoBadge || ''}
         <div class="text-xs text-zinc-500 flex items-center justify-center gap-1">
             <span>${label}</span>${warningIcon}${infoIcon}
         </div>
         <div class="text-2xl font-bold ${teamClass} mt-1 flex items-center justify-center gap-2">
-            <span class="inline-flex items-center gap-1">
-                <span>${value}</span>
-                ${infoBadge || ''}
-            </span>
+            <span>${value}</span>
             ${badge || ''}
         </div>
         ${sub ? `<div class="text-xs text-zinc-500 mt-1">${sub}</div>` : ''}
@@ -2042,18 +2036,18 @@ function renderOverview() {
         const aTwoPtConv = sumGameFieldWithFallbacks(af, twoPointConversionFields);
         const gTwoPtPct = gTwoPtAtt ? (gTwoPtConv / gTwoPtAtt * 100).toFixed(1) : '0.0';
         const aTwoPtPct = aTwoPtAtt ? (aTwoPtConv / aTwoPtAtt * 100).toFixed(1) : '0.0';
-        const gTwoPtCompare = buildComparePayload(gTwoPtPct, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
-        const aTwoPtCompare = buildComparePayload(aTwoPtPct, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
+        const gTwoPtCompare = buildComparePayload(gTwoPtConv, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
+        const aTwoPtCompare = buildComparePayload(aTwoPtConv, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
         html += `<div class="grid grid-cols-2 gap-4 mb-6">
             <div class="grid grid-cols-3 gap-3">
                 ${statCard('2-Pt Att', gTwoPtAtt, '', 'team-a', gq(gTwoPointAttemptQualityFields, '2-Pt Att'))}
-                ${statCard('2-Pt Conv', gTwoPtConv, gTwoPtPct+'%', 'team-a', gq(gTwoPointConversionQualityFields, '2-Pt Conv'))}
-                ${statCard('Conv %', gTwoPtPct, '', 'team-a', gq(gTwoPointAttemptQualityFields.concat(gTwoPointConversionQualityFields), '2-Pt Conv %'), '', sourceInfoBadge(gTwoPtCompare, '2-Pt Conv %'))}
+                ${statCard('2-Pt Conv', gTwoPtConv, gTwoPtPct+'%', 'team-a', gq(gTwoPointConversionQualityFields, '2-Pt Conv'), '', sourceInfoBadge(gTwoPtCompare, '2-Pt Conv'))}
+                ${statCard('Conv %', gTwoPtPct, '', 'team-a', gq(gTwoPointAttemptQualityFields.concat(gTwoPointConversionQualityFields), '2-Pt Conv %'))}
             </div>
             <div class="grid grid-cols-3 gap-3">
                 ${statCard('2-Pt Att', aTwoPtAtt, '', 'team-b', aq(aTwoPointAttemptQualityFields, '2-Pt Att'))}
-                ${statCard('2-Pt Conv', aTwoPtConv, aTwoPtPct+'%', 'team-b', aq(aTwoPointConversionQualityFields, '2-Pt Conv'))}
-                ${statCard('Conv %', aTwoPtPct, '', 'team-b', aq(aTwoPointAttemptQualityFields.concat(aTwoPointConversionQualityFields), '2-Pt Conv %'), '', sourceInfoBadge(aTwoPtCompare, '2-Pt Conv %'))}
+                ${statCard('2-Pt Conv', aTwoPtConv, aTwoPtPct+'%', 'team-b', aq(aTwoPointConversionQualityFields, '2-Pt Conv'), '', sourceInfoBadge(aTwoPtCompare, '2-Pt Conv'))}
+                ${statCard('Conv %', aTwoPtPct, '', 'team-b', aq(aTwoPointAttemptQualityFields.concat(aTwoPointConversionQualityFields), '2-Pt Conv %'))}
             </div>
         </div>`;
     }
@@ -3813,20 +3807,20 @@ function renderTwoPoint() {
     const gOppConv = sumField(gf, 'opp_two_pt_conversions');
     const aOppAtt = sumField(af, 'opp_two_pt_attempts');
     const aOppConv = sumField(af, 'opp_two_pt_conversions');
-    const gTwoPointCompare = buildComparePayload(gaPctNum, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
-    const aTwoPointCompare = buildComparePayload(aaPctNum, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
+    const gTwoPointCompare = buildComparePayload(gaConv, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
+    const aTwoPointCompare = buildComparePayload(aaConv, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
 
     let html = `<div class="section-enter">`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
             ${statCard('2-Pt Att', gaAtt, '', 'team-a', gq(['two_pt_attempts'], '2-Pt Att'))}
-            ${statCard('2-Pt Conv', gaConv, gaAtt ? gaPct + '%' : '\u2014', 'team-a', gq(['two_pt_conversions'], '2-Pt Conv'))}
-            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'), sourceInfoBadge(gTwoPointCompare, '2-Pt Conv %'))}
+            ${statCard('2-Pt Conv', gaConv, gaAtt ? gaPct + '%' : '\u2014', 'team-a', gq(['two_pt_conversions'], '2-Pt Conv'), '', sourceInfoBadge(gTwoPointCompare, '2-Pt Conv'))}
+            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('2-Pt Att', aaAtt, '', 'team-b', aq(['two_pt_attempts'], '2-Pt Att'))}
-            ${statCard('2-Pt Conv', aaConv, aaAtt ? aaPct + '%' : '\u2014', 'team-b', aq(['two_pt_conversions'], '2-Pt Conv'))}
-            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'), sourceInfoBadge(aTwoPointCompare, '2-Pt Conv %'))}
+            ${statCard('2-Pt Conv', aaConv, aaAtt ? aaPct + '%' : '\u2014', 'team-b', aq(['two_pt_conversions'], '2-Pt Conv'), '', sourceInfoBadge(aTwoPointCompare, '2-Pt Conv'))}
+            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'))}
         </div>
     </div>`;
     html += compBar('2-Pt Conversion %', gaPctNum, aaPctNum, '%');
