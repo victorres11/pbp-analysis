@@ -24,9 +24,12 @@ from pbp_parser.parse import parse_pdf
 from pbp_parser.pdf_text import extract_pdf_text
 from pbp_parser.red_zone import compute_team_red_zone_splits
 from pbp_parser.explosives import compute_team_explosives
-
-from cfbstats_scraper import CfbstatsScraper
+from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down
+from pbp_parser.cfbstats import CONFERENCE_IDS, get_leaderboard
+from pbp_parser.cfbstats import normalize_team_name as normalize_cfbstats_team
 from pbp_parser.ncaa_schedule import fetch_team_schedule
+from pbp_parser.reference.teams import FBS_CONFERENCE_MEMBERS, TEAM_ALIASES
+from pbp_parser.reference.teams import normalize_team_name as normalize_ref_team
 
 LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
@@ -41,8 +44,441 @@ EXPLOSIVE_NAME_PATTERN = re.compile(
         HASH_FULLNAME_PATTERN.pattern,
     ]) + r")"
 )
-PASS_RECEIVER_RE = re.compile(r"\bto\s+(" + EXPLOSIVE_NAME_PATTERN.pattern + r")", re.IGNORECASE)
-RUSH_PLAYER_RE = re.compile(r"(" + EXPLOSIVE_NAME_PATTERN.pattern + r")\s+(?:rush|run)\b", re.IGNORECASE)
+# Player name sub-patterns used in receiver/rusher extraction
+_LAST_FIRST = r'[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?\s*,\s*[A-Z][A-Za-z\'\-]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))?'
+_HASH_INITIAL_LAST = r'#\d+\s+[A-Z]\.[A-Za-z.\'\-]+'
+_PLAYER_NAME = rf'(?:{_LAST_FIRST}|{_HASH_INITIAL_LAST})'
+
+# Match: "to Last,First" or "to #XX I.Last" (receiver in pass plays)
+PASS_RECEIVER_RE = re.compile(
+    rf'\bto\s+({_PLAYER_NAME})',
+    re.IGNORECASE
+)
+# Match: "Last,First rush" or "#XX I.Last rush" (ball carrier in rush plays)
+RUSH_PLAYER_RE = re.compile(
+    rf'({_PLAYER_NAME})\s+(?:rush|rushes|run|runs)\b',
+    re.IGNORECASE
+)
+PLAYER_NAME_BLACKLIST = [
+    "caught",
+    "pass",
+    "rush",
+    "run",
+    "No Huddle",
+    "Shotgun",
+    "No Huddle-Shotgun",
+    "incomplete",
+    "complete",
+    "fumble",
+    "sack",
+    "penalty",
+    "tackle",
+    "intercepted",
+    "lateral",
+    "handoff",
+    "snap",
+    "hurry",
+]
+PLAYER_NAME_BLACKLIST_RE = re.compile(
+    r"(?i)(?<![A-Za-z0-9])(?:"
+    + "|".join(sorted((re.escape(term) for term in PLAYER_NAME_BLACKLIST), key=len, reverse=True))
+    + r")(?![A-Za-z0-9])"
+)
+
+# Maps team identifier → conference name used for is_conference game detection.
+# Conference membership is resolved via pbp_parser.reference.teams.FBS_CONFERENCE_MEMBERS
+# which handles PDF abbreviation matching (e.g. 'TEN'→Tennessee, 'ALA'→Alabama).
+# Add new team identifiers here when onboarding additional programs.
+TEAM_CONFERENCE_BY_ID = {
+    "georgia": "SEC",
+    "asu": "Big 12",
+    "oregon": "Big Ten",
+    "washington": "Big Ten",
+}
+
+POWER4_CONFERENCES = ("SEC", "Big 12", "Big Ten", "ACC")
+NON_POWER4_TERMS = tuple(
+    normalize_ref_team(t) for t in (
+        # Known non-P4 opponents seen in PBP PDFs
+        "Northern Arizona", "Texas State", "NAU", "TXST", "UMass", "Tennessee Tech",
+        "Marshall", "MAR", "Appalachian State", "APS", "App State",
+        "Charlotte", "CLT", "Boise State", "BSU", "Colorado State", "CSU",
+        "UC Davis", "UCD",
+    )
+)
+
+CFBSTATS_SPLITS = {
+    "all": 1,
+    "conf": 7,
+    "nonconf": 8,
+}
+
+CFBSTATS_METRIC_CONFIGS = (
+    {
+        "key": "red_zone",
+        "label": "red zone TD%",
+        "category": 27,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("TD %", "TD%", "TD Pct"),
+    },
+    {
+        "key": "third_down",
+        "label": "third down %",
+        "category": 25,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Conversion %", "Pct", "Conv %", "Conv%"),
+    },
+    {
+        "key": "explosives",
+        "label": "explosive plays (20+)",
+        "category": 30,
+        "offense": "offense",
+        "sort": 2,
+        "stat_candidates": ("20+", "20", "20+ Plays", "20+ Yds", "20+Yds"),
+    },
+    {
+        "key": "fourth_down",
+        "label": "4th down conversion %",
+        "category": 26,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Conversion %", "Conv %", "Conv%", "Pct", "Pct."),
+    },
+    {
+        "key": "penalties",
+        "label": "penalty yards/game",
+        "category": 14,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Yards/G", "Yds/G", "Yds/Gm", "Yards/Gm", "Penalty Yds/G", "Pen Yds/G"),
+    },
+    {
+        "key": "time_of_possession",
+        "label": "time of possession",
+        "category": 15,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("TOP", "Time", "Time of Possession"),
+    },
+    {
+        "key": "sacks_offense",
+        "label": "sacks allowed",
+        "category": 20,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Sacks", "Sack", "Sk"),
+    },
+    {
+        "key": "sacks_defense",
+        "label": "sacks",
+        "category": 20,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("Sacks", "Sack", "Sk"),
+    },
+    {
+        "key": "tfl_offense",
+        "label": "tackles for loss allowed",
+        "category": 21,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("TFL", "TFLs", "Tackles For Loss", "Tackles for Loss"),
+    },
+    {
+        "key": "total_offense",
+        "label": "total offense",
+        "category": 10,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Yards/G", "Yds/G", "Total", "Yds"),
+    },
+    {
+        "key": "total_defense",
+        "label": "total defense",
+        "category": 10,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("Yards/G", "Yds/G", "Total", "Yds"),
+    },
+    {
+        "key": "rushing_offense",
+        "label": "rushing offense",
+        "category": 1,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G", "Yds"),
+    },
+    {
+        "key": "rushing_defense",
+        "label": "rushing defense",
+        "category": 1,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G", "Yds"),
+    },
+    {
+        "key": "passing_offense",
+        "label": "passing offense",
+        "category": 2,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G", "Yds"),
+    },
+    {
+        "key": "passing_defense",
+        "label": "passing defense",
+        "category": 2,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G", "Yds"),
+    },
+    {
+        "key": "scoring_offense",
+        "label": "scoring offense",
+        "category": 9,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"),
+    },
+    {
+        "key": "two_point_conversions",
+        "label": "2-pt conversions made",
+        "category": 9,
+        "offense": "offense",
+        "sort": 1,
+        "stat_candidates": ("2XP",),
+    },
+    {
+        "key": "scoring_defense",
+        "label": "scoring defense",
+        "category": 9,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"),
+    },
+)
+
+
+def _conference_terms(conference_name):
+    members = [normalize_ref_team(t) for t in FBS_CONFERENCE_MEMBERS.get(conference_name, ())]
+    member_set = {m for m in members if m}
+    alias_terms = {
+        normalize_ref_team(alias)
+        for alias, canonical in TEAM_ALIASES.items()
+        if normalize_ref_team(canonical) in member_set
+    }
+    return tuple(sorted(member_set | alias_terms))
+
+
+CONFERENCE_TERMS = {name: _conference_terms(name) for name in POWER4_CONFERENCES}
+POWER4_TERMS = tuple(sorted({t for terms in CONFERENCE_TERMS.values() for t in terms if t}))
+
+
+def _contains_any_term(text, terms):
+    if text in terms:
+        return True
+    variants = {
+        text,
+        text.replace(" state", " st").strip(),
+        text.replace(" st", " state").strip(),
+    }
+    return any(v in terms for v in variants if v)
+
+
+def _first_stat_value(row, candidates):
+    for key in candidates:
+        value = row.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _parse_numeric(value):
+    if value is None:
+        return None
+    cleaned = re.sub(r"[^0-9.+-]", "", str(value))
+    if not cleaned or cleaned in {"+", "-"}:
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _team_targets(team_info):
+    targets = set()
+    for raw in (team_info.get("name"), team_info.get("abbr")):
+        if not raw:
+            continue
+        targets.add(normalize_cfbstats_team(str(raw)))
+        targets.add(normalize_ref_team(str(raw)))
+    return targets
+
+
+def _match_row_for_team(rows, team_info):
+    targets = _team_targets(team_info)
+    for row in rows:
+        team_name = str(row.get("team", "")).strip()
+        if not team_name:
+            continue
+        n1 = normalize_cfbstats_team(team_name)
+        n2 = normalize_ref_team(team_name)
+        if n1 in targets or n2 in targets:
+            return row
+    return None
+
+
+def _build_metric_entry(row, conference, label, candidates, total):
+    rank = row.get("rank")
+    if not isinstance(rank, int):
+        try:
+            rank = int(str(rank).strip())
+        except Exception:
+            return None
+    value = _first_stat_value(row, candidates)
+    if value is None:
+        return None
+    return {
+        "rank": rank,
+        "conference": conference,
+        "value": value,
+        "label": label,
+        "total": total,
+    }
+
+
+def _extract_margin_map(rows):
+    margin_keys = ("Margin", "TO Margin", "+/-", "Margin/G", "Margin/Gm", "Margin/G.")
+    games_keys = ("G", "GP", "Games")
+    out = {}
+    for row in rows:
+        team_name = str(row.get("team", "")).strip()
+        if not team_name:
+            continue
+        margin_key = next((k for k in margin_keys if k in row and str(row.get(k, "")).strip()), None)
+        if not margin_key:
+            continue
+        margin = _parse_numeric(row.get(margin_key))
+        if margin is None:
+            continue
+        if "/g" in margin_key.lower():
+            games_key = next((k for k in games_keys if k in row and str(row.get(k, "")).strip()), None)
+            games = _parse_numeric(row.get(games_key)) if games_key else None
+            if games:
+                margin = margin * games
+        out[normalize_cfbstats_team(team_name)] = margin
+    return out
+
+
+def fetch_cfbstats_rankings(year, teams_dict):
+    rankings_by_split = {split: {team_id: {} for team_id in teams_dict} for split in CFBSTATS_SPLITS}
+    by_conference = defaultdict(list)
+    for team_id, info in teams_dict.items():
+        by_conference[info["conference"]].append(team_id)
+
+    for split_key, split_code in CFBSTATS_SPLITS.items():
+        print(f"  Fetching cfbstats for {split_key} (split{split_code:02d})...")
+        for conference, team_ids in by_conference.items():
+            scope = CONFERENCE_IDS.get(conference)
+            if scope is None:
+                continue
+
+            for cfg in CFBSTATS_METRIC_CONFIGS:
+                rows = get_leaderboard(
+                    year=year,
+                    scope=scope,
+                    offense_defense=cfg["offense"],
+                    split=split_code,
+                    category=cfg["category"],
+                    sort=cfg["sort"],
+                )
+                if not rows:
+                    continue
+                total = len(rows)
+                for team_id in team_ids:
+                    row = _match_row_for_team(rows, teams_dict[team_id])
+                    if not row:
+                        continue
+                    entry = _build_metric_entry(row, conference, cfg["label"], cfg["stat_candidates"], total)
+                    if entry:
+                        rankings_by_split[split_key][team_id][cfg["key"]] = entry
+
+            scoring_offense = get_leaderboard(
+                year=year, scope=scope, offense_defense="offense", split=split_code, category=9, sort=1
+            )
+            scoring_defense = get_leaderboard(
+                year=year, scope=scope, offense_defense="defense", split=split_code, category=9, sort=1
+            )
+            if scoring_offense and scoring_defense:
+                off_map = {}
+                def_map = {}
+                for row in scoring_offense:
+                    team_name = str(row.get("team", "")).strip()
+                    value = _first_stat_value(row, ("Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"))
+                    num = _parse_numeric(value)
+                    if team_name and num is not None:
+                        off_map[normalize_cfbstats_team(team_name)] = num
+                for row in scoring_defense:
+                    team_name = str(row.get("team", "")).strip()
+                    value = _first_stat_value(row, ("Points/G", "Pts/G", "Pts/Gm", "Pts/G.", "PPG", "Pts"))
+                    num = _parse_numeric(value)
+                    if team_name and num is not None:
+                        def_map[normalize_cfbstats_team(team_name)] = num
+                margin_rows = sorted(
+                    ((name, off_map[name] - def_map[name]) for name in off_map if name in def_map),
+                    key=lambda it: it[1],
+                    reverse=True,
+                )
+                margin_rank = {name: i + 1 for i, (name, _) in enumerate(margin_rows)}
+                total_ranked = len(margin_rows)
+                for team_id in team_ids:
+                    targets = _team_targets(teams_dict[team_id])
+                    matched_name = next((n for n in margin_rank if n in targets), None)
+                    if not matched_name:
+                        continue
+                    margin_val = next(v for n, v in margin_rows if n == matched_name)
+                    rankings_by_split[split_key][team_id]["scoring_margin"] = {
+                        "rank": margin_rank[matched_name],
+                        "conference": conference,
+                        "value": f"{margin_val:+.1f}",
+                        "label": "scoring margin",
+                        "total": total_ranked,
+                    }
+
+            turnover_offense = get_leaderboard(
+                year=year, scope=scope, offense_defense="offense", split=split_code, category=12, sort=1
+            )
+            turnover_defense = get_leaderboard(
+                year=year, scope=scope, offense_defense="defense", split=split_code, category=12, sort=1
+            )
+            turnover_map = _extract_margin_map(turnover_offense or [])
+            if not turnover_map:
+                turnover_map = _extract_margin_map(turnover_defense or [])
+            if turnover_map:
+                turnover_rows = sorted(turnover_map.items(), key=lambda it: it[1], reverse=True)
+                turnover_rank = {name: i + 1 for i, (name, _) in enumerate(turnover_rows)}
+                total_ranked = len(turnover_rows)
+                for team_id in team_ids:
+                    targets = _team_targets(teams_dict[team_id])
+                    matched_name = next((n for n in turnover_rank if n in targets), None)
+                    if not matched_name:
+                        continue
+                    margin_val = turnover_map[matched_name]
+                    if float(margin_val).is_integer():
+                        margin_text = f"{int(margin_val):+d}"
+                    else:
+                        margin_text = f"{margin_val:+.1f}"
+                    rankings_by_split[split_key][team_id]["turnover_margin"] = {
+                        "rank": turnover_rank[matched_name],
+                        "conference": conference,
+                        "value": margin_text,
+                        "label": "turnover margin",
+                        "total": total_ranked,
+                    }
+
+    return rankings_by_split
 
 
 def normalize_player_name(raw):
@@ -50,6 +486,10 @@ def normalize_player_name(raw):
         return None
     cleaned = re.sub(r'\s+', ' ', raw.strip())
     cleaned = re.sub(r'^#\d+\s+', '', cleaned)
+    cleaned = PLAYER_NAME_BLACKLIST_RE.sub(' ', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip(' ,;-')
+    if not cleaned:
+        return None
     cleaned = re.sub(r'\b([A-Z])\.(?=[A-Za-z])', r'\1. ', cleaned)
     if ',' not in cleaned:
         return cleaned
@@ -479,52 +919,111 @@ def parse_yards_to_goal(spot, offense_abbr, opponent_abbr):
         return 100 - yards_num
 
 
-def parse_fourth_distance(down_distance):
-    m = re.match(r'^4-(\d+|Goal)', down_distance or '')
-    if not m:
-        return None
-    if m.group(1).lower() == 'goal':
-        return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
-
-
 def compute_fourth_down_stats(plays, our_abbr):
-    attempts = 0
-    conversions = 0
+    """Thin wrapper around upstream pbp_parser.fourth_down (issue #60)."""
+    stats = _upstream_fourth_down(plays, our_abbr)
+    return stats.attempts, stats.conversions
+
+
+def compute_two_point_stats(plays, our_abbr, opp_abbr, opp_name):
+    """Extract two-point attempts/conversions for us and opponent."""
+    stats = {
+        "two_pt_attempts": 0,
+        "two_pt_conversions": 0,
+        "two_pt_rush_attempts": 0,
+        "two_pt_rush_conversions": 0,
+        "two_pt_pass_attempts": 0,
+        "two_pt_pass_conversions": 0,
+        "two_pt_details": [],
+        "opp_two_pt_attempts": 0,
+        "opp_two_pt_conversions": 0,
+    }
+
+    two_pt_keywords = ("TWO-POINT", "TWO POINT", "2-POINT", "2 POINT", "2PT")
+    success_keywords = ("SUCCESSFUL", "CONVERTED", "GOOD", "CONVERSION", "SUCCESS")
+    failure_keywords = ("FAILED", "FAIL", "NO GOOD", "UNSUCCESSFUL")
+    pass_keywords = ("PASS", "COMPLETE", "INCOMPLETE", "THROWN")
+    rush_keywords = (
+        "RUSH", "RUN", "SCRAMBLE", "UP THE MIDDLE", "LEFT END", "RIGHT END",
+        "LEFT TACKLE", "RIGHT TACKLE", "LEFT GUARD", "RIGHT GUARD",
+    )
+
+    our_abbr = (our_abbr or "").upper()
+    opp_abbr = (opp_abbr or "").upper()
+
+    def is_dead_ball_uns_kickoff_enforcement(desc: str, offense_abbr: str) -> bool:
+        """
+        Keep successful 2PT plays when merged text includes a dead-ball UNS kickoff
+        enforcement note ending with "NO PLAY" (e.g., from TEAM35 to TEAM50).
+        """
+        if "NO PLAY" not in desc or "PENALTY" not in desc:
+            return False
+        if "UNS" not in desc and "UNSPORTSMANLIKE" not in desc:
+            return False
+        if "ATTEMPT" not in desc or "SUCCESSFUL" not in desc:
+            return False
+        if not offense_abbr:
+            return False
+        pattern = rf"\bFROM\s+{re.escape(offense_abbr)}\s*35\s+TO\s+{re.escape(offense_abbr)}\s*50\b"
+        return re.search(pattern, desc) is not None
+
     for p in plays:
-        if p.is_no_play or p.offense != our_abbr:
+        desc_raw = p.description or ""
+        desc = desc_raw.upper()
+        has_two_pt_keyword = any(k in desc for k in two_pt_keywords)
+        has_attempt_phrase = (
+            ("PASS ATTEMPT" in desc or "RUSH ATTEMPT" in desc)
+            and any(k in desc for k in ("SUCCESSFUL", "FAILED"))
+        )
+        if not has_two_pt_keyword and not has_attempt_phrase:
             continue
-        dd = p.down_distance or ''
-        if not dd.startswith('4-'):
+        # Keep PAT and blocked-PAT-return plays out of 2PT bucket.
+        if "EXTRA POINT" in desc or "POINT AFTER" in desc or " PAT " in f" {desc} ":
             continue
-        desc = (p.description or '').upper()
-        # Only count "go for it" attempts (rush or pass)
-        # Exclude punts, field goals, and penalties
-        if 'PUNT' in desc or 'FIELD GOAL' in desc or ' FG' in desc:
+
+        offense = (p.offense or "").upper()
+        is_ours = offense == our_abbr
+        is_opp = offense == opp_abbr
+        if not is_ours and not is_opp:
             continue
-        if 'PENALTY' in desc or 'PENALIZED' in desc:
+        if p.is_no_play and not is_dead_ball_uns_kickoff_enforcement(desc, offense):
             continue
-        # Must be a rush or pass attempt
-        is_rush_or_pass = ('RUSH' in desc or 'PASS' in desc or 'COMPLETE' in desc or 
-                           'INCOMPLETE' in desc or 'SACK' in desc or 'RUN' in desc)
-        if not is_rush_or_pass:
-            continue
-        attempts += 1
-        converted = False
-        if p.is_scoring:
-            converted = True
-        elif '1ST DOWN' in desc or 'FIRST DOWN' in desc:
-            converted = True
+
+        successful = bool(p.is_scoring) or any(k in desc for k in success_keywords)
+        if not successful and not any(k in desc for k in failure_keywords):
+            successful = False
+
+        is_pass = any(k in desc for k in pass_keywords)
+        is_rush = any(k in desc for k in rush_keywords)
+        play_type = "pass" if is_pass else ("rush" if is_rush else "unknown")
+
+        if is_ours:
+            stats["two_pt_attempts"] += 1
+            if successful:
+                stats["two_pt_conversions"] += 1
+            if play_type == "pass":
+                stats["two_pt_pass_attempts"] += 1
+                if successful:
+                    stats["two_pt_pass_conversions"] += 1
+            elif play_type == "rush":
+                stats["two_pt_rush_attempts"] += 1
+                if successful:
+                    stats["two_pt_rush_conversions"] += 1
+
+            stats["two_pt_details"].append({
+                "quarter": p.quarter,
+                "clock": p.clock or "",
+                "play_type": play_type,
+                "successful": successful,
+                "description": desc_raw,
+                "opponent": opp_name or "",
+            })
         else:
-            dist = parse_fourth_distance(dd)
-            if dist is not None and p.yards is not None and p.yards >= dist:
-                converted = True
-        if converted:
-            conversions += 1
-    return attempts, conversions
+            stats["opp_two_pt_attempts"] += 1
+            if successful:
+                stats["opp_two_pt_conversions"] += 1
+
+    return stats
 
 
 def parse_all_penalties(desc: str, team_abbrs: list) -> list:
@@ -629,6 +1128,62 @@ def parse_turnover_breakdown(plays, our_abbr, opp_abbr):
     return our_ints_lost, our_fumbles_lost, our_ints_gained, our_fumbles_gained
 
 
+def parse_negative_plays(plays, our_abbr):
+    """Extract offensive negative-yardage scrimmage plays with kneel-down tagging."""
+    negative_plays = []
+    non_scrimmage_terms = (
+        'PUNT',
+        'KICKOFF',
+        'FIELD GOAL',
+        'EXTRA POINT',
+        'PAT',
+        'TIMEOUT',
+        '2-POINT',
+        'TWO-POINT',
+        '2PT',
+        'CONVERSION',
+    )
+
+    for p in plays:
+        if p.offense != our_abbr or p.is_no_play:
+            continue
+        if p.yards is None or p.yards >= 0:
+            continue
+
+        desc = (p.description or '')
+        desc_upper = desc.upper()
+        if any(term in desc_upper for term in non_scrimmage_terms):
+            continue
+
+        # Prefer parser scrimmage signal when available; fall back to text heuristics.
+        is_scrimmage_play = getattr(p, 'is_scrimmage_play', None)
+        if is_scrimmage_play is False:
+            continue
+
+        is_pass = (
+            'PASS' in desc_upper
+            or 'COMPLETE' in desc_upper
+            or 'CAUGHT' in desc_upper
+            or 'SACK' in desc_upper
+            or 'INTERCEPT' in desc_upper
+        )
+        play_type = 'pass' if is_pass else 'rush'
+        player = extract_explosive_player(desc, play_type)
+
+        negative_plays.append({
+            'play_type': play_type,
+            'yards': p.yards,
+            'quarter': p.quarter,
+            'clock': p.clock or '',
+            'down_distance': p.down_distance or '',
+            'description': desc,
+            'player': player,
+            'is_kneel': 'KNEEL' in desc_upper,
+        })
+
+    return negative_plays
+
+
 def compute_turnover_totals(plays, our_abbr, opp_abbr):
     """Compute total turnovers gained/lost from play data."""
     lost = 0
@@ -678,10 +1233,7 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         penalty_type = 'Unknown'
         for pattern, name in penalty_patterns:
             if re.search(pattern, desc_upper):
-                penalty_type = re.sub(pattern, name, desc_upper, count=1)
-                # Clean up the penalty type
-                penalty_type = re.sub(r'.*?(HOLDING|FALSE START|PASS INTERFERENCE|OFFSIDE|ILLEGAL.*?|ROUGHING.*?|FACEMASK|UNSPORTSMANLIKE.*?|TARGETING|DELAY OF GAME|ENCROACHMENT|NEUTRAL ZONE.*?|ILLEGAL HANDS|CLIPPING|INTENTIONAL GROUNDING).*', r'\1', penalty_type)
-                penalty_type = penalty_type.title()
+                penalty_type = name
                 break
         
         # Parse yards
@@ -710,12 +1262,21 @@ def parse_penalty_details(plays, our_abbr, opp_abbr):
         else:
             offense_or_defense = 'unknown'
 
-        # Differentiate holding by side when possible
+        # Differentiate holding by side when possible.
+        # Prefer side attribution first; only fall back to yardage/AFD hints when side is unknown.
         if penalty_type == 'Holding':
+            is_afd = ('AUTOMATIC FIRST DOWN' in desc_upper) or bool(re.search(r'\bAFD\b', desc_upper))
             if offense_or_defense == 'offense':
-                penalty_type = 'Offensive Holding'
+                penalty_type = 'Offensive Holding (10y)'
             elif offense_or_defense == 'defense':
-                penalty_type = 'Defensive Holding'
+                penalty_type = 'Defensive Holding (5y, AFD)' if is_afd else 'Defensive Holding (5y)'
+            elif yards == 10:
+                penalty_type = 'Offensive Holding (10y)'
+            elif yards == 5 and is_afd:
+                penalty_type = 'Defensive Holding (5y, AFD)'
+            else:
+                # Ambiguous or missing context defaults to offensive holding.
+                penalty_type = 'Offensive Holding (10y)'
         
         penalty_details.append({
             'type': penalty_type,
@@ -911,6 +1472,31 @@ def compute_special_teams_stats(plays, our_abbr, opp_abbr):
         stats['field_goal_pct'] = 0.0
 
     return stats
+
+
+def parse_game_date_iso(date_str):
+    """Parse a game date string (e.g. 'Sep 7, 2025') to an ISO date string."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%b %d, %Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def add_week_from_schedule(games, schedule):
+    """Match games to NCAA schedule entries by date and copy the week number."""
+    if not schedule:
+        return
+    sched_by_date = {}
+    for sg in schedule.games:
+        if sg.game_date and not sg.is_bye:
+            iso = sg.game_date.isoformat() if hasattr(sg.game_date, 'isoformat') else str(sg.game_date)
+            sched_by_date[iso] = sg.week
+    for g in games:
+        iso = parse_game_date_iso(g.get('date', ''))
+        if iso and iso in sched_by_date:
+            g['week'] = sched_by_date[iso]
 
 
 def process_team_games(pdf_dir, team_identifier):
@@ -1321,50 +1907,27 @@ def process_team_games(pdf_dir, team_identifier):
                     'turnover_description': p.description or '',
                 })
         
-        # Determine conference membership
-        sec_teams = [
-            'alabama', 'arkansas', 'auburn', 'florida', 'georgia', 'kentucky', 'lsu',
-            'mississippi', 'ole miss', 'mississippi st', 'mississippi state', 'missouri',
-            'oklahoma', 'south carolina', 'tennessee', 'texas', 'texas a&m', 'vanderbilt',
-            'a&m', 'tamu', 'uga'
-        ]
-        big12_teams = [
-            'baylor', 'tcu', 'utah', 'texas tech', 'houston', 'iowa state',
-            'west virginia', 'colorado', 'arizona', 'arizona st', 'arizona state',
-            'ttu', 'uh', 'isu', 'wvu', 'colo'
-        ]
-        big10_teams = [
-            'illinois', 'indiana', 'iowa', 'maryland', 'michigan', 'michigan st',
-            'minnesota', 'nebraska', 'northwestern', 'ohio st', 'ohio state',
-            'penn st', 'penn state', 'purdue', 'rutgers', 'wisconsin', 'ucla', 'usc',
-            'washington', 'oregon'
-        ]
-        acc_teams = [
-            'boston college', 'clemson', 'duke', 'florida st', 'florida state', 'georgia tech',
-            'louisville', 'miami', 'nc state', 'north carolina', 'pitt', 'pittsburgh',
-            'syracuse', 'virginia', 'virginia tech', 'wake forest', 'stanford', 'cal'
-        ]
+        # Determine conference and P4 membership from shared parser mappings.
+        opp_name_norm = normalize_ref_team(opp_name)
+        opp_abbr_norm = normalize_ref_team(opp_abbr)
+        team_conference = TEAM_CONFERENCE_BY_ID.get(team_identifier)
+        conf_terms = CONFERENCE_TERMS.get(team_conference, ())
 
-        if team_identifier == 'asu':
-            conf_list = big12_teams
-        else:
-            conf_list = sec_teams
-
-        is_conference = any(t in opp_name.lower() or t in opp_abbr.lower() for t in conf_list)
-
-        # Power 4 check (Big 12, SEC, Big Ten, ACC)
-        p4_list = sec_teams + big12_teams + big10_teams + acc_teams
-        is_power4 = any(t in opp_name.lower() or t in opp_abbr.lower() for t in p4_list)
-        non_p4 = ['northern ariz', 'texas st', 'nau', 'txst', 'umass', 'tenn tech', 'tennessee tech']
-        if any(t in opp_name.lower() or t in opp_abbr.lower() for t in non_p4):
+        is_conference = _contains_any_term(opp_name_norm, conf_terms) or _contains_any_term(opp_abbr_norm, conf_terms)
+        is_power4 = _contains_any_term(opp_name_norm, POWER4_TERMS) or _contains_any_term(opp_abbr_norm, POWER4_TERMS)
+        if _contains_any_term(opp_name_norm, NON_POWER4_TERMS) or _contains_any_term(opp_abbr_norm, NON_POWER4_TERMS):
             is_power4 = False
         
         middle8_for, middle8_against, middle8_scoring = compute_middle8_stats(g.plays, our_abbr, opp_abbr)
         fourth_attempts, fourth_conversions = compute_fourth_down_stats(g.plays, our_abbr)
+        two_pt_stats = compute_two_point_stats(g.plays, our_abbr, opp_abbr, opp_name)
         special_teams = compute_special_teams_stats(g.plays, our_abbr, opp_abbr)
         penalty_details = parse_penalty_details(g.plays, our_abbr, opp_abbr)
         ints_lost, fum_lost, ints_gained, fum_gained = parse_turnover_breakdown(g.plays, our_abbr, opp_abbr)
         turnovers_lost, turnovers_gained = compute_turnover_totals(g.plays, our_abbr, opp_abbr)
+        negative_plays_detail = parse_negative_plays(g.plays, our_abbr)
+        negative_plays_pass = sum(1 for p in negative_plays_detail if p['play_type'] == 'pass' and not p['is_kneel'])
+        negative_plays_rush = sum(1 for p in negative_plays_detail if p['play_type'] == 'rush' and not p['is_kneel'])
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -1388,6 +1951,10 @@ def process_team_games(pdf_dir, team_identifier):
             'fumbles_lost': fum_lost,
             'interceptions_gained': ints_gained,
             'fumbles_gained': fum_gained,
+            'negative_plays_detail': negative_plays_detail,
+            'negative_plays': negative_plays_pass + negative_plays_rush,
+            'negative_plays_pass': negative_plays_pass,
+            'negative_plays_rush': negative_plays_rush,
             'penalties': our_penalties,
             'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
@@ -1410,6 +1977,15 @@ def process_team_games(pdf_dir, team_identifier):
             'middle8_scoring_plays': middle8_scoring,
             '4th_down_attempts': fourth_attempts,
             '4th_down_conversions': fourth_conversions,
+            'two_pt_attempts': two_pt_stats['two_pt_attempts'],
+            'two_pt_conversions': two_pt_stats['two_pt_conversions'],
+            'two_pt_rush_attempts': two_pt_stats['two_pt_rush_attempts'],
+            'two_pt_rush_conversions': two_pt_stats['two_pt_rush_conversions'],
+            'two_pt_pass_attempts': two_pt_stats['two_pt_pass_attempts'],
+            'two_pt_pass_conversions': two_pt_stats['two_pt_pass_conversions'],
+            'two_pt_details': two_pt_stats['two_pt_details'],
+            'opp_two_pt_attempts': two_pt_stats['opp_two_pt_attempts'],
+            'opp_two_pt_conversions': two_pt_stats['opp_two_pt_conversions'],
             'special_teams': special_teams,
             'play_tree': play_tree,
         }
@@ -1420,7 +1996,7 @@ def process_team_games(pdf_dir, team_identifier):
         if not date_str:
             return None
         try:
-            return datetime.strptime(date_str, "%B %d, %Y").date()
+            return datetime.strptime(date_str, "%b %d, %Y").date()
         except ValueError:
             return None
 
@@ -1443,10 +2019,13 @@ def process_team_games(pdf_dir, team_identifier):
     total_expl = sum(g['explosives'] for g in games)
     total_tof = sum(g['turnovers_gained'] for g in games)
     total_tol = sum(g['turnovers_lost'] for g in games)
+    total_negative = sum(g.get('negative_plays', 0) for g in games)
     total_pen = sum(g['penalties'] for g in games)
     total_rzt = sum(g['red_zone_trips'] for g in games)
     total_rztd = sum(g['red_zone_tds'] for g in games)
     total_rzfg = sum(g['red_zone_fgs'] for g in games)
+    total_2pt_att = sum(g.get('two_pt_attempts', 0) for g in games)
+    total_2pt_conv = sum(g.get('two_pt_conversions', 0) for g in games)
     
     conf_wins = sum(1 for g in games if g['conference'] and g['points_for'] > g['points_against'])
     conf_losses = sum(1 for g in games if g['conference'] and g['points_for'] <= g['points_against'])
@@ -1458,12 +2037,16 @@ def process_team_games(pdf_dir, team_identifier):
         'ppg': round(total_pf / n, 1),
         'opp_ppg': round(total_pa / n, 1),
         'explosives_per_game': round(total_expl / n, 1),
+        'negative_plays_per_game': round(total_negative / n, 1),
         'turnover_margin': total_tof - total_tol,
         'penalties_per_game': round(total_pen / n, 1),
         'red_zone_trips': total_rzt,
         'red_zone_tds': total_rztd,
         'red_zone_fgs': total_rzfg,
         'red_zone_td_pct': round(total_rztd / max(1, total_rzt) * 100, 1),
+        'two_pt_attempts': total_2pt_att,
+        'two_pt_conversions': total_2pt_conv,
+        'two_pt_pct': round(total_2pt_conv / max(1, total_2pt_att) * 100, 1),
     }
     
     return games, aggregates, parsed_games
@@ -1489,20 +2072,17 @@ def main():
     print("\n=== Parsing Washington Games ===")
     washington_games, washington_agg, _ = process_team_games(washington_dir, 'washington')
 
-    def infer_season_year(paths):
-        years = set()
-        for path in paths:
-            m = re.search(r'-(20\\d{2})$', path.name)
-            if m:
-                years.add(int(m.group(1)))
-        if len(years) == 1:
-            return years.pop()
-        return date.today().year
+    def infer_active_season(today=None):
+        """
+        Return the active CFB season year.
+        Offseason months (Jan-Jul) map to the previous season year;
+        in-season months (Aug-Dec) map to the current calendar year.
+        """
+        today = today or date.today()
+        return today.year if today.month >= 8 else today.year - 1
 
-    season_year = 2024  # CFBStats uses academic year start
-    ncaa_season = 2025   # NCAA API uses calendar year of the season
-    scraper = CfbstatsScraper()
-
+    season_year = infer_active_season()
+    ncaa_season = season_year
     # Fetch schedules from NCAA API for bye week detection
     print("\n=== Fetching NCAA Schedules ===")
     ncaa_schedules = {}
@@ -1510,30 +2090,35 @@ def main():
         print(f"  Fetching {team_seo} schedule...")
         ncaa_schedules[team_seo] = fetch_team_schedule(team_seo, season=ncaa_season)
         print(f"    → {len(ncaa_schedules[team_seo].games)} games, bye weeks: {ncaa_schedules[team_seo].bye_weeks}")
-    cfbstats_rankings = scraper.get_context_badges(
-        season_year,
-        {
-            "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
-            "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
-            "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
-            "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
-        },
-    )
+    # Add week numbers from NCAA schedule data to each game
+    add_week_from_schedule(georgia_games, ncaa_schedules.get("georgia"))
+    add_week_from_schedule(asu_games, ncaa_schedules.get("arizona-st"))
+    add_week_from_schedule(oregon_games, ncaa_schedules.get("oregon"))
+    add_week_from_schedule(washington_games, ncaa_schedules.get("washington"))
+
+    teams_dict = {
+        "georgia": {"name": "Georgia", "abbr": "UGA", "conference": "SEC"},
+        "asu": {"name": "Arizona State", "abbr": "ASU", "conference": "Big 12"},
+        "oregon": {"name": "Oregon", "abbr": "ORE", "conference": "Big Ten"},
+        "washington": {"name": "Washington", "abbr": "WASH", "conference": "Big Ten"},
+    }
+
+    cfbstats_by_split = fetch_cfbstats_rankings(season_year, teams_dict)
 
     def build_rankings(team_id):
-        rankings = {}
-        for key, entries in (cfbstats_rankings.get(team_id, {}) or {}).items():
-            if not entries:
-                continue
-            entry = entries[0]
-            rankings[key] = {
-                "rank": entry.get("rank"),
-                "conference": entry.get("conference"),
-                "value": entry.get("value"),
-                "label": entry.get("label"),
-                "total": entry.get("total"),
-            }
-        return rankings
+        result = {}
+        for split_key, rankings_data in cfbstats_by_split.items():
+            rankings = {}
+            for key, entry in (rankings_data.get(team_id, {}) or {}).items():
+                rankings[key] = {
+                    "rank": entry.get("rank"),
+                    "conference": entry.get("conference"),
+                    "value": entry.get("value"),
+                    "label": entry.get("label"),
+                    "total": entry.get("total"),
+                }
+            result[split_key] = rankings
+        return result
     
     data = {
         "teams": {
@@ -1592,7 +2177,7 @@ def main():
         },
         "metadata": {
             "generated": date.today().isoformat(),
-            "version": "2.1",
+            "version": "2.2",
             "cfbstats_season": season_year,
         }
     }
