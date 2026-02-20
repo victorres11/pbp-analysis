@@ -1345,19 +1345,20 @@ function getCfbstatsRankingValue(team, metricKey) {
 
 function getCfbstatsValue(team, metricKey) {
     const stats = team && team.cfbstats && team.cfbstats.stats ? team.cfbstats.stats : null;
-    if (!stats) return null;
-    if (Object.prototype.hasOwnProperty.call(stats, metricKey)) {
-        return extractCompareValue(stats[metricKey]);
-    }
-    const fallbacks = CFBSTATS_STAT_FALLBACKS[metricKey] || [];
-    for (const key of fallbacks) {
-        if (Object.prototype.hasOwnProperty.call(stats, key)) {
-            return extractCompareValue(stats[key]);
+    if (stats) {
+        if (Object.prototype.hasOwnProperty.call(stats, metricKey)) {
+            return extractCompareValue(stats[metricKey]);
         }
-    }
-    if (metricKey === 'red_zone' && stats.red_zone && typeof stats.red_zone === 'object') {
-        const rz = stats.red_zone;
-        return rz.td_pct ?? rz.td_percent ?? rz.td_percentage ?? rz.tdPct ?? rz.tdPercent ?? null;
+        const fallbacks = CFBSTATS_STAT_FALLBACKS[metricKey] || [];
+        for (const key of fallbacks) {
+            if (Object.prototype.hasOwnProperty.call(stats, key)) {
+                return extractCompareValue(stats[key]);
+            }
+        }
+        if (metricKey === 'red_zone' && stats.red_zone && typeof stats.red_zone === 'object') {
+            const rz = stats.red_zone;
+            return rz.td_pct ?? rz.td_percent ?? rz.td_percentage ?? rz.tdPct ?? rz.tdPercent ?? null;
+        }
     }
     return getCfbstatsRankingValue(team, metricKey);
 }
