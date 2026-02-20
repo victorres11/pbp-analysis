@@ -1216,6 +1216,8 @@ const SOURCE_COMPARE_TOLERANCE = {
     fourth_down: 0.1,
     two_point_conversions: 0.1,
     red_zone: 0.1,
+    scoring_margin: 0.2,
+    total_offense: 0.2,
 };
 
 const CFBSTATS_STAT_FALLBACKS = {
@@ -1230,6 +1232,8 @@ const SOURCE_COMPARE_FORMATTERS = {
     fourth_down: value => formatPct(value),
     two_point_conversions: value => formatPct(value),
     red_zone: value => formatPct(value),
+    scoring_margin: value => formatSigned(value, 1),
+    total_offense: value => value.toFixed(1),
 };
 
 function getRanking(team, key) {
@@ -1310,6 +1314,16 @@ function normalizeCompareValue(value) {
     return null;
 }
 
+function parseCompareNumber(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isNaN(value) ? null : value;
+    if (typeof value !== 'string') return null;
+    const match = value.trim().match(/[-+]?\d+(?:\.\d+)?/);
+    if (!match) return null;
+    const num = Number(match[0]);
+    return Number.isNaN(num) ? null : num;
+}
+
 function extractCompareValue(value) {
     if (value && typeof value === 'object') {
         if (Object.prototype.hasOwnProperty.call(value, 'value')) return value.value;
@@ -1321,6 +1335,12 @@ function extractCompareValue(value) {
         if (Object.prototype.hasOwnProperty.call(value, 'td_percentage')) return value.td_percentage;
     }
     return value;
+}
+
+function getCfbstatsRankingValue(team, metricKey) {
+    const entry = normalizeRankingEntry(getRanking(team, metricKey));
+    if (!entry) return null;
+    return parseCompareNumber(entry.value);
 }
 
 function getCfbstatsValue(team, metricKey) {
@@ -1339,7 +1359,7 @@ function getCfbstatsValue(team, metricKey) {
         const rz = stats.red_zone;
         return rz.td_pct ?? rz.td_percent ?? rz.td_percentage ?? rz.tdPct ?? rz.tdPercent ?? null;
     }
-    return null;
+    return getCfbstatsRankingValue(team, metricKey);
 }
 
 function buildComparePayload(pbpValue, cfbstatsValue, metricKey) {
@@ -1926,6 +1946,18 @@ function renderOverview() {
     const aQuality = computeTeamQuality(af);
     const gTomCompare = buildComparePayload(gs.tom, getCfbstatsValue(ga, 'turnover_margin'), 'turnover_margin');
     const aTomCompare = buildComparePayload(as_.tom, getCfbstatsValue(aa, 'turnover_margin'), 'turnover_margin');
+    const gOverviewPbpCompareValues = {
+        scoring_margin: Number(gs.ppg) - Number(gs.oppg),
+        scoring_offense: Number(gs.ppg),
+        scoring_defense: Number(gs.oppg),
+        total_offense: gf.length ? sumField(gf, 'total_yards') / gf.length : null,
+    };
+    const aOverviewPbpCompareValues = {
+        scoring_margin: Number(as_.ppg) - Number(as_.oppg),
+        scoring_offense: Number(as_.ppg),
+        scoring_defense: Number(as_.oppg),
+        total_offense: af.length ? sumField(af, 'total_yards') / af.length : null,
+    };
     const twoPointAttemptFields = ['two_pt_attempts', 'two_point_attempts'];
     const twoPointConversionFields = ['two_pt_conversions', 'two_point_conversions'];
     const hasTwoPointData = hasAnyGameField(gf, twoPointAttemptFields.concat(twoPointConversionFields)) ||
@@ -1957,10 +1989,11 @@ function renderOverview() {
             </div>
         </div>
     </div>`;
-    const rankingCard = (team, label, key, teamClass) => {
+    const rankingCard = (team, label, key, teamClass, pbpValue = null) => {
         const entry = getRanking(team, key);
         const value = entry && entry.value ? entry.value : '—';
-        return statCard(label, value, '', teamClass, null, buildStatBadge(team, key));
+        const compare = buildComparePayload(pbpValue, getCfbstatsValue(team, key), key);
+        return statCard(label, value, '', teamClass, null, buildStatBadge(team, key), sourceInfoBadge(compare, label));
     };
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
@@ -1968,9 +2001,9 @@ function renderOverview() {
         ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div class="grid grid-cols-2 gap-3">
-                ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a')}
+                ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a', gOverviewPbpCompareValues.scoring_margin)}
                 ${rankingCard(ga, 'Time of Possession', 'time_of_possession', 'team-a')}
-                ${rankingCard(ga, 'Total Offense Yds/G', 'total_offense', 'team-a')}
+                ${rankingCard(ga, 'Total Offense Yds/G', 'total_offense', 'team-a', gOverviewPbpCompareValues.total_offense)}
                 ${rankingCard(ga, 'Total Defense Yds/G', 'total_defense', 'team-a')}
                 ${rankingCard(ga, 'Rushing Off Yds/G', 'rushing_offense', 'team-a')}
                 ${rankingCard(ga, 'Rushing Def Yds/G', 'rushing_defense', 'team-a')}
@@ -1980,9 +2013,9 @@ function renderOverview() {
                 ${rankingCard(ga, 'Sacks (Defense)', 'sacks_defense', 'team-a')}
             </div>
             <div class="grid grid-cols-2 gap-3">
-                ${rankingCard(aa, 'Scoring Margin', 'scoring_margin', 'team-b')}
+                ${rankingCard(aa, 'Scoring Margin', 'scoring_margin', 'team-b', aOverviewPbpCompareValues.scoring_margin)}
                 ${rankingCard(aa, 'Time of Possession', 'time_of_possession', 'team-b')}
-                ${rankingCard(aa, 'Total Offense Yds/G', 'total_offense', 'team-b')}
+                ${rankingCard(aa, 'Total Offense Yds/G', 'total_offense', 'team-b', aOverviewPbpCompareValues.total_offense)}
                 ${rankingCard(aa, 'Total Defense Yds/G', 'total_defense', 'team-b')}
                 ${rankingCard(aa, 'Rushing Off Yds/G', 'rushing_offense', 'team-b')}
                 ${rankingCard(aa, 'Rushing Def Yds/G', 'rushing_defense', 'team-b')}
@@ -3782,18 +3815,20 @@ function renderTwoPoint() {
     const gOppConv = sumField(gf, 'opp_two_pt_conversions');
     const aOppAtt = sumField(af, 'opp_two_pt_attempts');
     const aOppConv = sumField(af, 'opp_two_pt_conversions');
+    const gTwoPointCompare = buildComparePayload(gaPctNum, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
+    const aTwoPointCompare = buildComparePayload(aaPctNum, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
 
     let html = `<div class="section-enter">`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-3 gap-3">
             ${statCard('2-Pt Att', gaAtt, '', 'team-a', gq(['two_pt_attempts'], '2-Pt Att'))}
             ${statCard('2-Pt Conv', gaConv, gaAtt ? gaPct + '%' : '\u2014', 'team-a', gq(['two_pt_conversions'], '2-Pt Conv'))}
-            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'))}
+            ${statCard('Conv %', gaPct, gaAtt ? '%' : '', 'team-a', gq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(ga, 'two_point_conversions'), sourceInfoBadge(gTwoPointCompare, '2-Pt Conv %'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('2-Pt Att', aaAtt, '', 'team-b', aq(['two_pt_attempts'], '2-Pt Att'))}
             ${statCard('2-Pt Conv', aaConv, aaAtt ? aaPct + '%' : '\u2014', 'team-b', aq(['two_pt_conversions'], '2-Pt Conv'))}
-            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'))}
+            ${statCard('Conv %', aaPct, aaAtt ? '%' : '', 'team-b', aq(['two_pt_attempts','two_pt_conversions'], 'Conv %'), buildStatBadge(aa, 'two_point_conversions'), sourceInfoBadge(aTwoPointCompare, '2-Pt Conv %'))}
         </div>
     </div>`;
     html += compBar('2-Pt Conversion %', gaPctNum, aaPctNum, '%');
