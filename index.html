@@ -760,6 +760,26 @@ function sumField(games, field) {
     return games.reduce((s,g) => s + (g[field] || 0), 0);
 }
 
+function hasAnyGameField(games, fields) {
+    return games.some(game => fields.some(field => Object.prototype.hasOwnProperty.call(game, field)));
+}
+
+function sumGameFieldWithFallbacks(games, fields) {
+    return games.reduce((sum, game) => {
+        for (const field of fields) {
+            if (Object.prototype.hasOwnProperty.call(game, field)) {
+                return sum + (game[field] || 0);
+            }
+        }
+        return sum;
+    }, 0);
+}
+
+function pickQualityFieldsByPresence(games, preferredFields, fallbackFields) {
+    if (hasAnyGameField(games, preferredFields)) return preferredFields;
+    return fallbackFields;
+}
+
 function sumPostTurnoverPoints(game, type, teamAbbr) {
     const drives = (game && game.post_turnover_drives) || [];
     return drives.reduce((s,d) => {
@@ -1397,8 +1417,14 @@ function renderOverview() {
     const aQuality = computeTeamQuality(af);
     const gTomCompare = buildComparePayload(gs.tom, getCfbstatsValue(ga, 'turnover_margin'), 'turnover_margin');
     const aTomCompare = buildComparePayload(as_.tom, getCfbstatsValue(aa, 'turnover_margin'), 'turnover_margin');
-    const hasTwoPointData = gf.some(g => ('two_point_attempts' in g) || ('two_point_conversions' in g)) ||
-        af.some(g => ('two_point_attempts' in g) || ('two_point_conversions' in g));
+    const twoPointAttemptFields = ['two_pt_attempts', 'two_point_attempts'];
+    const twoPointConversionFields = ['two_pt_conversions', 'two_point_conversions'];
+    const hasTwoPointData = hasAnyGameField(gf, twoPointAttemptFields.concat(twoPointConversionFields)) ||
+        hasAnyGameField(af, twoPointAttemptFields.concat(twoPointConversionFields));
+    const gTwoPointAttemptQualityFields = pickQualityFieldsByPresence(gf, ['two_pt_attempts'], ['two_point_attempts']);
+    const gTwoPointConversionQualityFields = pickQualityFieldsByPresence(gf, ['two_pt_conversions'], ['two_point_conversions']);
+    const aTwoPointAttemptQualityFields = pickQualityFieldsByPresence(af, ['two_pt_attempts'], ['two_point_attempts']);
+    const aTwoPointConversionQualityFields = pickQualityFieldsByPresence(af, ['two_pt_conversions'], ['two_point_conversions']);
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
@@ -1464,24 +1490,24 @@ function renderOverview() {
         </div>
     </div>`;
     if (hasTwoPointData) {
-        const gTwoPtAtt = sumField(gf, 'two_point_attempts');
-        const gTwoPtConv = sumField(gf, 'two_point_conversions');
-        const aTwoPtAtt = sumField(af, 'two_point_attempts');
-        const aTwoPtConv = sumField(af, 'two_point_conversions');
+        const gTwoPtAtt = sumGameFieldWithFallbacks(gf, twoPointAttemptFields);
+        const gTwoPtConv = sumGameFieldWithFallbacks(gf, twoPointConversionFields);
+        const aTwoPtAtt = sumGameFieldWithFallbacks(af, twoPointAttemptFields);
+        const aTwoPtConv = sumGameFieldWithFallbacks(af, twoPointConversionFields);
         const gTwoPtPct = gTwoPtAtt ? (gTwoPtConv / gTwoPtAtt * 100).toFixed(1) : '0.0';
         const aTwoPtPct = aTwoPtAtt ? (aTwoPtConv / aTwoPtAtt * 100).toFixed(1) : '0.0';
         const gTwoPtCompare = buildComparePayload(gTwoPtPct, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
         const aTwoPtCompare = buildComparePayload(aTwoPtPct, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
         html += `<div class="grid grid-cols-2 gap-4 mb-6">
             <div class="grid grid-cols-3 gap-3">
-                ${statCard('2-Pt Att', gTwoPtAtt, '', 'team-a', gq(['two_point_attempts'], '2-Pt Att'))}
-                ${statCard('2-Pt Conv', gTwoPtConv, gTwoPtPct+'%', 'team-a', gq(['two_point_conversions'], '2-Pt Conv'))}
-                ${statCard('Conv %', gTwoPtPct, '', 'team-a', gq(['two_point_attempts','two_point_conversions'], '2-Pt Conv %'), '', sourceInfoBadge(gTwoPtCompare, '2-Pt Conv %'))}
+                ${statCard('2-Pt Att', gTwoPtAtt, '', 'team-a', gq(gTwoPointAttemptQualityFields, '2-Pt Att'))}
+                ${statCard('2-Pt Conv', gTwoPtConv, gTwoPtPct+'%', 'team-a', gq(gTwoPointConversionQualityFields, '2-Pt Conv'))}
+                ${statCard('Conv %', gTwoPtPct, '', 'team-a', gq(gTwoPointAttemptQualityFields.concat(gTwoPointConversionQualityFields), '2-Pt Conv %'), '', sourceInfoBadge(gTwoPtCompare, '2-Pt Conv %'))}
             </div>
             <div class="grid grid-cols-3 gap-3">
-                ${statCard('2-Pt Att', aTwoPtAtt, '', 'team-b', aq(['two_point_attempts'], '2-Pt Att'))}
-                ${statCard('2-Pt Conv', aTwoPtConv, aTwoPtPct+'%', 'team-b', aq(['two_point_conversions'], '2-Pt Conv'))}
-                ${statCard('Conv %', aTwoPtPct, '', 'team-b', aq(['two_point_attempts','two_point_conversions'], '2-Pt Conv %'), '', sourceInfoBadge(aTwoPtCompare, '2-Pt Conv %'))}
+                ${statCard('2-Pt Att', aTwoPtAtt, '', 'team-b', aq(aTwoPointAttemptQualityFields, '2-Pt Att'))}
+                ${statCard('2-Pt Conv', aTwoPtConv, aTwoPtPct+'%', 'team-b', aq(aTwoPointConversionQualityFields, '2-Pt Conv'))}
+                ${statCard('Conv %', aTwoPtPct, '', 'team-b', aq(aTwoPointAttemptQualityFields.concat(aTwoPointConversionQualityFields), '2-Pt Conv %'), '', sourceInfoBadge(aTwoPtCompare, '2-Pt Conv %'))}
             </div>
         </div>`;
     }
@@ -2126,6 +2152,8 @@ function renderTurnovers() {
     const ga = DATA.teams.georgia, aa = DATA.teams.asu;
     const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gs = agg(gf), as_ = agg(af);
+    const gTomCompare = buildComparePayload(gs.tom, getCfbstatsValue(ga, 'turnover_margin'), 'turnover_margin');
+    const aTomCompare = buildComparePayload(as_.tom, getCfbstatsValue(aa, 'turnover_margin'), 'turnover_margin');
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
     const gIntLost = sumField(gf, 'interceptions_lost');
