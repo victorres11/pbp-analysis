@@ -27,10 +27,15 @@
         .dq-tooltip { position: relative; display: inline-flex; align-items: center; }
         .dq-tooltip-content { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translate(-50%, -4px); min-width: 180px; max-width: 240px; background: #111114; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.5rem 0.6rem; font-size: 0.72rem; color: #e4e4e7; opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; z-index: 20; box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
         .dq-tooltip:hover .dq-tooltip-content { opacity: 1; transform: translate(-50%, -8px); pointer-events: auto; }
+        .dq-tooltip:focus-within .dq-tooltip-content { opacity: 1; transform: translate(-50%, -8px); pointer-events: auto; }
         .dq-icon { width: 14px; height: 14px; border-radius: 999px; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; font-weight: 700; }
         .dq-info { opacity: 0.4; transition: opacity 0.2s ease; }
         .dq-warning { font-size: 0.7rem; line-height: 1; margin-left: 2px; opacity: 0.7; font-weight: 700; }
         .dq-outlier { font-size: 0.65rem; padding: 0.12rem 0.35rem; border-radius: 999px; border: 1px solid rgba(244,114,182,0.4); color: #f9a8d4; background: rgba(244,114,182,0.14); }
+        .dq-source-btn { border: 1px solid transparent; background: transparent; padding: 0.1rem 0.35rem; border-radius: 999px; font-size: 0.6rem; line-height: 1; font-weight: 600; letter-spacing: 0.02em; display: inline-flex; align-items: center; justify-content: center; }
+        .dq-source-green { color: #86efac; background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.45); }
+        .dq-source-yellow { color: #713f12; background: #fef9c3; border-color: #facc15; }
+        .dq-source-neutral { color: #a1a1aa; background: rgba(113,113,122,0.16); border-color: rgba(113,113,122,0.35); }
         .nav-pill { transition: all 0.15s ease; }
         .nav-pill:hover { background: rgba(255,255,255,0.08); }
         .nav-pill.active { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
@@ -213,6 +218,7 @@
             .text-2xl { font-size: 16pt !important; }
             .text-3xl { font-size: 18pt !important; }
             .text-4xl { font-size: 20pt !important; }
+            .dq-source-btn { display: none !important; }
         }
     </style>
 </head>
@@ -306,6 +312,7 @@ let currentFilter = 'all';
 let allPlaysQuery = '';
 let allPlaysFilters = { team: 'all', type: 'all', scoring: false, turnover: false };
 let allPlaysSelected = null;
+let sourceBadgeCounter = 0;
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -967,6 +974,27 @@ const RANKING_META = {
     explosives: { reverse: false },
 };
 
+const SOURCE_COMPARE_TOLERANCE = {
+    turnover_margin: 0.01,
+    fourth_down: 0.1,
+    two_point_conversions: 0.1,
+    red_zone: 0.1,
+};
+
+const CFBSTATS_STAT_FALLBACKS = {
+    turnover_margin: ['margin', 'turnover_margin_per_game', 'margin_per_game'],
+    fourth_down: ['fourth_down_pct', 'fourth_down_conversion_pct', 'conversion_pct', 'conversion_percent', '4th_down_conversion_pct'],
+    two_point_conversions: ['two_point_conversion_pct', 'two_point_pct', 'two_point_conv_pct', 'two_point_conversion_percent'],
+    red_zone: ['red_zone_td_pct', 'red_zone_td_percent', 'red_zone_td_percentage', 'red_zone_td'],
+};
+
+const SOURCE_COMPARE_FORMATTERS = {
+    turnover_margin: value => formatSigned(value, 0),
+    fourth_down: value => formatPct(value),
+    two_point_conversions: value => formatPct(value),
+    red_zone: value => formatPct(value),
+};
+
 function getRanking(team, key) {
     return (team && team.cfbstats && team.cfbstats.rankings && team.cfbstats.rankings[key]) || null;
 }
@@ -986,7 +1014,99 @@ function formatRankingLabel(entry) {
     return `${ordinal(entry.rank)}${conf}${label}${value}`;
 }
 
-function statCard(label, value, sub, teamClass, quality, badge='') {
+function normalizeCompareValue(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isNaN(value) ? null : value;
+    if (typeof value === 'string') {
+        const cleaned = value.trim();
+        if (!cleaned || cleaned === '—') return null;
+        const numeric = Number(cleaned.replace('%', ''));
+        return Number.isNaN(numeric) ? null : numeric;
+    }
+    return null;
+}
+
+function extractCompareValue(value) {
+    if (value && typeof value === 'object') {
+        if (Object.prototype.hasOwnProperty.call(value, 'value')) return value.value;
+        if (Object.prototype.hasOwnProperty.call(value, 'pct')) return value.pct;
+        if (Object.prototype.hasOwnProperty.call(value, 'percent')) return value.percent;
+        if (Object.prototype.hasOwnProperty.call(value, 'percentage')) return value.percentage;
+        if (Object.prototype.hasOwnProperty.call(value, 'td_pct')) return value.td_pct;
+        if (Object.prototype.hasOwnProperty.call(value, 'td_percent')) return value.td_percent;
+        if (Object.prototype.hasOwnProperty.call(value, 'td_percentage')) return value.td_percentage;
+    }
+    return value;
+}
+
+function getCfbstatsValue(team, metricKey) {
+    const stats = team && team.cfbstats && team.cfbstats.stats ? team.cfbstats.stats : null;
+    if (!stats) return null;
+    if (Object.prototype.hasOwnProperty.call(stats, metricKey)) {
+        return extractCompareValue(stats[metricKey]);
+    }
+    const fallbacks = CFBSTATS_STAT_FALLBACKS[metricKey] || [];
+    for (const key of fallbacks) {
+        if (Object.prototype.hasOwnProperty.call(stats, key)) {
+            return extractCompareValue(stats[key]);
+        }
+    }
+    if (metricKey === 'red_zone' && stats.red_zone && typeof stats.red_zone === 'object') {
+        const rz = stats.red_zone;
+        return rz.td_pct ?? rz.td_percent ?? rz.td_percentage ?? rz.tdPct ?? rz.tdPercent ?? null;
+    }
+    return null;
+}
+
+function buildComparePayload(pbpValue, cfbstatsValue, metricKey) {
+    const pbp = normalizeCompareValue(pbpValue);
+    const cfb = normalizeCompareValue(cfbstatsValue);
+    if (pbp === null && cfb === null) return null;
+    if (pbp === null || cfb === null) {
+        return {
+            pbpValue: pbp,
+            cfbstatsValue: cfb,
+            match: null,
+            sourceLabel: pbp === null ? 'cfb' : 'pbp',
+            metricKey,
+        };
+    }
+    const tolerance = SOURCE_COMPARE_TOLERANCE[metricKey] ?? 0.01;
+    const match = Math.abs(pbp - cfb) <= tolerance;
+    return { pbpValue: pbp, cfbstatsValue: cfb, match, sourceLabel: null, metricKey };
+}
+
+function formatCompareValue(value, metricKey) {
+    if (value === null || value === undefined || Number.isNaN(value)) return '—';
+    const num = Number(value);
+    if (Number.isNaN(num)) return String(value);
+    const formatter = SOURCE_COMPARE_FORMATTERS[metricKey];
+    if (formatter) return formatter(num);
+    return num.toString();
+}
+
+function sourceInfoBadge(compare, label) {
+    if (!compare) return '';
+    const metricLabel = label || compare.metricKey || 'Metric';
+    const tipId = `sourceTip_${sourceBadgeCounter++}`;
+    const isMatch = compare.match === true;
+    const isMismatch = compare.match === false;
+    const cls = isMatch ? 'dq-source-green' : (isMismatch ? 'dq-source-yellow' : 'dq-source-neutral');
+    const text = compare.match === null ? compare.sourceLabel : '(i)';
+    const sourceName = compare.sourceLabel === 'pbp' ? 'PBP' : 'CFBStats';
+    const tooltip = compare.match === null
+        ? `Source: ${sourceName}`
+        : `CFBStats: ${formatCompareValue(compare.cfbstatsValue, compare.metricKey)}<br/>PBP: ${formatCompareValue(compare.pbpValue, compare.metricKey)}`;
+    const ariaLabel = compare.match === null
+        ? `${metricLabel} source ${sourceName}`
+        : `${metricLabel} data source comparison`;
+    return `<button type="button" class="dq-tooltip dq-source-btn ${cls}" aria-label="${ariaLabel}" aria-describedby="${tipId}">
+        ${text}
+        <span id="${tipId}" class="dq-tooltip-content">${tooltip}</span>
+    </button>`;
+}
+
+function statCard(label, value, sub, teamClass, quality, badge='', infoBadge='') {
     const showQuality = quality !== null && quality !== undefined;
     const infoQuality = showQuality ? (quality || { pct: null, missing: [], missingCounts: {}, label, note: 'Quality not available' }) : null;
     const infoIcon = showQuality ? qualityInfoIcon(`${label} data`, infoQuality) : '';
@@ -996,7 +1116,10 @@ function statCard(label, value, sub, teamClass, quality, badge='') {
             <span>${label}</span>${warningIcon}${infoIcon}
         </div>
         <div class="text-2xl font-bold ${teamClass} mt-1 flex items-center justify-center gap-2">
-            <span>${value}</span>
+            <span class="inline-flex items-center gap-1">
+                <span>${value}</span>
+                ${infoBadge || ''}
+            </span>
             ${badge || ''}
         </div>
         ${sub ? `<div class="text-xs text-zinc-500 mt-1">${sub}</div>` : ''}
@@ -1272,6 +1395,10 @@ function renderOverview() {
     const aq = makeQuality(af);
     const gQuality = computeTeamQuality(gf);
     const aQuality = computeTeamQuality(af);
+    const gTomCompare = buildComparePayload(gs.tom, getCfbstatsValue(ga, 'turnover_margin'), 'turnover_margin');
+    const aTomCompare = buildComparePayload(as_.tom, getCfbstatsValue(aa, 'turnover_margin'), 'turnover_margin');
+    const hasTwoPointData = gf.some(g => ('two_point_attempts' in g) || ('two_point_conversions' in g)) ||
+        af.some(g => ('two_point_attempts' in g) || ('two_point_conversions' in g));
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
@@ -1329,13 +1456,35 @@ function renderOverview() {
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Record', gs.record, gs.ppg+' PPG', 'team-a', gq(['points_for','points_against'], 'Record'))}
-            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
+            ${statCard('TO Margin', gs.tom > 0 ? '+'+gs.tom : gs.tom, gs.tof+' forced', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'), sourceInfoBadge(gTomCompare, 'TO Margin'))}
         </div>
         <div class="grid grid-cols-2 gap-3">
             ${statCard('Record', as_.record, as_.ppg+' PPG', 'team-b', aq(['points_for','points_against'], 'Record'))}
-            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
+            ${statCard('TO Margin', as_.tom > 0 ? '+'+as_.tom : as_.tom, as_.tof+' forced', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'), sourceInfoBadge(aTomCompare, 'TO Margin'))}
         </div>
     </div>`;
+    if (hasTwoPointData) {
+        const gTwoPtAtt = sumField(gf, 'two_point_attempts');
+        const gTwoPtConv = sumField(gf, 'two_point_conversions');
+        const aTwoPtAtt = sumField(af, 'two_point_attempts');
+        const aTwoPtConv = sumField(af, 'two_point_conversions');
+        const gTwoPtPct = gTwoPtAtt ? (gTwoPtConv / gTwoPtAtt * 100).toFixed(1) : '0.0';
+        const aTwoPtPct = aTwoPtAtt ? (aTwoPtConv / aTwoPtAtt * 100).toFixed(1) : '0.0';
+        const gTwoPtCompare = buildComparePayload(gTwoPtPct, getCfbstatsValue(ga, 'two_point_conversions'), 'two_point_conversions');
+        const aTwoPtCompare = buildComparePayload(aTwoPtPct, getCfbstatsValue(aa, 'two_point_conversions'), 'two_point_conversions');
+        html += `<div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="grid grid-cols-3 gap-3">
+                ${statCard('2-Pt Att', gTwoPtAtt, '', 'team-a', gq(['two_point_attempts'], '2-Pt Att'))}
+                ${statCard('2-Pt Conv', gTwoPtConv, gTwoPtPct+'%', 'team-a', gq(['two_point_conversions'], '2-Pt Conv'))}
+                ${statCard('Conv %', gTwoPtPct, '', 'team-a', gq(['two_point_attempts','two_point_conversions'], '2-Pt Conv %'), '', sourceInfoBadge(gTwoPtCompare, '2-Pt Conv %'))}
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                ${statCard('2-Pt Att', aTwoPtAtt, '', 'team-b', aq(['two_point_attempts'], '2-Pt Att'))}
+                ${statCard('2-Pt Conv', aTwoPtConv, aTwoPtPct+'%', 'team-b', aq(['two_point_conversions'], '2-Pt Conv'))}
+                ${statCard('Conv %', aTwoPtPct, '', 'team-b', aq(['two_point_attempts','two_point_conversions'], '2-Pt Conv %'), '', sourceInfoBadge(aTwoPtCompare, '2-Pt Conv %'))}
+            </div>
+        </div>`;
+    }
 
     // Comparison bars
     html += compBar('Points Per Game', gs.ppg, as_.ppg);
@@ -1846,19 +1995,22 @@ function renderRedzone() {
         const aFailed = Object.values(aFailedBreakdown).reduce((s, v) => s + v, 0);
         const aTdPct = aTrips > 0 ? ((aTds / aTrips) * 100).toFixed(1) : '0.0';
         const aScorePct = aTrips > 0 ? (((aTds + aFgs) / aTrips) * 100).toFixed(1) : '0.0';
+        // CFBStats only reports TD% for the standard red zone; green/tight zones lack a clean 1:1 match.
+        const gRedZoneCompare = zoneKey === 'red_zone' ? buildComparePayload(gTdPct, getCfbstatsValue(ga, 'red_zone'), 'red_zone') : null;
+        const aRedZoneCompare = zoneKey === 'red_zone' ? buildComparePayload(aTdPct, getCfbstatsValue(aa, 'red_zone'), 'red_zone') : null;
 
         let html = `<div class="mb-6 zone-section ${zoneClass}">`;
         html += `<h3 class="text-lg font-bold text-white mb-3 zone-title ${zoneTitleClass}">${zoneName} <span class="text-zinc-500 text-sm font-normal">${zoneDesc}</span></h3>`;
         html += `<div class="grid grid-cols-2 gap-4 mb-4">
             <div class="grid grid-cols-4 gap-3">
                 ${statCard('Trips', gTrips, '', 'team-a', gq(zoneFields, `${zoneName} Trips`))}
-                ${statCard('TDs', gTds, gTdPct+'%', 'team-a', gq(zoneFields, `${zoneName} TDs`))}
+                ${statCard('TDs', gTds, gTdPct+'%', 'team-a', gq(zoneFields, `${zoneName} TDs`), '', sourceInfoBadge(gRedZoneCompare, 'Red Zone TD%'))}
                 ${statCard('FGs', gFgs, '', 'team-a', gq(zoneFields, `${zoneName} FGs`))}
                 ${failedStatCard(gFailed, 'team-a', gFailedBreakdown, gq(zoneFields, `${zoneName} Failed`))}
             </div>
             <div class="grid grid-cols-4 gap-3">
                 ${statCard('Trips', aTrips, '', 'team-b', aq(zoneFields, `${zoneName} Trips`))}
-                ${statCard('TDs', aTds, aTdPct+'%', 'team-b', aq(zoneFields, `${zoneName} TDs`))}
+                ${statCard('TDs', aTds, aTdPct+'%', 'team-b', aq(zoneFields, `${zoneName} TDs`), '', sourceInfoBadge(aRedZoneCompare, 'Red Zone TD%'))}
                 ${statCard('FGs', aFgs, '', 'team-b', aq(zoneFields, `${zoneName} FGs`))}
                 ${failedStatCard(aFailed, 'team-b', aFailedBreakdown, aq(zoneFields, `${zoneName} Failed`))}
             </div>
@@ -1987,8 +2139,8 @@ function renderTurnovers() {
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'))}
-        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'))}
+        ${statCard('TO Margin', gs.tom>0?'+'+gs.tom:gs.tom, gs.tof+' forced / '+gs.tol+' lost', 'team-a', gq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(ga, 'turnover_margin'), sourceInfoBadge(gTomCompare, 'TO Margin'))}
+        ${statCard('TO Margin', as_.tom>0?'+'+as_.tom:as_.tom, as_.tof+' forced / '+as_.tol+' lost', 'team-b', aq(['turnovers_gained','turnovers_lost'], 'TO Margin'), buildStatBadge(aa, 'turnover_margin'), sourceInfoBadge(aTomCompare, 'TO Margin'))}
     </div>`;
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
         <div class="grid grid-cols-4 gap-3">
@@ -2759,7 +2911,8 @@ function initMiddle8Charts() {
 }
 
 function renderFourthDown() {
-    const gf = filterGames(DATA.teams.georgia.games), af = filterGames(DATA.teams.asu.games);
+    const ga = DATA.teams.georgia, aa = DATA.teams.asu;
+    const gf = filterGames(ga.games), af = filterGames(aa.games);
     const gq = makeQuality(gf);
     const aq = makeQuality(af);
     const gaAtt = sumField(gf, '4th_down_attempts');
@@ -2768,6 +2921,8 @@ function renderFourthDown() {
     const aaConv = sumField(af, '4th_down_conversions');
     const gaPct = gaAtt ? (gaConv/gaAtt*100).toFixed(1) : '0.0';
     const aaPct = aaAtt ? (aaConv/aaAtt*100).toFixed(1) : '0.0';
+    const gFourthCompare = buildComparePayload(gaPct, getCfbstatsValue(ga, 'fourth_down'), 'fourth_down');
+    const aFourthCompare = buildComparePayload(aaPct, getCfbstatsValue(aa, 'fourth_down'), 'fourth_down');
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
@@ -2775,12 +2930,12 @@ function renderFourthDown() {
         <div class="grid grid-cols-3 gap-3">
             ${statCard('4th Att', gaAtt, '', 'team-a', gq(['4th_down_attempts'], '4th Att'))}
             ${statCard('4th Conv', gaConv, gaPct+'%', 'team-a', gq(['4th_down_conversions'], '4th Conv'))}
-            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(ga, 'fourth_down'))}
+            ${statCard('Conv %', gaPct, '', 'team-a', gq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(ga, 'fourth_down'), sourceInfoBadge(gFourthCompare, '4th Down Conv %'))}
         </div>
         <div class="grid grid-cols-3 gap-3">
             ${statCard('4th Att', aaAtt, '', 'team-b', aq(['4th_down_attempts'], '4th Att'))}
             ${statCard('4th Conv', aaConv, aaPct+'%', 'team-b', aq(['4th_down_conversions'], '4th Conv'))}
-            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(aa, 'fourth_down'))}
+            ${statCard('Conv %', aaPct, '', 'team-b', aq(['4th_down_attempts','4th_down_conversions'], 'Conv %'), buildStatBadge(aa, 'fourth_down'), sourceInfoBadge(aFourthCompare, '4th Down Conv %'))}
         </div>
     </div>`;
     html += compBar('4th Down Conversion %', Number(gaPct), Number(aaPct), '%');
