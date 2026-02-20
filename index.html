@@ -1236,6 +1236,27 @@ const SOURCE_COMPARE_FORMATTERS = {
     total_offense: value => value.toFixed(1),
 };
 
+// Explicit overview coverage matrix: cards with null PBP values render source-only badges.
+const OVERVIEW_RANKING_CARDS = [
+    { label: 'Scoring Margin', key: 'scoring_margin', pbpMetric: 'scoring_margin' },
+    { label: 'Time of Possession', key: 'time_of_possession', pbpMetric: null },
+    { label: 'Total Offense Yds/G', key: 'total_offense', pbpMetric: 'total_offense' },
+    { label: 'Total Defense Yds/G', key: 'total_defense', pbpMetric: null },
+    { label: 'Rushing Off Yds/G', key: 'rushing_offense', pbpMetric: null },
+    { label: 'Rushing Def Yds/G', key: 'rushing_defense', pbpMetric: null },
+    { label: 'Passing Off Yds/G', key: 'passing_offense', pbpMetric: null },
+    { label: 'Passing Def Yds/G', key: 'passing_defense', pbpMetric: null },
+    { label: 'Sacks Allowed', key: 'sacks_offense', pbpMetric: null },
+    { label: 'Sacks (Defense)', key: 'sacks_defense', pbpMetric: null },
+];
+
+function buildOverviewPbpCompareValues(games, summary) {
+    return {
+        scoring_margin: Number(summary.ppg) - Number(summary.oppg),
+        total_offense: games.length ? sumField(games, 'total_yards') / games.length : null,
+    };
+}
+
 function getRanking(team, key) {
     if (!team || !team.cfbstats || !team.cfbstats.rankings) return null;
     const rankings = team.cfbstats.rankings;
@@ -1414,7 +1435,7 @@ function sourceInfoBadge(compare, label) {
 function statCard(label, value, sub, teamClass, quality, badge='', infoBadge='') {
     const showQuality = quality !== null && quality !== undefined;
     const infoQuality = showQuality ? (quality || { pct: null, missing: [], missingCounts: {}, label, note: 'Quality not available' }) : null;
-    const infoIcon = showQuality ? qualityInfoIcon(`${label} data`, infoQuality) : '';
+    const infoIcon = showQuality && !infoBadge ? qualityInfoIcon(`${label} data`, infoQuality) : '';
     const warningIcon = showQuality && quality ? qualityWarningIcon(`${label} data`, quality) : '';
     return `<div class="stat-card glass rounded-xl p-4 text-center">
         <div class="text-xs text-zinc-500 flex items-center justify-center gap-1">
@@ -1947,18 +1968,8 @@ function renderOverview() {
     const aQuality = computeTeamQuality(af);
     const gTomCompare = buildComparePayload(gs.tom, getCfbstatsValue(ga, 'turnover_margin'), 'turnover_margin');
     const aTomCompare = buildComparePayload(as_.tom, getCfbstatsValue(aa, 'turnover_margin'), 'turnover_margin');
-    const gOverviewPbpCompareValues = {
-        scoring_margin: Number(gs.ppg) - Number(gs.oppg),
-        scoring_offense: Number(gs.ppg),
-        scoring_defense: Number(gs.oppg),
-        total_offense: gf.length ? sumField(gf, 'total_yards') / gf.length : null,
-    };
-    const aOverviewPbpCompareValues = {
-        scoring_margin: Number(as_.ppg) - Number(as_.oppg),
-        scoring_offense: Number(as_.ppg),
-        scoring_defense: Number(as_.oppg),
-        total_offense: af.length ? sumField(af, 'total_yards') / af.length : null,
-    };
+    const gOverviewPbpCompareValues = buildOverviewPbpCompareValues(gf, gs);
+    const aOverviewPbpCompareValues = buildOverviewPbpCompareValues(af, as_);
     const twoPointAttemptFields = ['two_pt_attempts', 'two_point_attempts'];
     const twoPointConversionFields = ['two_pt_conversions', 'two_point_conversions'];
     const hasTwoPointData = hasAnyGameField(gf, twoPointAttemptFields.concat(twoPointConversionFields)) ||
@@ -1996,34 +2007,20 @@ function renderOverview() {
         const compare = buildComparePayload(pbpValue, getCfbstatsValue(team, key), key);
         return statCard(label, value, '', teamClass, null, buildStatBadge(team, key), sourceInfoBadge(compare, label));
     };
+    const rankingGrid = (team, teamClass, pbpValues) => OVERVIEW_RANKING_CARDS.map(card => {
+        const pbpValue = card.pbpMetric ? pbpValues[card.pbpMetric] : null;
+        return rankingCard(team, card.label, card.key, teamClass, pbpValue);
+    }).join('');
     html += `<div class="glass rounded-xl p-4 mb-6">
         <div class="text-sm text-zinc-300 font-medium mb-1">Conference Rankings</div>
         <div class="text-xs text-zinc-400 mb-3">${splitLabels[activeSplit] || 'All Games'} — team ranks within conference (CFBStats)</div>
         ${splitNote}
         <div class="grid grid-cols-2 gap-4">
             <div class="grid grid-cols-2 gap-3">
-                ${rankingCard(ga, 'Scoring Margin', 'scoring_margin', 'team-a', gOverviewPbpCompareValues.scoring_margin)}
-                ${rankingCard(ga, 'Time of Possession', 'time_of_possession', 'team-a')}
-                ${rankingCard(ga, 'Total Offense Yds/G', 'total_offense', 'team-a', gOverviewPbpCompareValues.total_offense)}
-                ${rankingCard(ga, 'Total Defense Yds/G', 'total_defense', 'team-a')}
-                ${rankingCard(ga, 'Rushing Off Yds/G', 'rushing_offense', 'team-a')}
-                ${rankingCard(ga, 'Rushing Def Yds/G', 'rushing_defense', 'team-a')}
-                ${rankingCard(ga, 'Passing Off Yds/G', 'passing_offense', 'team-a')}
-                ${rankingCard(ga, 'Passing Def Yds/G', 'passing_defense', 'team-a')}
-                ${rankingCard(ga, 'Sacks Allowed', 'sacks_offense', 'team-a')}
-                ${rankingCard(ga, 'Sacks (Defense)', 'sacks_defense', 'team-a')}
+                ${rankingGrid(ga, 'team-a', gOverviewPbpCompareValues)}
             </div>
             <div class="grid grid-cols-2 gap-3">
-                ${rankingCard(aa, 'Scoring Margin', 'scoring_margin', 'team-b', aOverviewPbpCompareValues.scoring_margin)}
-                ${rankingCard(aa, 'Time of Possession', 'time_of_possession', 'team-b')}
-                ${rankingCard(aa, 'Total Offense Yds/G', 'total_offense', 'team-b', aOverviewPbpCompareValues.total_offense)}
-                ${rankingCard(aa, 'Total Defense Yds/G', 'total_defense', 'team-b')}
-                ${rankingCard(aa, 'Rushing Off Yds/G', 'rushing_offense', 'team-b')}
-                ${rankingCard(aa, 'Rushing Def Yds/G', 'rushing_defense', 'team-b')}
-                ${rankingCard(aa, 'Passing Off Yds/G', 'passing_offense', 'team-b')}
-                ${rankingCard(aa, 'Passing Def Yds/G', 'passing_defense', 'team-b')}
-                ${rankingCard(aa, 'Sacks Allowed', 'sacks_offense', 'team-b')}
-                ${rankingCard(aa, 'Sacks (Defense)', 'sacks_defense', 'team-b')}
+                ${rankingGrid(aa, 'team-b', aOverviewPbpCompareValues)}
             </div>
         </div>
     </div>`;
