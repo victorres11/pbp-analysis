@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 
+from .delta import metric_delta_html, metric_delta_md
+
 PROCEDURAL_TERMS = (
     "false start",
     "offside",
@@ -284,7 +286,30 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Penalty breakdown section."""
+    t1_games = _games(team1)
+    t2_games = _games(team2)
+    t1_count = max(len(t1_games), 1)
+    t2_count = max(len(t2_games), 1)
+    t1_ppg = _aggregate(team1)["total"] / t1_count if team1.get("has_pbp") else None
+    t2_ppg = _aggregate(team2)["total"] / t2_count if team2.get("has_pbp") else None
+    delta_html = metric_delta_html(
+        "Penalties Per Game (Lower Better)",
+        team1["display_name"],
+        t1_ppg,
+        team2["display_name"],
+        t2_ppg,
+        higher_is_better=False,
+    )
+    delta_md = metric_delta_md(
+        "Penalties Per Game (Lower Better)",
+        team1["display_name"],
+        t1_ppg,
+        team2["display_name"],
+        t2_ppg,
+        higher_is_better=False,
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -292,6 +317,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Penalties*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 import re
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {})
@@ -201,7 +203,33 @@ def build(team1: dict, team2: dict, week: int | None, season: int) -> dict:
     now = datetime.now().strftime("%b %d, %Y %H:%M")
     week_str = f"Week {week} | " if week else ""
 
+    t1_stats = team1.get("stats", {}) or {}
+    t2_stats = team2.get("stats", {}) or {}
+    t1_margin = _safe_float(t1_stats.get("ppg"))
+    t1_opp = _safe_float(t1_stats.get("opp_ppg"))
+    t2_margin = _safe_float(t2_stats.get("ppg"))
+    t2_opp = _safe_float(t2_stats.get("opp_ppg"))
+    t1_net = (t1_margin - t1_opp) if t1_margin is not None and t1_opp is not None else None
+    t2_net = (t2_margin - t2_opp) if t2_margin is not None and t2_opp is not None else None
+    delta_html = metric_delta_html(
+        "Net Scoring Margin",
+        team1["display_name"],
+        t1_net,
+        team2["display_name"],
+        t2_net,
+        higher_is_better=True,
+    )
+    delta_md = metric_delta_md(
+        "Net Scoring Margin",
+        team1["display_name"],
+        t1_net,
+        team2["display_name"],
+        t2_net,
+        higher_is_better=True,
+    )
+
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -211,6 +239,7 @@ def build(team1: dict, team2: dict, week: int | None, season: int) -> dict:
 
     md_content = "\n\n".join([
         f"🏈 *GAME PREP BRIEF*\n{week_str}{season} Season\n{team1['display_name']} vs {team2['display_name']}",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

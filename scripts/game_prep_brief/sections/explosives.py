@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -155,7 +157,30 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Explosive plays section."""
+    t1_games = _games(team1)
+    t2_games = _games(team2)
+    t1_totals = _aggregate_explosives(t1_games)
+    t2_totals = _aggregate_explosives(t2_games)
+    t1_epg = (t1_totals["explosives"] / len(t1_games)) if t1_games else None
+    t2_epg = (t2_totals["explosives"] / len(t2_games)) if t2_games else None
+    delta_html = metric_delta_html(
+        "Explosives Per Game",
+        team1["display_name"],
+        t1_epg,
+        team2["display_name"],
+        t2_epg,
+        higher_is_better=True,
+    )
+    delta_md = metric_delta_md(
+        "Explosives Per Game",
+        team1["display_name"],
+        t1_epg,
+        team2["display_name"],
+        t2_epg,
+        higher_is_better=True,
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -163,6 +188,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Explosive Plays*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

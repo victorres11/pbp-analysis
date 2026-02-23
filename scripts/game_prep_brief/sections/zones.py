@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -167,9 +169,27 @@ def build(team1: dict, team2: dict) -> dict:
     t2_name = team2.get("display_name", "Team 2")
     t1_rz = t1_stats.get("rz_td_pct", 0)
     t2_rz = t2_stats.get("rz_td_pct", 0)
+    delta_html = metric_delta_html(
+        "Red Zone TD %",
+        t1_name,
+        t1_rz,
+        t2_name,
+        t2_rz,
+        higher_is_better=True,
+        suffix="%",
+    )
+    delta_md = metric_delta_md(
+        "Red Zone TD %",
+        t1_name,
+        t1_rz,
+        t2_name,
+        t2_rz,
+        higher_is_better=True,
+        suffix="%",
+    )
 
     html_content = f"""
-    <div class="metric-compare"><p>{t1_name}: {t1_rz}% | {t2_name}: {t2_rz}% Red Zone TD%</p></div>
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -178,6 +198,7 @@ def build(team1: dict, team2: dict) -> dict:
 
     md_content = "\n\n".join([
         "*Scoring Zones*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _parse_play_fields(p: dict) -> dict:
     """Extract yards, type, player from description when raw fields are missing."""
@@ -229,7 +231,28 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Middle 8 momentum section."""
+    t1_games = _games(team1)
+    t2_games = _games(team2)
+    t1_margin = _sum(t1_games, "middle8_points_for") - _sum(t1_games, "middle8_points_against")
+    t2_margin = _sum(t2_games, "middle8_points_for") - _sum(t2_games, "middle8_points_against")
+    delta_html = metric_delta_html(
+        "Middle 8 Margin",
+        team1["display_name"],
+        t1_margin,
+        team2["display_name"],
+        t2_margin,
+        higher_is_better=True,
+    )
+    delta_md = metric_delta_md(
+        "Middle 8 Margin",
+        team1["display_name"],
+        t1_margin,
+        team2["display_name"],
+        t2_margin,
+        higher_is_better=True,
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -237,6 +260,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Middle 8*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

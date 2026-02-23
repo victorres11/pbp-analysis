@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -128,7 +130,28 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Special teams deep-dive section."""
+    t1_stats = _team_stats(team1) if team1.get("has_pbp") else {}
+    t2_stats = _team_stats(team2) if team2.get("has_pbp") else {}
+    delta_html = metric_delta_html(
+        "Field Goal %",
+        team1["display_name"],
+        t1_stats.get("fg_pct"),
+        team2["display_name"],
+        t2_stats.get("fg_pct"),
+        higher_is_better=True,
+        suffix="%",
+    )
+    delta_md = metric_delta_md(
+        "Field Goal %",
+        team1["display_name"],
+        t1_stats.get("fg_pct"),
+        team2["display_name"],
+        t2_stats.get("fg_pct"),
+        higher_is_better=True,
+        suffix="%",
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -136,6 +159,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Special Teams*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

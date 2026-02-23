@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 CATEGORIES = [
     "scoring_offense",
     "scoring_defense",
@@ -126,7 +128,26 @@ def _metric_text(team1: dict, team2: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Full 18-category rankings section with all/conf/nonconf splits."""
+    all_1 = (team1.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
+    all_2 = (team2.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
+    delta_html = metric_delta_html(
+        "Scoring Margin",
+        team1["display_name"],
+        _rank(all_1, "scoring_margin").get("value"),
+        team2["display_name"],
+        _rank(all_2, "scoring_margin").get("value"),
+        higher_is_better=True,
+    )
+    delta_md = metric_delta_md(
+        "Scoring Margin",
+        team1["display_name"],
+        _rank(all_1, "scoring_margin").get("value"),
+        team2["display_name"],
+        _rank(all_2, "scoring_margin").get("value"),
+        higher_is_better=True,
+    )
     html_content = (
+        f"{delta_html}"
         f"{_metric_text(team1, team2)}"
         f"{_table_html(team1, team2, 'all')}"
         f"{_table_html(team1, team2, 'conf')}"
@@ -135,6 +156,7 @@ def build(team1: dict, team2: dict) -> dict:
 
     md_content = "\n\n".join([
         "*Rankings Highlights*",
+        delta_md,
         _top_bottom_md(team1),
         _top_bottom_md(team2),
     ])

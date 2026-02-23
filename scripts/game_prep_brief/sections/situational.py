@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -134,7 +136,34 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """3rd and 4th down tendencies section."""
+    t1_games = _games(team1)
+    t2_games = _games(team2)
+    t1_attempts = _sum(t1_games, "4th_down_attempts")
+    t1_conversions = _sum(t1_games, "4th_down_conversions")
+    t2_attempts = _sum(t2_games, "4th_down_attempts")
+    t2_conversions = _sum(t2_games, "4th_down_conversions")
+    t1_pct = round((t1_conversions / t1_attempts) * 100, 1) if t1_attempts else None
+    t2_pct = round((t2_conversions / t2_attempts) * 100, 1) if t2_attempts else None
+    delta_html = metric_delta_html(
+        "4th Down Conversion %",
+        team1["display_name"],
+        t1_pct,
+        team2["display_name"],
+        t2_pct,
+        higher_is_better=True,
+        suffix="%",
+    )
+    delta_md = metric_delta_md(
+        "4th Down Conversion %",
+        team1["display_name"],
+        t1_pct,
+        team2["display_name"],
+        t2_pct,
+        higher_is_better=True,
+        suffix="%",
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -142,6 +171,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Situational (3rd/4th Down)*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

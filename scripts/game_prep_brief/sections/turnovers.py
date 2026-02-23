@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .delta import metric_delta_html, metric_delta_md
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -174,7 +176,26 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Turnover chain section."""
+    t1_margin = (team1.get("pbp_entry") or {}).get("aggregates", {}).get("turnover_margin")
+    t2_margin = (team2.get("pbp_entry") or {}).get("aggregates", {}).get("turnover_margin")
+    delta_html = metric_delta_html(
+        "Turnover Margin",
+        team1["display_name"],
+        t1_margin,
+        team2["display_name"],
+        t2_margin,
+        higher_is_better=True,
+    )
+    delta_md = metric_delta_md(
+        "Turnover Margin",
+        team1["display_name"],
+        t1_margin,
+        team2["display_name"],
+        t2_margin,
+        higher_is_better=True,
+    )
     html_content = f"""
+    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -182,6 +203,7 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Turnovers*",
+        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])
