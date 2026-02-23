@@ -119,6 +119,36 @@ def _extract_pbp_stats(team_data: dict) -> dict:
             loc = "vs" if g.get("is_home", True) else "@"
             recent.append(f"{result} {pf}-{pa} {loc} {opp} ({date})")
 
+    def defensive_plays_allowed(game: dict, team_abbr: str) -> int:
+        direct = game.get("defensive_plays_allowed")
+        if isinstance(direct, (int, float)):
+            return int(direct)
+
+        play_tree = game.get("play_tree") or []
+        if not isinstance(play_tree, list):
+            return 0
+
+        total = 0
+        for quarter in play_tree:
+            for drive in ((quarter or {}).get("drives") or []):
+                for play in ((drive or {}).get("plays") or []):
+                    if not isinstance(play, dict):
+                        continue
+                    offense = str(play.get("offense") or "")
+                    if not offense or offense == team_abbr:
+                        continue
+                    if play.get("is_no_play"):
+                        continue
+                    total += 1
+        return total
+
+    games_count = len(games)
+    offensive_plays_total = sum(int(g.get("total_plays") or 0) for g in games)
+    team_abbr = str(team_data.get("abbr") or "")
+    defensive_plays_allowed_total = sum(defensive_plays_allowed(g, team_abbr) for g in games)
+    offensive_plays_per_game = round(offensive_plays_total / games_count, 1) if games_count else 0.0
+    defensive_plays_allowed_per_game = round(defensive_plays_allowed_total / games_count, 1) if games_count else 0.0
+
     return {
         "record": agg.get("record", "N/A"),
         "conf_record": agg.get("conf_record", "N/A"),
@@ -128,6 +158,8 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         "turnover_margin": agg.get("turnover_margin", "N/A"),
         "red_zone_td_pct": agg.get("red_zone_td_pct", "N/A"),
         "penalties_per_game": agg.get("penalties_per_game", "N/A"),
+        "offensive_plays_per_game": offensive_plays_per_game,
+        "defensive_plays_allowed_per_game": defensive_plays_allowed_per_game,
         "scoring_offense": rank("scoring_offense"),
         "scoring_defense": rank("scoring_defense"),
         "total_offense": rank("total_offense"),
@@ -168,6 +200,33 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     penalties_defense = 0
     penalties_special_teams = 0
 
+    def defensive_plays_allowed(game: dict, team_abbr: str) -> int:
+        direct = game.get("defensive_plays_allowed")
+        if isinstance(direct, (int, float)):
+            return int(direct)
+
+        play_tree = game.get("play_tree") or []
+        if not isinstance(play_tree, list):
+            return 0
+
+        total = 0
+        for quarter in play_tree:
+            drives = (quarter or {}).get("drives") or []
+            for drive in drives:
+                for play in (drive or {}).get("plays") or []:
+                    if not isinstance(play, dict):
+                        continue
+                    offense = str(play.get("offense") or "")
+                    if not offense or offense == team_abbr:
+                        continue
+                    if play.get("is_no_play"):
+                        continue
+                    total += 1
+        return total
+
+    offensive_plays_total = 0
+    defensive_plays_allowed_total = 0
+
     for g in last_games:
         explosive_passes = g.get("explosive_passes") or 0
         explosive_rushes = g.get("explosive_rushes") or 0
@@ -178,6 +237,23 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
             explosives_total += explosive_passes + explosive_rushes
         else:
             explosives_total += explosives
+
+        offensive_plays_total += int(g.get("total_plays") or 0)
+        team_abbr = str(g.get("team") or g.get("abbr") or "")
+        if not team_abbr:
+            # Try to infer from offense in first valid play if team marker isn't present.
+            for quarter in (g.get("play_tree") or []):
+                for drive in ((quarter or {}).get("drives") or []):
+                    for play in ((drive or {}).get("plays") or []):
+                        offense = str((play or {}).get("offense") or "")
+                        if offense:
+                            team_abbr = offense
+                            break
+                    if team_abbr:
+                        break
+                if team_abbr:
+                    break
+        defensive_plays_allowed_total += defensive_plays_allowed(g, team_abbr)
 
         for p in g.get("penalty_details") or []:
             if not p.get("accepted"):
@@ -201,6 +277,8 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         explosive_passes_per_game = 0
         explosive_rushes_per_game = 0
         penalties_per_game = 0
+        offensive_plays_per_game = 0
+        defensive_plays_allowed_per_game = 0
         ppg = 0
         opp_ppg = 0
     else:
@@ -208,6 +286,8 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         explosive_passes_per_game = explosive_passes_total / actual_n
         explosive_rushes_per_game = explosive_rushes_total / actual_n
         penalties_per_game = penalties_total / actual_n
+        offensive_plays_per_game = offensive_plays_total / actual_n
+        defensive_plays_allowed_per_game = defensive_plays_allowed_total / actual_n
         ppg = avg_stat("points_for")
         opp_ppg = avg_stat("points_against")
 
@@ -243,6 +323,8 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         "penalties_offense": penalties_offense,
         "penalties_defense": penalties_defense,
         "penalties_special_teams": penalties_special_teams,
+        "offensive_plays_per_game": round(offensive_plays_per_game, 1),
+        "defensive_plays_allowed_per_game": round(defensive_plays_allowed_per_game, 1),
     }
 
 
