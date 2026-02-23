@@ -33,7 +33,7 @@ def _order_sections(sections: list[dict]) -> list[dict]:
 
 
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
-    """Render full HTML with page breaks between sections."""
+    """Render full HTML optimized for continuous print flow."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
     week_str = f"Week {week} · " if week else ""
     t1_color = team1.get("stats", {}).get("color", "#2563eb")
@@ -43,7 +43,7 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     for s in _order_sections(sections):
         section_html.append(
             f"""
-            <section class=\"section page-break\" id=\"{s.get('key','section')}\">
+            <section class=\"section\" id=\"{s.get('key','section')}\">
               <div class=\"section-header\">{s.get('title','Section')}</div>
               <div class=\"section-body\">{s.get('html_content','')}</div>
             </section>
@@ -132,12 +132,25 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
 
     .metric-compare {{ margin: 8px 0 12px; }}
 
-    .page-break {{ page-break-before: always; }}
-    .page-break:first-child {{ page-break-before: auto; }}
-
     @media print {{
-      body {{ background: white; padding: 12px; }}
-      .section {{ box-shadow: none; border: 1px solid #ddd; }}
+      body {{ background: white; padding: 8px; }}
+      .section {{
+        box-shadow: none;
+        border: 1px solid #ddd;
+        margin-bottom: 10px;
+        padding: 12px 14px 14px;
+        break-inside: auto;
+        page-break-inside: auto;
+      }}
+      .section-header {{
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+      }}
+      .section-grid {{ gap: 10px; }}
+      .team-card {{
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }}
       .header {{ box-shadow: none; }}
       @page {{ margin: 1cm; }}
     }}
