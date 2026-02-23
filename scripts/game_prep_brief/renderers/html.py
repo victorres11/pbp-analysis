@@ -10,6 +10,7 @@ SECTION_ORDER = [
     "zones",
     "turnovers",
     "middle8",
+    "two_point",
     "situational",
     "special_teams",
     "penalties",
