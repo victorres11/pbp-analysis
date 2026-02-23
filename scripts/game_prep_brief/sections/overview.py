@@ -5,6 +5,19 @@ import re
 
 from .delta import metric_delta_html, metric_delta_md
 
+MATCHUP_METRICS = [
+    ("scoring_offense", "Scoring Offense", True),
+    ("scoring_defense", "Scoring Defense", False),
+    ("total_offense", "Total Offense", True),
+    ("total_defense", "Total Defense", False),
+    ("rushing_offense", "Rushing Offense", True),
+    ("rushing_defense", "Rushing Defense", False),
+    ("passing_offense", "Passing Offense", True),
+    ("passing_defense", "Passing Defense", False),
+    ("third_down", "3rd Down %", True),
+    ("red_zone", "Red Zone TD%", True),
+]
+
 
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {})
@@ -16,6 +29,90 @@ def _safe_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _safe_int(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _ranking(team: dict, key: str) -> dict:
+    return ((team.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})).get(
+        key, {}
+    ) or {}
+
+
+def _metric_value(team: dict, key: str) -> float | None:
+    return _safe_float(_ranking(team, key).get("value"))
+
+
+def _metric_rank(team: dict, key: str) -> int | None:
+    return _safe_int(_ranking(team, key).get("rank"))
+
+
+def _key_matchups(team1: dict, team2: dict) -> list[str]:
+    t1_name = team1["display_name"]
+    t2_name = team2["display_name"]
+    insights = []
+
+    for key, label, higher_is_better in MATCHUP_METRICS:
+        t1_rank = _metric_rank(team1, key)
+        t2_rank = _metric_rank(team2, key)
+        t1_val = _metric_value(team1, key)
+        t2_val = _metric_value(team2, key)
+        if t1_rank is None or t2_rank is None:
+            continue
+        if t1_val is None or t2_val is None:
+            continue
+
+        if higher_is_better:
+            better = t1_name if t1_val > t2_val else t2_name
+        else:
+            better = t1_name if t1_val < t2_val else t2_name
+
+        rank_gap = abs(t1_rank - t2_rank)
+        value_gap = abs(t1_val - t2_val)
+
+        if t1_rank <= 20 and t2_rank <= 20:
+            text = (
+                f"{label}: heavyweight matchup ({t1_name} #{t1_rank} vs {t2_name} #{t2_rank})."
+            )
+            score = 200 - (t1_rank + t2_rank)
+            insights.append((score, text))
+            continue
+
+        if t1_rank <= 30 and t2_rank >= 80:
+            text = (
+                f"{t1_name} edge in {label}: #{t1_rank} vs {t2_name} #{t2_rank} "
+                f"(gap {rank_gap}, value gap {value_gap:.1f})."
+            )
+            insights.append((rank_gap, text))
+        elif t2_rank <= 30 and t1_rank >= 80:
+            text = (
+                f"{t2_name} edge in {label}: #{t2_rank} vs {t1_name} #{t1_rank} "
+                f"(gap {rank_gap}, value gap {value_gap:.1f})."
+            )
+            insights.append((rank_gap, text))
+        elif rank_gap >= 40:
+            text = (
+                f"{better} has a clear {label} advantage "
+                f"(#{min(t1_rank, t2_rank)} vs #{max(t1_rank, t2_rank)}, gap {rank_gap})."
+            )
+            insights.append((rank_gap, text))
+
+    insights.sort(key=lambda x: x[0], reverse=True)
+    unique = []
+    seen = set()
+    for _, text in insights:
+        if text in seen:
+            continue
+        seen.add(text)
+        unique.append(text)
+        if len(unique) == 5:
+            break
+    return unique
 
 
 def _coach_lines(team: dict) -> list[str]:
@@ -228,8 +325,23 @@ def build(team1: dict, team2: dict, week: int | None, season: int) -> dict:
         higher_is_better=True,
     )
 
+    matchup_notes = _key_matchups(team1, team2)
+    matchup_html = ""
+    matchup_md = ""
+    if matchup_notes:
+        notes_html = "".join(f"<li>{n}</li>" for n in matchup_notes)
+        matchup_html = f"""
+    <div class="metric-compare">
+      <p><strong>Key Matchup Signals</strong></p>
+      <ul>{notes_html}</ul>
+    </div>
+        """
+        matchup_md_lines = "\n".join(f"- {n}" for n in matchup_notes)
+        matchup_md = f"Key Matchup Signals:\n{matchup_md_lines}"
+
     html_content = f"""
     {delta_html}
+    {matchup_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -240,6 +352,7 @@ def build(team1: dict, team2: dict, week: int | None, season: int) -> dict:
     md_content = "\n\n".join([
         f"🏈 *GAME PREP BRIEF*\n{week_str}{season} Season\n{team1['display_name']} vs {team2['display_name']}",
         delta_md,
+        matchup_md,
         _team_md(team1),
         _team_md(team2),
     ])
