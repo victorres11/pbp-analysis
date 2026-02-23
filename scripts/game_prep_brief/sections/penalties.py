@@ -164,6 +164,8 @@ def _team_html(team: dict) -> str:
     live_ball = agg["by_group"].get("live_ball", {"count": 0, "yards": 0})
     pen_per_game = agg["total"] / game_count
     yds_per_game = agg["yards"] / game_count
+    pi_drawn_pg = agg["pi_drawn"] / game_count
+    pi_allowed_pg = agg["pi_allowed"] / game_count
 
     per_game_table = "".join(
         f"<tr>"
@@ -211,7 +213,8 @@ def _team_html(team: dict) -> str:
           <li>Defense: {defense['count']} / {defense['yards']} yds</li>
           <li>Procedural: {procedural['count']} / {procedural['yards']} yds</li>
           <li>Live-ball: {live_ball['count']} / {live_ball['yards']} yds</li>
-          <li>PI Drawn: {agg['pi_drawn']} | PI Allowed: {agg['pi_allowed']}</li>
+          <li>PI Drawn/Game: {pi_drawn_pg:.1f} ({agg['pi_drawn']} total)</li>
+          <li>PI Allowed/Game: {pi_allowed_pg:.1f} ({agg['pi_allowed']} total)</li>
           <li>CFBStats Rank: {_penalties_rank(team)}</li>
         </ul>
       </div>
@@ -258,6 +261,8 @@ def _team_md(team: dict) -> str:
     season_ypg = agg["yards"] / game_count
     procedural = agg["by_group"].get("procedural", {"count": 0})
     live_ball = agg["by_group"].get("live_ball", {"count": 0})
+    pi_drawn_pg = agg["pi_drawn"] / game_count
+    pi_allowed_pg = agg["pi_allowed"] / game_count
 
     lines = [f"*{team['display_name']}*"]
     suffix = ""
@@ -271,7 +276,8 @@ def _team_md(team: dict) -> str:
     lines.append(f"- Penalties/Game: {season_ppg:.1f}{suffix}")
     lines.append(f"- Penalty Yards/Game: {season_ypg:.1f}")
     lines.append(f"- Procedural vs Live-ball: {procedural['count']} / {live_ball['count']}")
-    lines.append(f"- PI Drawn / Allowed: {agg['pi_drawn']} / {agg['pi_allowed']}")
+    lines.append(f"- PI Drawn/Game: {pi_drawn_pg:.1f} ({agg['pi_drawn']} total)")
+    lines.append(f"- PI Allowed/Game: {pi_allowed_pg:.1f} ({agg['pi_allowed']} total)")
     lines.append(f"- Top Penalty Type: {worst}")
     return "\n".join(lines)
 
