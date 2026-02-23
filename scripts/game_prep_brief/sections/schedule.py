@@ -201,7 +201,8 @@ def _team_html(team: dict) -> str:
       </div>
       <div class="block">
         <h4>Schedule</h4>
-        <table style="width:100%; border-collapse:collapse; font-size:0.9em;">
+        <div class="schedule-table-wrap">
+        <table class="schedule-table" style="width:100%; border-collapse:collapse; font-size:0.9em;">
           <thead>
             <tr>
               <th style="text-align:left;">Wk</th>
@@ -218,6 +219,7 @@ def _team_html(team: dict) -> str:
           </thead>
           <tbody>{rows}</tbody>
         </table>
+        </div>
       </div>
     </div>
     """
@@ -277,7 +279,7 @@ def build(team1: dict, team2: dict) -> dict:
 
     html_content = f"""
     {delta_html}
-    <div class="section-grid">
+    <div class="section-grid section-grid--single">
       {_team_html(team1)}
       {_team_html(team2)}
     </div>
