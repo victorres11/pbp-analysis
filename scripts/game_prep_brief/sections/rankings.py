@@ -107,25 +107,6 @@ def _top_bottom_md(team: dict) -> str:
     return "\n".join(lines)
 
 
-def _metric_text(team1: dict, team2: dict) -> str:
-    rankings1 = (team1.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
-    rankings2 = (team2.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
-
-    def val(rankings: dict, key: str) -> float:
-        v = rankings.get(key, {}).get("value")
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return 0.0
-
-    lines = []
-    for key in ["scoring_offense", "scoring_defense", "total_offense", "total_defense"]:
-        v1 = val(rankings1, key)
-        v2 = val(rankings2, key)
-        lines.append(f"<p>{LABELS.get(key, key)}: {team1.get('display_name', 'Team 1')} {v1:.1f} | {team2.get('display_name', 'Team 2')} {v2:.1f}</p>")
-    return "".join(f"<div class=\"metric-compare\">{l}</div>" for l in lines)
-
-
 def build(team1: dict, team2: dict) -> dict:
     """Full 18-category rankings section with all/conf/nonconf splits."""
     all_1 = (team1.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
@@ -148,7 +129,6 @@ def build(team1: dict, team2: dict) -> dict:
     )
     html_content = (
         f"{delta_html}"
-        f"{_metric_text(team1, team2)}"
         f"{_table_html(team1, team2, 'all')}"
         f"{_table_html(team1, team2, 'conf')}"
         f"{_table_html(team1, team2, 'nonconf')}"

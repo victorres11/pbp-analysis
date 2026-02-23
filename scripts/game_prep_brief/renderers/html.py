@@ -114,6 +114,9 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
     }}
+    .section-grid--single {{
+      grid-template-columns: 1fr;
+    }}
     .team-card {{
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -131,6 +134,22 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     .rankings-table th {{ text-transform: uppercase; font-size: 11px; color: #64748b; text-align: left; }}
 
     .metric-compare {{ margin: 8px 0 12px; }}
+    .schedule-table-wrap {{ overflow-x: auto; }}
+    .schedule-table th, .schedule-table td {{
+      padding: 4px 6px;
+      vertical-align: top;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }}
+    .schedule-table th {{
+      color: #475569;
+      font-weight: 700;
+    }}
+    .schedule-table td:nth-child(2), .schedule-table th:nth-child(2) {{
+      white-space: normal;
+      min-width: 120px;
+    }}
 
     @media print {{
       body {{ background: white; padding: 8px; }}
@@ -147,10 +166,12 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
         padding-bottom: 4px;
       }}
       .section-grid {{ gap: 10px; }}
+      .section-grid--single {{ grid-template-columns: 1fr; }}
       .team-card {{
         break-inside: avoid-page;
         page-break-inside: avoid;
       }}
+      .schedule-table-wrap {{ overflow: visible; }}
       .header {{ box-shadow: none; }}
       @page {{ margin: 1cm; }}
     }}
