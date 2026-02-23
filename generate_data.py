@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 Generate data.json for PBP Matchup Analysis web app.
-All data extracted from parsed PBP PDFs — no hardcoded scores.
+PDF parsing code is retained for fallback but disabled by default.
 """
 
+import argparse
 import json
+import os
 import re
 import sys
 import glob
@@ -30,6 +32,8 @@ from pbp_parser.cfbstats import normalize_team_name as normalize_cfbstats_team
 from pbp_parser.ncaa_schedule import fetch_team_schedule
 from pbp_parser.reference.teams import FBS_CONFERENCE_MEMBERS, TEAM_ALIASES
 from pbp_parser.reference.teams import normalize_team_name as normalize_ref_team
+
+PDF_SOURCE_ENV = "PBP_ENABLE_PDF_SOURCE"
 
 LAST_FIRST_PATTERN = re.compile(
     r"[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*(?:\s+Jr\.)?(?:\s+III|\s+II|\s+IV)?\s*,\s*"
@@ -2071,7 +2075,25 @@ def process_team_games(pdf_dir, team_identifier):
     return games, aggregates, parsed_games
 
 
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Generate data.json for pbp-analysis.")
+    parser.add_argument(
+        "--allow-pdf-source",
+        action="store_true",
+        help="Temporarily enable legacy PDF parsing flow (disabled by default).",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = _parse_args()
+    pdf_enabled = args.allow_pdf_source or (str(os.getenv(PDF_SOURCE_ENV, "")).strip() == "1")
+    if not pdf_enabled:
+        raise SystemExit(
+            "PDF source flow is disabled. Use StatBroadcast-generated data for this repo. "
+            f"To run legacy PDF parsing intentionally, pass --allow-pdf-source or set {PDF_SOURCE_ENV}=1."
+        )
+
     print("Generating PBP Matchup Analysis data...\n")
     
     asu_dir = repo_root / "data" / "asu-2025"
