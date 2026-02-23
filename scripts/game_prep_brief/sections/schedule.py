@@ -25,6 +25,103 @@ def _record(games: list[dict]) -> tuple[int, int, int]:
     return wins, losses, ties
 
 
+def _safe_float(value: object) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_opponent_index(team: dict) -> dict:
+    pbp_teams = team.get("_pbp_teams") or {}
+    index: dict[str, dict] = {}
+    for slug, entry in pbp_teams.items():
+        if not isinstance(entry, dict):
+            continue
+        index[str(slug).strip().lower()] = entry
+        abbr = str(entry.get("abbr") or "").strip().lower()
+        name = str(entry.get("name") or "").strip().lower()
+        if abbr:
+            index[abbr] = entry
+        if name:
+            index[name] = entry
+    return index
+
+
+def _get_opponent_entry(opponent_index: dict, game: dict) -> dict | None:
+    keys = [
+        str(game.get("opponent") or "").strip().lower(),
+        str(game.get("opponent_abbr") or "").strip().lower(),
+    ]
+    for key in keys:
+        if key and key in opponent_index:
+            return opponent_index[key]
+    return None
+
+
+def _opponent_baseline(opponent: dict | None) -> dict:
+    if not opponent:
+        return {
+            "opp_scoring_offense_ppg": None,
+            "opp_scoring_defense_ppga": None,
+            "opp_total_offense_ypg": None,
+            "opp_total_defense_ypga": None,
+        }
+    agg = opponent.get("aggregates", {}) or {}
+    rankings_all = ((opponent.get("cfbstats") or {}).get("rankings") or {}).get("all", {}) or {}
+    return {
+        "opp_scoring_offense_ppg": _safe_float(agg.get("ppg")),
+        "opp_scoring_defense_ppga": _safe_float(agg.get("opp_ppg")),
+        "opp_total_offense_ypg": _safe_float((rankings_all.get("total_offense") or {}).get("value")),
+        "opp_total_defense_ypga": _safe_float((rankings_all.get("total_defense") or {}).get("value")),
+    }
+
+
+def _fmt_delta(value: float | None) -> str:
+    if value is None:
+        return "N/A"
+    sign = "+" if value > 0 else ""
+    return f"{sign}{value:.1f}"
+
+
+def _delta_color(value: float | None) -> str:
+    if value is None:
+        return "#94a3b8"
+    if value > 0:
+        return "#16a34a"
+    if value < 0:
+        return "#dc2626"
+    return "#94a3b8"
+
+
+def _relative_deltas(team: dict, game: dict, opponent_index: dict) -> tuple[float | None, float | None, bool]:
+    pf = _safe_float(game.get("points_for"))
+    pa = _safe_float(game.get("points_against"))
+    opp_entry = _get_opponent_entry(opponent_index, game)
+    opp_base = _opponent_baseline(opp_entry)
+
+    off_vs_opp_avg = None
+    def_vs_opp_avg = None
+    used_fallback = False
+
+    opp_def_ppga = opp_base["opp_scoring_defense_ppga"]
+    opp_off_ppg = opp_base["opp_scoring_offense_ppg"]
+    if opp_def_ppga is None:
+        opp_def_ppga = _safe_float((team.get("stats") or {}).get("ppg"))
+        used_fallback = True
+    if opp_off_ppg is None:
+        opp_off_ppg = _safe_float((team.get("stats") or {}).get("opp_ppg"))
+        used_fallback = True
+
+    if pf is not None and opp_def_ppga is not None:
+        off_vs_opp_avg = pf - opp_def_ppga
+    if pa is not None and opp_off_ppg is not None:
+        # Positive means defense held offense below baseline expectation.
+        def_vs_opp_avg = opp_off_ppg - pa
+
+    return off_vs_opp_avg, def_vs_opp_avg, used_fallback
+
+
 def _win_pct(games: list[dict]) -> float | None:
     wins, losses, ties = _record(games)
     total = wins + losses + ties
@@ -45,12 +142,12 @@ def _result_text(game: dict) -> str:
     return f"T {pf}-{pa}"
 
 
-def _row_html(g: dict) -> str:
+def _row_html(team: dict, g: dict, opponent_index: dict) -> str:
     wk = g.get("week") or "?"
     opp = g.get("opponent") or "?"
     result = _result_text(g)
-    plays = g.get("total_plays", 0) or 0
-    yards = g.get("total_yards", 0) or 0
+    plays = int(g.get("total_plays", 0) or 0)
+    yards = _safe_float(g.get("total_yards"))
     explosives = g.get("explosives")
     if explosives is None:
         explosives = (g.get("explosive_passes", 0) or 0) + (g.get("explosive_rushes", 0) or 0)
@@ -58,6 +155,9 @@ def _row_html(g: dict) -> str:
     to_l = g.get("turnovers_lost", 0) or 0
     rz_tds = g.get("red_zone_tds", 0) or 0
     rz_trips = g.get("red_zone_trips", 0) or 0
+    off_vs_opp_avg, def_vs_opp_avg, used_fallback = _relative_deltas(team, g, opponent_index)
+    marker = "*" if used_fallback else ""
+
     date = g.get("date") or ""
     return (
         "<tr>"
@@ -65,10 +165,12 @@ def _row_html(g: dict) -> str:
         f"<td style=\"text-align:left;\">{opp}<div style=\"color:#64748b;font-size:11px;\">{date}</div></td>"
         f"<td style=\"text-align:left;\">{result}</td>"
         f"<td style=\"text-align:right;\">{plays}</td>"
-        f"<td style=\"text-align:right;\">{yards}</td>"
+        f"<td style=\"text-align:right;\">{int(yards) if yards is not None else 'N/A'}</td>"
         f"<td style=\"text-align:right;\">{explosives}</td>"
         f"<td style=\"text-align:right;\">{to_g}/{to_l}</td>"
         f"<td style=\"text-align:right;\">{rz_tds}/{rz_trips}</td>"
+        f"<td style=\"text-align:right; color:{_delta_color(off_vs_opp_avg)};\">{_fmt_delta(off_vs_opp_avg)}{marker}</td>"
+        f"<td style=\"text-align:right; color:{_delta_color(def_vs_opp_avg)};\">{_fmt_delta(def_vs_opp_avg)}{marker}</td>"
         "</tr>"
     )
 
@@ -78,10 +180,11 @@ def _team_html(team: dict) -> str:
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No schedule data.</em></p></div>"
 
     games = _games(team)
+    opponent_index = _build_opponent_index(team)
     wins, losses, ties = _record(games)
     win_pct = _win_pct(games)
     record = f"{wins}-{losses}" if ties == 0 else f"{wins}-{losses}-{ties}"
-    rows = "".join(_row_html(g) for g in games) or "<tr><td colspan='8'>N/A</td></tr>"
+    rows = "".join(_row_html(team, g, opponent_index) for g in games) or "<tr><td colspan='10'>N/A</td></tr>"
 
     return f"""
     <div class="team-card">
@@ -92,6 +195,8 @@ def _team_html(team: dict) -> str:
           <li>Record: {record}</li>
           <li>Win %: {win_pct if win_pct is not None else 'N/A'}%</li>
           <li>Games: {len(games)}</li>
+          <li>Relative colors: <span style="color:#16a34a;">green = better than baseline</span>, <span style="color:#dc2626;">red = worse</span></li>
+          <li>* fallback baseline when opponent season data is unavailable</li>
         </ul>
       </div>
       <div class="block">
@@ -107,6 +212,8 @@ def _team_html(team: dict) -> str:
               <th style="text-align:right;">Expl</th>
               <th style="text-align:right;">TO G/L</th>
               <th style="text-align:right;">RZ TD/Trips</th>
+              <th style="text-align:right;">Off vs Opp Avg</th>
+              <th style="text-align:right;">Def vs Opp Avg</th>
             </tr>
           </thead>
           <tbody>{rows}</tbody>
@@ -121,6 +228,7 @@ def _team_md(team: dict) -> str:
         return f"*{team['display_name']}*\n- Schedule: N/A"
 
     games = _games(team)
+    opponent_index = _build_opponent_index(team)
     wins, losses, ties = _record(games)
     win_pct = _win_pct(games)
     record = f"{wins}-{losses}" if ties == 0 else f"{wins}-{losses}-{ties}"
@@ -137,8 +245,10 @@ def _team_md(team: dict) -> str:
             explosives = (g.get("explosive_passes", 0) or 0) + (g.get("explosive_rushes", 0) or 0)
         rz_tds = g.get("red_zone_tds", 0) or 0
         rz_trips = g.get("red_zone_trips", 0) or 0
+        off_vs_opp_avg, def_vs_opp_avg, used_fallback = _relative_deltas(team, g, opponent_index)
+        marker = "*" if used_fallback else ""
         lines.append(
-            f"- Wk {wk} vs {opp}: {result} | {plays} plays, {yards} yds, {explosives} expl, RZ {rz_tds}/{rz_trips}"
+            f"- Wk {wk} vs {opp}: {result} | {plays} plays, {yards} yds, {explosives} expl, RZ {rz_tds}/{rz_trips}, OffΔ {_fmt_delta(off_vs_opp_avg)}{marker}, DefΔ {_fmt_delta(def_vs_opp_avg)}{marker}"
         )
     return "\n".join(lines)
 

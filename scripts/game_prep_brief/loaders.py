@@ -360,6 +360,7 @@ def gather_team_data(
         "stats": pbp_stats,
         "last_n": last_n_stats,
         "pbp_entry": pbp_entry,
+        "_pbp_teams": pbp_teams,
         "has_pbp": pbp_entry is not None,
         "has_coaches": False,
     }
