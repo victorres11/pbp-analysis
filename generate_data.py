@@ -514,6 +514,24 @@ def extract_explosive_player(desc, play_type):
         return normalize_player_name(m.group(1))
     return None
 
+
+def is_nullified_by_penalty(desc):
+    upper = (desc or "").upper()
+    return "NULLIFIED BY PENALTY" in upper or "TOUCHDOWN NULLIFIED" in upper
+
+
+def should_count_explosive_play(play, offense_abbr):
+    if play.offense != offense_abbr:
+        return False
+    if not play.yards:
+        return False
+    if play.is_no_play:
+        return False
+    if is_nullified_by_penalty(play.description):
+        return False
+    return True
+
+
 def extract_scores_from_pdf(pdf_path):
     """Extract final scores from SCORE BY QUARTERS section of PBP PDF."""
     text = extract_pdf_text(pdf_path)
@@ -1607,27 +1625,28 @@ def process_team_games(pdf_dir, team_identifier):
         our_explosive_passes = 0
         our_explosive_details = []
         for p in g.plays:
-            if p.offense == our_abbr and p.yards and not p.is_no_play:
-                desc = (p.description or '').upper()
-                is_pass = 'PASS' in desc or 'COMPLETE' in desc or 'CAUGHT' in desc
-                is_rush = not is_pass
-                threshold = 20 if is_pass else 15
-                if p.yards >= threshold:
-                    our_explosives += 1
-                    play_type = 'pass' if is_pass else 'rush'
-                    if is_pass:
-                        our_explosive_passes += 1
-                    else:
-                        our_explosive_rushes += 1
-                    player = extract_explosive_player(p.description or '', play_type)
-                    detail = {
-                        'description': p.description or '',
-                        'yards': p.yards,
-                        'type': play_type
-                    }
-                    if player:
-                        detail['player'] = player
-                    our_explosive_details.append(detail)
+            if not should_count_explosive_play(p, our_abbr):
+                continue
+            desc = (p.description or '').upper()
+            is_pass = 'PASS' in desc or 'COMPLETE' in desc or 'CAUGHT' in desc
+            is_rush = not is_pass
+            threshold = 20 if is_pass else 15
+            if p.yards >= threshold:
+                our_explosives += 1
+                play_type = 'pass' if is_pass else 'rush'
+                if is_pass:
+                    our_explosive_passes += 1
+                else:
+                    our_explosive_rushes += 1
+                player = extract_explosive_player(p.description or '', play_type)
+                detail = {
+                    'description': p.description or '',
+                    'yards': p.yards,
+                    'type': play_type
+                }
+                if player:
+                    detail['player'] = player
+                our_explosive_details.append(detail)
         
         # Zone tracking: Green (30 & in), Red (20 & in), Tight Red (10 & in)
         # Track trips, TDs, FGs, and failed attempts for each zone
