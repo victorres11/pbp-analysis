@@ -27,5 +27,6 @@ The runner writes:
 
 ## Source Policy
 
-- StatBroadcast-derived data is the preferred source path.
-- Legacy PDF parsing code is retained for fallback/debug only and should remain disabled by default.
+- StatBroadcast-derived data is the preferred **input data source**.
+- Legacy PDF **input parsing** is retained for fallback/debug only and should remain disabled by default.
+- PDF **output/export of generated briefs** is still supported and is not being removed.

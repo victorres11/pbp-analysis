@@ -92,7 +92,8 @@ def _write_summary(cfg: dict, md_path: Path, html_path: Path, output_dir: Path) 
                 "## Known Gaps (Current)",
                 "- Situational receiver targets (3rd down / red zone) require PFF integration",
                 "- Some opponent-relative schedule rows may use fallback baseline when opponent season profile is unavailable",
-                "- StatBroadcast-only pipeline is the intended source path moving forward",
+                "- StatBroadcast is the intended input data source moving forward",
+                "- PDF output/export of generated briefs remains supported",
                 "",
             ]
         )
