@@ -11,6 +11,13 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 PBP_JSON = ROOT_DIR / "data.json"
+XML_BUNDLE_JSON = Path(
+    os.getenv(
+        "GAME_PREP_XML_BUNDLE_PATH",
+        str(ROOT_DIR.parent / "yr-data-api" / "data" / "pbp_stats_bundle.json"),
+    )
+)
+GAME_PREP_DATA_SOURCE = (os.getenv("GAME_PREP_DATA_SOURCE") or "xml").strip().lower()
 MATCHUPS_DIR = ROOT_DIR / "matchups"
 OUTPUT_DIR = ROOT_DIR / "outputs" / "game_prep_brief"
 
@@ -53,12 +60,159 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
     return merged
 
 
+def _bundle_home_abbr(stats: dict) -> str | None:
+    best_abbr: str | None = None
+    best_games = -1
+    for cat_payload in stats.values():
+        if not isinstance(cat_payload, dict):
+            continue
+        for abbr, row in cat_payload.items():
+            if not isinstance(row, dict):
+                continue
+            games = row.get("games")
+            if not isinstance(games, int):
+                games = len(row.get("games") or []) if isinstance(row.get("games"), list) else 0
+            if games > best_games:
+                best_games = games
+                best_abbr = abbr
+    return best_abbr
+
+
+def _bundle_row(stats: dict, category: str, home_abbr: str | None) -> dict:
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if home_abbr and isinstance(cat.get(home_abbr), dict):
+        return cat.get(home_abbr) or {}
+    if cat:
+        key, row = max(
+            cat.items(),
+            key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),
+        )
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
+def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
+    stats = payload.get("stats") or {}
+    home_abbr = _bundle_home_abbr(stats)
+
+    expl = _bundle_row(stats, "explosives", home_abbr)
+    neg = _bundle_row(stats, "negative_plays", home_abbr)
+    rz = _bundle_row(stats, "red_zone", home_abbr)
+    pen = _bundle_row(stats, "penalties", home_abbr)
+    tov = _bundle_row(stats, "turnovers", home_abbr)
+    sched = _bundle_row(stats, "schedule", home_abbr)
+
+    rz_rate = rz.get("rz_td_rate")
+    if isinstance(rz_rate, (int, float)) and rz_rate <= 1:
+        rz_pct = round(rz_rate * 100, 1)
+    elif isinstance(rz_rate, (int, float)):
+        rz_pct = round(float(rz_rate), 1)
+    else:
+        rz_pct = "N/A"
+
+    schedule_games_out: list[dict] = []
+    games_out: list[dict] = []
+    for g in sched.get("games") or []:
+        if not isinstance(g, dict):
+            continue
+        is_bye = bool(g.get("is_bye_week"))
+        opp = g.get("opponent")
+        week = g.get("week_number")
+        game_date = g.get("game_date")
+        schedule_games_out.append(
+            {
+                "week": week,
+                "game_date": game_date,
+                "is_home": None,
+                "is_bye": is_bye,
+                "opponent": None if is_bye else (opp or "OPP"),
+            }
+        )
+        games_out.append(
+            {
+                "game_number": week,
+                "week": week,
+                "date": game_date,
+                "opponent": None if is_bye else (opp or "OPP"),
+                "opponent_abbr": None if is_bye else (opp or "OPP"),
+                "conference": False,
+                "is_power4": False,
+                "is_home": None,
+                "is_bye": is_bye,
+                "points_for": None,
+                "points_against": None,
+                "total_plays": None,
+                "explosive_details": [],
+                "penalty_details": [],
+                "red_zone_plays": [],
+                "post_turnover_drives": [],
+                "two_pt_details": [],
+                "play_tree": [],
+            }
+        )
+
+    games_parsed = payload.get("games_parsed", 0) or 0
+    turnovers = tov.get("turnovers", 0) or 0
+    turnovers_forced = tov.get("turnovers_forced", 0) or 0
+
+    return {
+        "name": payload.get("team_name") or slug.replace("-", " ").title(),
+        "abbr": home_abbr or slug[:4].upper(),
+        "conference": "",
+        "color": "#888888",
+        "cfbstats": {"rankings": {"all": {}, "conf": {}, "nonconf": {}}},
+        "aggregates": {
+            "games": games_parsed,
+            "record": "N/A",
+            "conf_record": "N/A",
+            "ppg": "N/A",
+            "opp_ppg": "N/A",
+            "explosives_per_game": expl.get("explosives_pg", "N/A"),
+            "negative_plays_per_game": neg.get("negative_plays_pg", "N/A"),
+            "negative_plays_forced_per_game": neg.get("negative_plays_forced_pg", "N/A"),
+            "turnover_margin": (turnovers_forced - turnovers) if isinstance(turnovers_forced, (int, float)) and isinstance(turnovers, (int, float)) else "N/A",
+            "red_zone_td_pct": rz_pct,
+            "penalties_per_game": pen.get("total_penalties_pg", "N/A"),
+        },
+        "bye_weeks": sched.get("bye_weeks", []),
+        "schedule": {"games": schedule_games_out},
+        "games": games_out,
+        "xml_source": True,
+    }
+
+
+def _load_xml_bundle_data() -> dict:
+    if not XML_BUNDLE_JSON.exists():
+        return {}
+    with open(XML_BUNDLE_JSON) as f:
+        raw = json.load(f)
+    out: dict = {}
+    for slug, payload in raw.items():
+        if isinstance(payload, dict):
+            out[slug] = _convert_xml_bundle_team(slug, payload)
+    return out
+
+
 def load_pbp_data(matchup_slug: str | None = None) -> dict:
     base: dict = {}
-    if PBP_JSON.exists():
-        with open(PBP_JSON) as f:
-            raw = json.load(f)
-        base = raw.get("teams", {})
+    if GAME_PREP_DATA_SOURCE == "xml":
+        base = _load_xml_bundle_data()
+        if not base and PBP_JSON.exists():
+            print(
+                f"[warn] XML bundle source unavailable at {XML_BUNDLE_JSON}; falling back to local data.json",
+                file=sys.stderr,
+            )
+            with open(PBP_JSON) as f:
+                raw = json.load(f)
+            base = raw.get("teams", {})
+    else:
+        if PBP_JSON.exists():
+            with open(PBP_JSON) as f:
+                raw = json.load(f)
+            base = raw.get("teams", {})
 
     if matchup_slug:
         matchup_path = MATCHUPS_DIR / matchup_slug / "data.json"
