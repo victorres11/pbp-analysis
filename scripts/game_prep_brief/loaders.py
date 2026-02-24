@@ -114,7 +114,6 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         rz_pct = "N/A"
 
     schedule_games_out: list[dict] = []
-    games_out: list[dict] = []
     for g in sched.get("games") or []:
         if not isinstance(g, dict):
             continue
@@ -129,28 +128,6 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
                 "is_home": None,
                 "is_bye": is_bye,
                 "opponent": None if is_bye else (opp or "OPP"),
-            }
-        )
-        games_out.append(
-            {
-                "game_number": week,
-                "week": week,
-                "date": game_date,
-                "opponent": None if is_bye else (opp or "OPP"),
-                "opponent_abbr": None if is_bye else (opp or "OPP"),
-                "conference": False,
-                "is_power4": False,
-                "is_home": None,
-                "is_bye": is_bye,
-                "points_for": None,
-                "points_against": None,
-                "total_plays": None,
-                "explosive_details": [],
-                "penalty_details": [],
-                "red_zone_plays": [],
-                "post_turnover_drives": [],
-                "two_pt_details": [],
-                "play_tree": [],
             }
         )
 
@@ -179,7 +156,8 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         },
         "bye_weeks": sched.get("bye_weeks", []),
         "schedule": {"games": schedule_games_out},
-        "games": games_out,
+        "games": [],
+        "xml_stats": stats,
         "xml_source": True,
     }
 

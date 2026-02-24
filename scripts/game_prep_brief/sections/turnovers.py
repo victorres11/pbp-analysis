@@ -10,6 +10,21 @@ def _sum(games: list[dict], key: str) -> int:
     return sum(g.get(key, 0) or 0 for g in games)
 
 
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {}) or {}
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
@@ -56,6 +71,16 @@ def _team_html(team: dict) -> str:
         "pts_for": _sum(games, "points_off_turnovers_for"),
         "pts_against": _sum(games, "points_off_turnovers_against"),
     }
+    xml_tov = _xml_row(team, "turnovers")
+    xml_pot = _xml_row(team, "points_off_turnovers")
+    if xml_tov:
+        totals["lost"] = xml_tov.get("turnovers", totals["lost"])
+        totals["gained"] = xml_tov.get("turnovers_forced", totals["gained"])
+        totals["int_lost"] = xml_tov.get("interceptions", totals["int_lost"])
+        totals["fum_lost"] = xml_tov.get("fumbles_lost", totals["fum_lost"])
+    if xml_pot:
+        totals["pts_for"] = xml_pot.get("points_off_turnovers", totals["pts_for"])
+        totals["pts_against"] = xml_pot.get("points_off_turnovers_allowed", totals["pts_against"])
     season_off_pg = _pg(totals["pts_for"], games)
     season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
@@ -149,6 +174,14 @@ def _team_md(team: dict) -> str:
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin", "N/A")
     pts_for = _sum(games, "points_off_turnovers_for")
     pts_against = _sum(games, "points_off_turnovers_against")
+    xml_tov = _xml_row(team, "turnovers")
+    xml_pot = _xml_row(team, "points_off_turnovers")
+    if xml_tov:
+        lost = xml_tov.get("turnovers", lost)
+        gained = xml_tov.get("turnovers_forced", gained)
+    if xml_pot:
+        pts_for = xml_pot.get("points_off_turnovers", pts_for)
+        pts_against = xml_pot.get("points_off_turnovers_allowed", pts_against)
     season_off_pg = _pg(pts_for, games)
     season_def_pg = _pg(pts_against, games)
     margin_note = ""

@@ -24,6 +24,21 @@ def _aggregate_explosives(games: list[dict]) -> dict:
     return totals
 
 
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {}) or {}
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
@@ -135,6 +150,13 @@ def _team_html(team: dict) -> str:
 
     games = _games(team)
     totals = _aggregate_explosives(games)
+    xml_expl = _xml_row(team, "explosives")
+    if xml_expl:
+        totals = {
+            "explosives": xml_expl.get("explosives", totals["explosives"]),
+            "explosive_passes": xml_expl.get("explosive_pass", totals["explosive_passes"]),
+            "explosive_rushes": xml_expl.get("explosive_run", totals["explosive_rushes"]),
+        }
     trend = _per_game_trend(games)
     top_plays = _top_explosive_plays(games)
     team_abbr = ((team.get("stats") or {}).get("abbr") or ((team.get("pbp_entry") or {}).get("abbr") or "")).upper()
@@ -207,6 +229,13 @@ def _team_md(team: dict) -> str:
         return f"*{team['display_name']}*\n- Explosives: N/A"
     games = _games(team)
     totals = _aggregate_explosives(games)
+    xml_expl = _xml_row(team, "explosives")
+    if xml_expl:
+        totals = {
+            "explosives": xml_expl.get("explosives", totals["explosives"]),
+            "explosive_passes": xml_expl.get("explosive_pass", totals["explosive_passes"]),
+            "explosive_rushes": xml_expl.get("explosive_run", totals["explosive_rushes"]),
+        }
     top_plays = _top_explosive_plays(games)[:3]
     team_abbr = ((team.get("stats") or {}).get("abbr") or ((team.get("pbp_entry") or {}).get("abbr") or "")).upper()
     ne_season = _non_explosive_profile(games, team_abbr) if team_abbr else {"rush_avg": 0.0, "pass_avg": 0.0}

@@ -10,6 +10,21 @@ def _sum(games: list[dict], key: str) -> int:
     return sum(g.get(key, 0) or 0 for g in games)
 
 
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {}) or {}
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
@@ -34,6 +49,32 @@ def _rate(n: int, d: int) -> float:
 
 
 def _team_zone_stats(team: dict) -> dict:
+    xml_rz = _xml_row(team, "red_zone")
+    if xml_rz:
+        rz_rate = xml_rz.get("rz_td_rate")
+        rz_trips = xml_rz.get("rz_trips", 0) or 0
+        rz_tds = xml_rz.get("rz_tds", 0) or 0
+        if not isinstance(rz_rate, (int, float)):
+            rz_rate = (rz_tds / rz_trips) if rz_trips else 0.0
+        rz_td_pct = round(rz_rate * 100, 1) if rz_rate <= 1 else round(float(rz_rate), 1)
+        rz_eff = round((xml_rz.get("rz_conversion_rate", 0) or 0) * 100, 1)
+        return {
+            "rz_trips": rz_trips,
+            "rz_tds": rz_tds,
+            "rz_fgs": xml_rz.get("rz_fgs", 0),
+            "rz_td_pct": rz_td_pct,
+            "rz_eff": rz_eff,
+            "trz_trips": 0,
+            "trz_tds": 0,
+            "trz_fgs": 0,
+            "trz_td_pct": 0.0,
+            "gz_trips": 0,
+            "gz_tds": 0,
+            "gz_fgs": 0,
+            "gz_success": 0.0,
+            "gz_failed": 0,
+        }
+
     games = _games(team)
     rz_trips = _sum(games, "red_zone_trips")
     rz_tds = _sum(games, "red_zone_tds")
