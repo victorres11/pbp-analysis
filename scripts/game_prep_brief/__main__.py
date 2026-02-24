@@ -19,6 +19,7 @@ from .loaders import (
 )
 from .sections import (
     overview,
+    matchups,
     schedule,
     explosives,
     zones,
@@ -75,6 +76,7 @@ def main():
 
     section_list = [
         overview.build(team1, team2, args.week, args.season),
+        matchups.build(team1, team2),
         schedule.build(team1, team2),
         rankings.build(team1, team2),
         explosives.build(team1, team2),

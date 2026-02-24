@@ -4,6 +4,7 @@ from datetime import datetime
 
 SECTION_ORDER = [
     "overview",
+    "matchups",
     "schedule",
     "rankings",
     "explosives",
