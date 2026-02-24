@@ -1627,6 +1627,20 @@ const HOLDING_OFF_LABEL = 'Offensive Holding (10y)';
 const HOLDING_DEF_LABEL = 'Defensive Holding (5y, AFD)';
 const HOLDING_DEF_NO_AFD_LABEL = 'Defensive Holding (5y)';
 const PENALTY_TYPE_BUCKETS_TOP = [HOLDING_OFF_LABEL, HOLDING_DEF_LABEL, HOLDING_DEF_NO_AFD_LABEL, 'Pass Interference', 'False Start', 'Offsides/Offside', 'Illegal Formation', 'Unsportsmanlike', 'Other'];
+const PROCEDURAL_PENALTY_TERMS = [
+    'false start',
+    'offside',
+    'offsides',
+    'encroachment',
+    'neutral zone infraction',
+    'delay of game',
+    'illegal formation',
+    'illegal procedure',
+    'illegal motion',
+    'illegal shift',
+    'too many men',
+    'illegal substitution',
+];
 
 function classifyPenalty(p) {
     const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
@@ -1701,6 +1715,68 @@ function renderPenaltyTypeList(details, side, teamClass) {
         </div>`
     )).join('');
     return rows || `<div class="text-zinc-500 text-xs">No ${side} penalties.</div>`;
+}
+
+function classifyPenaltyGroup(p) {
+    const category = String(p.penalty_category || '').toLowerCase();
+    if (category.startsWith('pre_snap')) return 'procedural';
+    if (category.startsWith('post_snap') || category === 'special_teams' || category === 'conduct') return 'live_ball';
+    const text = `${p.type || ''} ${p.description || ''}`.toLowerCase();
+    if (PROCEDURAL_PENALTY_TERMS.some(term => text.includes(term))) return 'procedural';
+    return 'live_ball';
+}
+
+function summarizePenaltyGroups(details) {
+    return details.reduce((acc, p) => {
+        const accepted = p.accepted !== false;
+        if (!accepted) return acc;
+        const yards = Number.isFinite(+p.yards) ? +p.yards : 0;
+        const group = classifyPenaltyGroup(p);
+        acc.total.count += 1;
+        acc.total.yards += yards;
+        acc[group].count += 1;
+        acc[group].yards += yards;
+        return acc;
+    }, {
+        total: { count: 0, yards: 0 },
+        procedural: { count: 0, yards: 0 },
+        live_ball: { count: 0, yards: 0 },
+    });
+}
+
+function buildPenaltyGameBreakdown(details) {
+    const perGame = new Map();
+    details.forEach(p => {
+        const accepted = p.accepted !== false;
+        if (!accepted) return;
+        const game = p.game || 0;
+        const key = `${game}|${p.opponent || ''}`;
+        if (!perGame.has(key)) {
+            perGame.set(key, {
+                game,
+                opponent: p.opponent || '',
+                total_count: 0,
+                total_yards: 0,
+                procedural_count: 0,
+                procedural_yards: 0,
+                live_ball_count: 0,
+                live_ball_yards: 0,
+            });
+        }
+        const entry = perGame.get(key);
+        const yards = Number.isFinite(+p.yards) ? +p.yards : 0;
+        const group = classifyPenaltyGroup(p);
+        entry.total_count += 1;
+        entry.total_yards += yards;
+        if (group === 'procedural') {
+            entry.procedural_count += 1;
+            entry.procedural_yards += yards;
+        } else {
+            entry.live_ball_count += 1;
+            entry.live_ball_yards += yards;
+        }
+    });
+    return Array.from(perGame.values()).sort((a, b) => (a.game || 0) - (b.game || 0));
 }
 
 function renderPlaymakers(games, teamAbbr, teamClass) {
@@ -3347,24 +3423,39 @@ function renderPenalties() {
     const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
     const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
+    const gaGroup = summarizePenaltyGroups(gaDetails);
+    const aaGroup = summarizePenaltyGroups(aaDetails);
+    const gaPenaltyYpg = gf.length ? +(gaGroup.total.yards / gf.length).toFixed(1) : 0;
+    const aaPenaltyYpg = af.length ? +(aaGroup.total.yards / af.length).toFixed(1) : 0;
+    const gaProceduralPg = gf.length ? +(gaGroup.procedural.count / gf.length).toFixed(1) : 0;
+    const aaProceduralPg = af.length ? +(aaGroup.procedural.count / af.length).toFixed(1) : 0;
+    const gaLiveBallPg = gf.length ? +(gaGroup.live_ball.count / gf.length).toFixed(1) : 0;
+    const aaLiveBallPg = af.length ? +(aaGroup.live_ball.count / af.length).toFixed(1) : 0;
+    const gaPerGame = buildPenaltyGameBreakdown(gaDetails);
+    const aaPerGame = buildPenaltyGameBreakdown(aaDetails);
     const gPenaltiesSource = buildComparePayload(null, getCfbstatsValue(ga, 'penalties'), 'penalties');
     const aPenaltiesSource = buildComparePayload(null, getCfbstatsValue(aa, 'penalties'), 'penalties');
 
     let html = `<div class="section-enter">`;
     html += fourthDownNote();
     html += `<div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-5 gap-3">
             ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'), sourceInfoBadge(gPenaltiesSource, 'Penalties/Game'))}
-            ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
-            ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
+            ${statCard('Penalty Yds/G', gaPenaltyYpg, gaGroup.total.yards + ' total yds', 'team-a', gq(['penalty_details'], 'Penalty Yds/G'))}
+            ${statCard('Procedural/G', gaProceduralPg, gaGroup.procedural.count + ' total', 'team-a', gq(['penalty_details'], 'Procedural/G'))}
+            ${statCard('Live-Ball/G', gaLiveBallPg, gaGroup.live_ball.count + ' total', 'team-a', gq(['penalty_details'], 'Live-Ball/G'))}
+            ${statCard('Off/Def', gaOffensePens + '/' + gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Off/Def Pens'))}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-5 gap-3">
             ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'), sourceInfoBadge(aPenaltiesSource, 'Penalties/Game'))}
-            ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
-            ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
+            ${statCard('Penalty Yds/G', aaPenaltyYpg, aaGroup.total.yards + ' total yds', 'team-b', aq(['penalty_details'], 'Penalty Yds/G'))}
+            ${statCard('Procedural/G', aaProceduralPg, aaGroup.procedural.count + ' total', 'team-b', aq(['penalty_details'], 'Procedural/G'))}
+            ${statCard('Live-Ball/G', aaLiveBallPg, aaGroup.live_ball.count + ' total', 'team-b', aq(['penalty_details'], 'Live-Ball/G'))}
+            ${statCard('Off/Def', aaOffensePens + '/' + aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Off/Def Pens'))}
         </div>
     </div>`;
     html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += compBar('Penalty Yards/Game', gaPenaltyYpg, aaPenaltyYpg);
     html += `<div class="glass rounded-xl p-4 mt-4">${chartContainer('penChart')}</div>`;
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         <div class="glass rounded-xl p-4">${chartContainer('penTypeChart')}</div>
@@ -3383,6 +3474,16 @@ function renderPenalties() {
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${ga.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Procedural</div>
+                    <div class="text-sm team-a font-semibold">${gaGroup.procedural.count} <span class="text-zinc-400 font-normal">(${gaGroup.procedural.yards} yds)</span></div>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Live-Ball</div>
+                    <div class="text-sm team-a font-semibold">${gaGroup.live_ball.count} <span class="text-zinc-400 font-normal">(${gaGroup.live_ball.yards} yds)</span></div>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <div class="text-xs text-zinc-500 mb-2">Offense</div>
@@ -3396,6 +3497,16 @@ function renderPenalties() {
         </div>
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${aa.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Procedural</div>
+                    <div class="text-sm team-b font-semibold">${aaGroup.procedural.count} <span class="text-zinc-400 font-normal">(${aaGroup.procedural.yards} yds)</span></div>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Live-Ball</div>
+                    <div class="text-sm team-b font-semibold">${aaGroup.live_ball.count} <span class="text-zinc-400 font-normal">(${aaGroup.live_ball.yards} yds)</span></div>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <div class="text-xs text-zinc-500 mb-2">Offense</div>
@@ -3407,6 +3518,28 @@ function renderPenalties() {
                 </div>
             </div>
         </div>
+    </div>`;
+    const renderPerGamePenaltyTable = (rows, teamClass) => {
+        if (!rows.length) return `<div class="text-zinc-500 text-xs p-4">No accepted penalties found.</div>`;
+        return `<table class="w-full text-xs"><thead class="sticky top-0 bg-zinc-900"><tr>
+            <th class="py-2 px-2 text-left text-zinc-500">G#</th>
+            <th class="py-2 px-2 text-left text-zinc-500">Opponent</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Pen</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Yds</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Procedural</th>
+            <th class="py-2 px-2 text-right text-zinc-500">Live-Ball</th>
+        </tr></thead><tbody>${rows.map(r => `<tr class="border-b border-white/5 table-row">
+            <td class="py-1 px-2 text-zinc-400">G${r.game || ''}</td>
+            <td class="py-1 px-2">${r.opponent || ''}</td>
+            <td class="py-1 px-2 text-right ${teamClass}">${r.total_count}</td>
+            <td class="py-1 px-2 text-right text-zinc-300">${r.total_yards}</td>
+            <td class="py-1 px-2 text-right text-zinc-300">${r.procedural_count} <span class="text-zinc-500">(${r.procedural_yards})</span></td>
+            <td class="py-1 px-2 text-right text-zinc-300">${r.live_ball_count} <span class="text-zinc-500">(${r.live_ball_yards})</span></td>
+        </tr>`).join('')}</tbody></table>`;
+    };
+    html += `<div class="grid grid-cols-2 gap-4 mt-4">
+        ${collapsible(`${ga.name} Per-Game Penalty Breakdown`, gaPerGame.length, renderPerGamePenaltyTable(gaPerGame, 'team-a'))}
+        ${collapsible(`${aa.name} Per-Game Penalty Breakdown`, aaPerGame.length, renderPerGamePenaltyTable(aaPerGame, 'team-b'))}
     </div>`;
     const sortPenalties = (details) => details.slice().sort((a, b) => {
         if ((a.game || 0) !== (b.game || 0)) return (a.game || 0) - (b.game || 0);
@@ -5041,20 +5174,33 @@ function printPenaltiesSection() {
     const gaDefensePens = gaDetails.filter(p => p.offense_or_defense === 'defense').length;
     const aaOffensePens = aaDetails.filter(p => p.offense_or_defense === 'offense').length;
     const aaDefensePens = aaDetails.filter(p => p.offense_or_defense === 'defense').length;
+    const gaGroup = summarizePenaltyGroups(gaDetails);
+    const aaGroup = summarizePenaltyGroups(aaDetails);
+    const gaPenaltyYpg = gf.length ? +(gaGroup.total.yards / gf.length).toFixed(1) : 0;
+    const aaPenaltyYpg = af.length ? +(aaGroup.total.yards / af.length).toFixed(1) : 0;
+    const gaProceduralPg = gf.length ? +(gaGroup.procedural.count / gf.length).toFixed(1) : 0;
+    const aaProceduralPg = af.length ? +(aaGroup.procedural.count / af.length).toFixed(1) : 0;
+    const gaLiveBallPg = gf.length ? +(gaGroup.live_ball.count / gf.length).toFixed(1) : 0;
+    const aaLiveBallPg = af.length ? +(aaGroup.live_ball.count / af.length).toFixed(1) : 0;
 
     let html = `<div class="grid grid-cols-2 gap-4 mb-4">
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-5 gap-3">
             ${statCard('Penalties/Game', gs.penpg, gs.pen+' total', 'team-a', gq(['penalties'], 'Penalties/Game'), buildStatBadge(ga, 'penalties'))}
-            ${statCard('Offense Pens', gaOffensePens, '', 'team-a', gq(['penalty_details'], 'Offense Pens'))}
-            ${statCard('Defense Pens', gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Defense Pens'))}
+            ${statCard('Penalty Yds/G', gaPenaltyYpg, gaGroup.total.yards + ' total yds', 'team-a', gq(['penalty_details'], 'Penalty Yds/G'))}
+            ${statCard('Procedural/G', gaProceduralPg, gaGroup.procedural.count + ' total', 'team-a', gq(['penalty_details'], 'Procedural/G'))}
+            ${statCard('Live-Ball/G', gaLiveBallPg, gaGroup.live_ball.count + ' total', 'team-a', gq(['penalty_details'], 'Live-Ball/G'))}
+            ${statCard('Off/Def', gaOffensePens + '/' + gaDefensePens, '', 'team-a', gq(['penalty_details'], 'Off/Def Pens'))}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-5 gap-3">
             ${statCard('Penalties/Game', as_.penpg, as_.pen+' total', 'team-b', aq(['penalties'], 'Penalties/Game'), buildStatBadge(aa, 'penalties'))}
-            ${statCard('Offense Pens', aaOffensePens, '', 'team-b', aq(['penalty_details'], 'Offense Pens'))}
-            ${statCard('Defense Pens', aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Defense Pens'))}
+            ${statCard('Penalty Yds/G', aaPenaltyYpg, aaGroup.total.yards + ' total yds', 'team-b', aq(['penalty_details'], 'Penalty Yds/G'))}
+            ${statCard('Procedural/G', aaProceduralPg, aaGroup.procedural.count + ' total', 'team-b', aq(['penalty_details'], 'Procedural/G'))}
+            ${statCard('Live-Ball/G', aaLiveBallPg, aaGroup.live_ball.count + ' total', 'team-b', aq(['penalty_details'], 'Live-Ball/G'))}
+            ${statCard('Off/Def', aaOffensePens + '/' + aaDefensePens, '', 'team-b', aq(['penalty_details'], 'Off/Def Pens'))}
         </div>
     </div>`;
     html += compBar('Penalties/Game', gs.penpg, as_.penpg);
+    html += compBar('Penalty Yards/Game', gaPenaltyYpg, aaPenaltyYpg);
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${ga.name} Biggest Offenders</div>
@@ -5068,6 +5214,16 @@ function printPenaltiesSection() {
     html += `<div class="grid grid-cols-2 gap-4 mt-4">
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${ga.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Procedural</div>
+                    <div class="text-sm team-a font-semibold">${gaGroup.procedural.count} <span class="text-zinc-400 font-normal">(${gaGroup.procedural.yards} yds)</span></div>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Live-Ball</div>
+                    <div class="text-sm team-a font-semibold">${gaGroup.live_ball.count} <span class="text-zinc-400 font-normal">(${gaGroup.live_ball.yards} yds)</span></div>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <div class="text-xs text-zinc-500 mb-2">Offense</div>
@@ -5081,6 +5237,16 @@ function printPenaltiesSection() {
         </div>
         <div class="glass rounded-xl p-4">
             <div class="text-sm font-medium text-white mb-3">${aa.name} Penalty Breakdown</div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Procedural</div>
+                    <div class="text-sm team-b font-semibold">${aaGroup.procedural.count} <span class="text-zinc-400 font-normal">(${aaGroup.procedural.yards} yds)</span></div>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div class="text-xs text-zinc-500 mb-1">Live-Ball</div>
+                    <div class="text-sm team-b font-semibold">${aaGroup.live_ball.count} <span class="text-zinc-400 font-normal">(${aaGroup.live_ball.yards} yds)</span></div>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <div class="text-xs text-zinc-500 mb-2">Offense</div>

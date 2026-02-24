@@ -39,6 +39,22 @@ A production-ready static web app for analyzing play-by-play matchups between tw
 
 ## Usage
 
+### Generate Game Prep Brief (migrated from coach-database)
+Run from this repo root:
+
+```bash
+python3 -m scripts.game_prep_brief "Oregon" "USC" --season 2025 --format both --matchup-slug oregon-vs-usc-2025
+```
+
+Outputs default to:
+- `outputs/game_prep_brief/*.md`
+- `outputs/game_prep_brief/*.html`
+
+Notes:
+- Uses `data.json` as the base source.
+- Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
+- Coach/play-caller fields are currently placeholder `N/A` in this repo.
+
 ### Generate Data
 ```bash
 cd ~/clawd/pbp-parser
