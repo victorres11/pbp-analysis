@@ -247,12 +247,6 @@
             <div class="flex items-center gap-2" id="filterBar" role="toolbar" aria-label="Filters">
                 <span class="text-xs text-zinc-500 mr-1">Filter:</span>
             </div>
-            <div class="relative" id="exportMenu">
-                <button class="menu-button" id="exportToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Export menu">Export ▾</button>
-                <div class="menu-panel hidden" id="exportPanel">
-                    <button class="menu-item" type="button" onclick="exportCurrentViewPdf()">🖨️ Export full sectioned report (PDF)</button>
-                </div>
-            </div>
             <div class="relative" id="shareMenu">
                 <button class="menu-button" id="shareToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Share menu">Share</button>
                 <div class="menu-panel hidden" id="sharePanel">
@@ -5599,9 +5593,7 @@ function switchFilter(id) {
 }
 
 function closeMenus() {
-    document.getElementById('exportPanel')?.classList.add('hidden');
     document.getElementById('sharePanel')?.classList.add('hidden');
-    document.getElementById('exportToggle')?.setAttribute('aria-expanded', 'false');
     document.getElementById('shareToggle')?.setAttribute('aria-expanded', 'false');
 }
 
@@ -5612,7 +5604,6 @@ function toggleMenu(panelId) {
     closeMenus();
     if (!isOpen) {
         panel.classList.remove('hidden');
-        if (panelId === 'exportPanel') document.getElementById('exportToggle')?.setAttribute('aria-expanded', 'true');
         if (panelId === 'sharePanel') document.getElementById('shareToggle')?.setAttribute('aria-expanded', 'true');
     }
 }
@@ -5736,12 +5727,7 @@ let menusReady = false;
 function initMenus() {
     if (menusReady) return;
     menusReady = true;
-    const exportToggle = document.getElementById('exportToggle');
     const shareToggle = document.getElementById('shareToggle');
-    exportToggle?.addEventListener('click', e => {
-        e.stopPropagation();
-        toggleMenu('exportPanel');
-    });
     shareToggle?.addEventListener('click', e => {
         e.stopPropagation();
         toggleMenu('sharePanel');
@@ -6023,17 +6009,7 @@ function initApp() {
         announceTabChange(currentTab);
         updateHashState();
 
-        window.addEventListener('beforeprint', beforePrint);
-        window.addEventListener('afterprint', afterPrint);
         window.addEventListener('orientationchange', () => window.dispatchEvent(new Event('resize')));
-        if (window.matchMedia) {
-            const media = window.matchMedia('print');
-            if (media.addEventListener) {
-                media.addEventListener('change', e => (e.matches ? beforePrint() : afterPrint()));
-            } else if (media.addListener) {
-                media.addListener(e => (e.matches ? beforePrint() : afterPrint()));
-            }
-        }
     }).catch(e => {
         showErrorState(`Failed to load matchup data (${e.message}).`);
     });

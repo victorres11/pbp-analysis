@@ -75,6 +75,11 @@ python3 -m http.server 8000 --directory app
 # Then visit http://localhost:8000
 ```
 
+### Export/Print Status
+- Legacy in-app print/export menu flow is deprecated and no longer exposed in the UI.
+- Supported export workflow is the standalone Game Prep Brief renderer:
+  - `python3 -m scripts.game_prep_brief "<Team A>" "<Team B>" --season 2025 --format both`
+
 ## Data Structure
 
 `data.json` contains:
