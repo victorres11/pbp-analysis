@@ -820,13 +820,32 @@ def _drive_offense_abbr(plays: list[dict]) -> str:
     return ""
 
 
+def _touchdown_extra_points(plays: list[dict], td_index: int) -> int:
+    # Prefer explicit conversion/PAT result if present; fallback assumes PAT good.
+    for play in plays[td_index + 1 : td_index + 6]:
+        desc_up = str(play.get("description") or "").upper()
+        if not desc_up:
+            continue
+        if "2-POINT" in desc_up:
+            if "GOOD" in desc_up or "SUCCESS" in desc_up:
+                return 2
+            if "NO GOOD" in desc_up or "FAILED" in desc_up:
+                return 0
+        if "PAT" in desc_up or "EXTRA POINT" in desc_up or "KICK ATTEMPT" in desc_up:
+            if "GOOD" in desc_up:
+                return 1
+            if "NO GOOD" in desc_up or "FAILED" in desc_up or "BLOCKED" in desc_up:
+                return 0
+    return 1
+
+
 def _drive_points_result(plays: list[dict]) -> tuple[str, int]:
-    for play in plays:
+    for idx, play in enumerate(plays):
         if not play.get("is_scoring"):
             continue
         desc_up = str(play.get("description") or "").upper()
         if "TOUCHDOWN" in desc_up or re.search(r"\bTD\b", desc_up):
-            return "TD", 6
+            return "TD", 6 + _touchdown_extra_points(plays, idx)
         if "FIELD GOAL" in desc_up or re.search(r"\bFG\b", desc_up):
             return "FG", 3
         if "SAFETY" in desc_up:
@@ -834,15 +853,66 @@ def _drive_points_result(plays: list[dict]) -> tuple[str, int]:
     return "NO SCORE", 0
 
 
+def _turnover_return_points(play: dict) -> tuple[str, int]:
+    desc_up = str(play.get("description") or "").upper()
+    if "TOUCHDOWN" in desc_up or re.search(r"\bTD\b", desc_up):
+        # PAT often omitted in reduced play trees; default to 7 for scoreboard-equivalent points.
+        return "DEF TD", 7
+    if "SAFETY" in desc_up:
+        return "SAFETY", 2
+    return "NO SCORE", 0
+
+
+def _turnover_recovery_side(
+    desc_up: str,
+    offense_side: str | None,
+    turnover_type: str,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> str | None:
+    if turnover_type == "INT":
+        if offense_side == "team":
+            return "opp"
+        if offense_side == "opp":
+            return "team"
+        return None
+
+    recovered = ""
+    match = re.search(r"RECOVERED BY ([A-Z0-9.'\\-]+)", desc_up)
+    if match:
+        recovered = re.sub(r"[^A-Z0-9]", "", match.group(1))
+
+    if recovered in team_aliases:
+        return "team"
+    if recovered in opp_aliases:
+        return "opp"
+    return None
+
+
+def _turnover_possessing_side(desc_up: str, offense_side: str | None, turnover_type: str) -> str | None:
+    if turnover_type != "FUM":
+        return offense_side
+    if offense_side is None:
+        return None
+    # On kick/punt returns, the return team (opposite listed offense) possesses the ball.
+    if ("PUNT" in desc_up or "KICKOFF" in desc_up) and "RETURN" in desc_up:
+        return "opp" if offense_side == "team" else "team"
+    return offense_side
+
+
 def _drive_takeaway_event(
     plays: list[dict], team_aliases: set[str], opp_aliases: set[str]
 ) -> tuple[str, str, dict] | None:
     last_event: tuple[str, str, dict] | None = None
     for play in plays:
+        if play.get("is_no_play"):
+            continue
         if not play.get("is_turnover"):
             continue
         offense = str(play.get("offense") or "").upper()
         desc_up = str(play.get("description") or "").upper()
+        if "PLAY OVERTURNED" in desc_up:
+            continue
         if "INTERCEPT" in desc_up:
             turnover_type = "INT"
         elif "FUMBLE" in desc_up:
@@ -850,10 +920,17 @@ def _drive_takeaway_event(
         else:
             # Exclude turnover-on-downs and other possession flips from takeaway stats.
             continue
-        if offense in team_aliases:
-            last_event = ("team_lost", turnover_type, play)
-        elif offense in opp_aliases:
+        offense_side = "team" if offense in team_aliases else ("opp" if offense in opp_aliases else None)
+        possessing_side = _turnover_possessing_side(desc_up, offense_side, turnover_type)
+        recovery_side = _turnover_recovery_side(
+            desc_up, offense_side, turnover_type, team_aliases, opp_aliases
+        )
+        if recovery_side is None or possessing_side is None or recovery_side == possessing_side:
+            continue
+        if recovery_side == "team":
             last_event = ("team_gained", turnover_type, play)
+        elif recovery_side == "opp":
+            last_event = ("team_lost", turnover_type, play)
     return last_event
 
 
@@ -869,63 +946,151 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
     ints_lost = ints_gained = fum_lost = fum_gained = 0
     turnovers_lost = turnovers_gained = 0
 
-    drives = list(_iter_play_tree_drives(play_tree))
-
-    # First pass: turnover totals + INT/FUM breakdown (one validated takeaway per drive).
-    for _, plays in drives:
-        event = _drive_takeaway_event(plays, team_aliases, opp_aliases)
-        if not event:
+    indexed_plays: list[tuple[int | None, dict]] = []
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
             continue
-        side, turnover_type, _ = event
-        if side == "team_lost":
+        quarter_num = quarter.get("quarter")
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if isinstance(play, dict):
+                    indexed_plays.append((quarter_num if isinstance(quarter_num, int) else None, play))
+
+    def _next_possession_side(start_idx: int) -> str | None:
+        for j in range(start_idx + 1, len(indexed_plays)):
+            nxt = indexed_plays[j][1]
+            if nxt.get("is_no_play"):
+                continue
+            nxt_off = str(nxt.get("offense") or "").upper()
+            if nxt_off in team_aliases:
+                return "team"
+            if nxt_off in opp_aliases:
+                return "opp"
+        return None
+
+    for idx, (quarter_num, play) in enumerate(indexed_plays):
+        if play.get("is_no_play"):
+            continue
+        if not play.get("is_turnover"):
+            continue
+        offense = str(play.get("offense") or "").upper()
+        desc_up = str(play.get("description") or "").upper()
+        if "PLAY OVERTURNED" in desc_up:
+            continue
+        if "INTERCEPT" in desc_up:
+            turnover_type = "INT"
+        elif "FUMBLE" in desc_up:
+            turnover_type = "FUM"
+        else:
+            continue
+
+        offense_side = "team" if offense in team_aliases else ("opp" if offense in opp_aliases else None)
+        if offense_side is None:
+            continue
+        recovery_side = _turnover_recovery_side(
+            desc_up, offense_side, turnover_type, team_aliases, opp_aliases
+        )
+        possessing_side = _turnover_possessing_side(desc_up, offense_side, turnover_type)
+        next_side = _next_possession_side(idx)
+        possession_changed = (
+            recovery_side is not None and possessing_side is not None and recovery_side != possessing_side
+        )
+        if not possession_changed and possessing_side and next_side and next_side != possessing_side:
+            possession_changed = True
+            recovery_side = next_side
+        if not possession_changed:
+            continue
+
+        if recovery_side == "opp":
+            turnover_side = "team_lost"
+            recovered_aliases = opp_aliases
+            losing_aliases = team_aliases
+            recovered_by_default = sorted(opp_aliases)[0]
             turnovers_lost += 1
             if turnover_type == "INT":
                 ints_lost += 1
             else:
                 fum_lost += 1
-        else:
+        elif recovery_side == "team":
+            turnover_side = "team_gained"
+            recovered_aliases = team_aliases
+            losing_aliases = opp_aliases
+            recovered_by_default = sorted(team_aliases)[0]
             turnovers_gained += 1
             if turnover_type == "INT":
                 ints_gained += 1
             else:
                 fum_gained += 1
-
-    # Second pass: post-turnover drives and points off turnovers.
-    for idx, (quarter_num, plays) in enumerate(drives):
-        event = _drive_takeaway_event(plays, team_aliases, opp_aliases)
-        if not event:
-            continue
-        turnover_side, turnover_type, turnover_play = event
-        if not turnover_play or not turnover_side or idx + 1 >= len(drives):
+        else:
             continue
 
-        next_quarter, next_plays = drives[idx + 1]
-        next_offense = _drive_offense_abbr(next_plays)
-        if turnover_side == "team_gained":
-            if next_offense not in team_aliases:
+        # Turnover return score (e.g., pick-six/fumble return TD) counts immediately.
+        if play.get("is_scoring"):
+            drive_result, points_scored = _turnover_return_points(play)
+            if turnover_side == "team_gained":
+                points_off_turnovers_for += points_scored
+            else:
+                points_off_turnovers_against += points_scored
+            post_turnover_drives.append(
+                {
+                    "quarter": quarter_num,
+                    "clock": play.get("clock") or "",
+                    "turnover_type": turnover_type,
+                    "lost_by": offense or "?",
+                    "recovered_by": recovered_by_default or "?",
+                    "drive_result": drive_result,
+                    "points_scored": points_scored,
+                    "turnover_description": play.get("description") or "",
+                }
+            )
+            continue
+
+        # Find ensuing possession by the recovering side.
+        start_idx: int | None = None
+        for j in range(idx + 1, len(indexed_plays)):
+            nxt = indexed_plays[j][1]
+            nxt_off = str(nxt.get("offense") or "").upper()
+            if nxt.get("is_no_play"):
                 continue
-            recovered_by = next_offense
-            lost_by = str(turnover_play.get("offense") or "").upper()
-            drive_result, points_scored = _drive_points_result(next_plays)
+            if nxt_off in recovered_aliases:
+                start_idx = j
+                break
+            if nxt_off in losing_aliases:
+                # Possession returned to the losing side before a recovery-side drive started.
+                # Do not attribute later drives to this turnover.
+                break
+        if start_idx is None:
+            continue
+
+        drive_plays: list[dict] = []
+        recovered_by = ""
+        start_quarter = indexed_plays[start_idx][0]
+        for j in range(start_idx, len(indexed_plays)):
+            nxt = indexed_plays[j][1]
+            nxt_off = str(nxt.get("offense") or "").upper()
+            if not recovered_by and nxt_off in recovered_aliases:
+                recovered_by = nxt_off
+            if drive_plays and nxt_off and nxt_off not in recovered_aliases:
+                break
+            drive_plays.append(nxt)
+
+        drive_result, points_scored = _drive_points_result(drive_plays)
+        if turnover_side == "team_gained":
             points_off_turnovers_for += points_scored
         else:
-            if next_offense not in opp_aliases:
-                continue
-            recovered_by = next_offense
-            lost_by = str(turnover_play.get("offense") or "").upper()
-            drive_result, points_scored = _drive_points_result(next_plays)
             points_off_turnovers_against += points_scored
-
         post_turnover_drives.append(
             {
-                "quarter": quarter_num if isinstance(quarter_num, int) else next_quarter,
-                "clock": turnover_play.get("clock") or "",
+                "quarter": start_quarter if isinstance(start_quarter, int) else quarter_num,
+                "clock": play.get("clock") or "",
                 "turnover_type": turnover_type,
-                "lost_by": lost_by or "?",
-                "recovered_by": recovered_by or "?",
+                "lost_by": offense or "?",
+                "recovered_by": recovered_by or recovered_by_default or "?",
                 "drive_result": drive_result,
                 "points_scored": points_scored,
-                "turnover_description": turnover_play.get("description") or "",
+                "turnover_description": play.get("description") or "",
             }
         )
 
