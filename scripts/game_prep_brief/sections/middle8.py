@@ -166,10 +166,12 @@ def _team_html(team: dict) -> str:
     pts_for = xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for"))
     pts_against = xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against"))
     margin = pts_for - pts_against
-    per_game = [
-        f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {g.get('middle8_points_for',0)}-{g.get('middle8_points_against',0)}"
-        for g in sorted(games, key=lambda x: x.get("game_number", 0))
-    ]
+    per_game = []
+    for g in sorted(games, key=lambda x: x.get("game_number", 0)):
+        pf = g.get("middle8_points_for")
+        pa = g.get("middle8_points_against")
+        score = f"{pf}-{pa}" if isinstance(pf, (int, float)) and isinstance(pa, (int, float)) else "N/A"
+        per_game.append(f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {score}")
     per_game_html = "".join(f"<li>{l}</li>" for l in per_game) or "<li>N/A</li>"
     plays = _scoring_plays(games)
     plays_html = "".join(_play_html(p) for p in plays[:6]) or "<li>N/A</li>"

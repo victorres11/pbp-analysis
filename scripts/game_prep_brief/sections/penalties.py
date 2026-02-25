@@ -137,6 +137,8 @@ def _aggregate(team: dict) -> dict:
         per_game.append(game_row)
 
     # Prefer bundle-level penalty rollups when available (source of truth).
+    has_group_breakdown = False
+    has_pi_breakdown = False
     if stats_row:
         total = int(stats_row.get("total_penalties", total) or total)
         yards = int(stats_row.get("total_penalty_yards", yards) or yards)
@@ -158,6 +160,31 @@ def _aggregate(team: dict) -> dict:
         }
         pi_drawn = int(stats_row.get("pass_interference_drawn", pi_drawn) or 0)
         pi_allowed = int(stats_row.get("pass_interference_allowed", pi_allowed) or 0)
+        has_group_breakdown = any(
+            stats_row.get(k) is not None
+            for k in (
+                "procedural_penalties",
+                "procedural_penalty_yards",
+                "live_ball_penalties",
+                "live_ball_penalty_yards",
+            )
+        ) and not (
+            total > 0
+            and by_group["procedural"]["count"] == 0
+            and by_group["live_ball"]["count"] == 0
+        )
+        has_pi_breakdown = any(
+            stats_row.get(k) is not None
+            for k in (
+                "pass_interference_drawn",
+                "pass_interference_drawn_yards",
+                "pass_interference_allowed",
+                "pass_interference_allowed_yards",
+            )
+        ) and not (total > 0 and pi_drawn == 0 and pi_allowed == 0)
+    else:
+        has_group_breakdown = bool(by_group["procedural"]["count"] or by_group["live_ball"]["count"])
+        has_pi_breakdown = bool(pi_drawn or pi_allowed)
 
     return {
         "total": total,
@@ -170,6 +197,8 @@ def _aggregate(team: dict) -> dict:
         "per_game": sorted(per_game, key=lambda r: r["game_number"]),
         "pi_drawn": pi_drawn,
         "pi_allowed": pi_allowed,
+        "has_group_breakdown": has_group_breakdown,
+        "has_pi_breakdown": has_pi_breakdown,
     }
 
 
@@ -209,6 +238,8 @@ def _team_html(team: dict) -> str:
     defense = agg["by_side"].get("defense", {"count": 0, "yards": 0})
     procedural = agg["by_group"].get("procedural", {"count": 0, "yards": 0})
     live_ball = agg["by_group"].get("live_ball", {"count": 0, "yards": 0})
+    show_group = bool(agg.get("has_group_breakdown"))
+    show_pi = bool(agg.get("has_pi_breakdown"))
     if stats_row:
         pen_per_game = stats_row.get("total_penalties_pg")
         yds_per_game = stats_row.get("total_penalty_yards_pg")
@@ -252,10 +283,10 @@ def _team_html(team: dict) -> str:
         l3_pi_allowed = stats_row.get("last_3_pass_interference_allowed_pg")
 
         proc_live_line = ""
-        if l3_proc is not None and l3_live is not None:
+        if show_group and l3_proc is not None and l3_live is not None:
             proc_live_line = f"<li>Procedural: {l3_proc:.1f} / Live-ball: {l3_live:.1f}</li>"
         pi_line = ""
-        if l3_pi_drawn is not None and l3_pi_allowed is not None:
+        if show_pi and l3_pi_drawn is not None and l3_pi_allowed is not None:
             pi_line = f"<li>PI Drawn: {l3_pi_drawn:.1f} / PI Allowed: {l3_pi_allowed:.1f}</li>"
 
         last_n_html = f"""
@@ -280,9 +311,9 @@ def _team_html(team: dict) -> str:
           <li>Penalties: {agg['total']} for {agg['yards']} yards</li>
           <li>Offense: {offense['count']} / {offense['yards']} yds</li>
           <li>Defense: {defense['count']} / {defense['yards']} yds</li>
-          <li>Procedural: {procedural['count']} / {procedural['yards']} yds</li>
-          <li>Live-ball: {live_ball['count']} / {live_ball['yards']} yds</li>
-          <li>PI Drawn: {agg['pi_drawn']} | PI Allowed: {agg['pi_allowed']}</li>
+          <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}</li>
+          <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}</li>
+          <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}</li>
           <li>CFBStats Rank: {_penalties_rank(team)}</li>
         </ul>
       </div>
@@ -335,7 +366,8 @@ def _team_md(team: dict) -> str:
         season_ypg = (agg["yards"] / game_count) if has_source_data else None
     procedural = agg["by_group"].get("procedural", {"count": 0})
     live_ball = agg["by_group"].get("live_ball", {"count": 0})
-    has_breakdown = bool(agg["by_type_count"])
+    show_group = bool(agg.get("has_group_breakdown"))
+    show_pi = bool(agg.get("has_pi_breakdown"))
 
     lines = [f"*{team['display_name']}*"]
     suffix = ""
@@ -350,11 +382,11 @@ def _team_md(team: dict) -> str:
     lines.append(f"- Penalty Yards/Game: {f'{season_ypg:.1f}' if isinstance(season_ypg, (int, float)) else 'N/A'}")
     lines.append(
         f"- Procedural vs Live-ball: "
-        f"{procedural['count'] if has_breakdown else 'N/A'} / {live_ball['count'] if has_breakdown else 'N/A'}"
+        f"{procedural['count'] if show_group else 'N/A'} / {live_ball['count'] if show_group else 'N/A'}"
     )
     lines.append(
         f"- PI Drawn / Allowed: "
-        f"{agg['pi_drawn'] if has_breakdown else 'N/A'} / {agg['pi_allowed'] if has_breakdown else 'N/A'}"
+        f"{agg['pi_drawn'] if show_pi else 'N/A'} / {agg['pi_allowed'] if show_pi else 'N/A'}"
     )
     lines.append(f"- Top Penalty Type: {worst}")
     return "\n".join(lines)
