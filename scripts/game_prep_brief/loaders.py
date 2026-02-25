@@ -236,6 +236,11 @@ def _warn_upstream_import_fallback_once() -> None:
         f"[warn] Example import error: {first_key} -> {_UPSTREAM_IMPORT_ERRORS[first_key]}",
         file=sys.stderr,
     )
+    if sys.version_info < (3, 10):
+        print(
+            "[warn] Python < 3.10 detected; run with a 3.10+ interpreter to enable upstream pbp_parser helpers.",
+            file=sys.stderr,
+        )
     _UPSTREAM_IMPORT_WARNED = True
 
 
