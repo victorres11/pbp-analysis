@@ -800,6 +800,49 @@ def _team_aliases_from_bundle(home_abbr: str | None, stats: object, games: objec
     return aliases
 
 
+def _infer_team_alias_from_play_tree(
+    play_tree: object,
+    *,
+    team_aliases: set[str],
+    opponent_abbr: object,
+) -> set[str]:
+    opp_aliases = _abbr_set(opponent_abbr)
+    if not team_aliases or not opp_aliases:
+        return set()
+
+    offense_counts: dict[str, int] = {}
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        token = str(play.get("offense") or "").upper().strip()
+        if not token:
+            continue
+        offense_counts[token] = offense_counts.get(token, 0) + 1
+    if not offense_counts:
+        return set()
+
+    has_opp = any(token in opp_aliases for token in offense_counts)
+    if not has_opp:
+        return set()
+
+    unknown = {
+        token: count
+        for token, count in offense_counts.items()
+        if token not in team_aliases and token not in opp_aliases
+    }
+    if not unknown:
+        return set()
+
+    # Keep this conservative: only infer when one token clearly dominates.
+    sorted_unknown = sorted(unknown.items(), key=lambda kv: kv[1], reverse=True)
+    best_token, best_count = sorted_unknown[0]
+    if best_count < 3:
+        return set()
+    if len(sorted_unknown) > 1 and best_count == sorted_unknown[1][1]:
+        return set()
+    return {best_token}
+
+
 def _aggregate_xml_alias_rows(stats: object, category: str, team_aliases: set[str]) -> dict:
     if not isinstance(stats, dict):
         return {}
@@ -1681,6 +1724,11 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
             continue
         opp_abbr = g.get("opponent_abbr") or g.get("opponent")
         play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
+        inferred_aliases = _infer_team_alias_from_play_tree(
+            play_tree, team_aliases=team_aliases, opponent_abbr=opp_abbr
+        )
+        if inferred_aliases:
+            team_aliases.update(inferred_aliases)
         game_rollup = _rollup_game_from_play_tree(play_tree, team_aliases, opp_abbr)
         game_detail = _derive_game_detail_stats(play_tree, team_aliases, opp_abbr)
         game_turnover_detail = _derive_turnover_drive_stats(play_tree, team_aliases, opp_abbr)
@@ -2502,19 +2550,20 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
         pbp = {
             "gained": int(game.get("turnovers_gained") or 0),
             "lost": int(game.get("turnovers_lost") or 0),
-            "int_lost": int(game.get("interceptions_lost") or 0),
-            "fum_lost": int(game.get("fumbles_lost") or 0),
+            "int_gained": int(game.get("interceptions_gained") or 0),
+            "fum_gained": int(game.get("fumbles_gained") or 0),
             "pot_for": int(game.get("points_off_turnovers_for") or 0),
             "pot_against": int(game.get("points_off_turnovers_against") or 0),
         }
-        # Opponent-keyed XML rows are already in team perspective.
+        # Opponent-keyed XML game rows are stored in opponent perspective.
+        # Convert to team perspective for apples-to-apples reconciliation.
         cfb = {
-            "gained": int(tov_row.get("turnovers_forced") or 0),
-            "lost": int(tov_row.get("turnovers") or 0),
-            "int_lost": int(tov_row.get("interceptions") or 0),
-            "fum_lost": int(tov_row.get("fumbles_lost") or 0),
-            "pot_for": int(pot_row.get("points_off_turnovers") or 0),
-            "pot_against": int(pot_row.get("points_off_turnovers_allowed") or 0),
+            "gained": int(tov_row.get("turnovers") or 0),
+            "lost": int(tov_row.get("turnovers_forced") or 0),
+            "int_gained": int(tov_row.get("interceptions") or 0),
+            "fum_gained": int(tov_row.get("fumbles_lost") or 0),
+            "pot_for": int(pot_row.get("points_off_turnovers_allowed") or 0),
+            "pot_against": int(pot_row.get("points_off_turnovers") or 0),
         }
         delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
         in_sync = all(v == 0 for v in delta.values())
