@@ -42,40 +42,59 @@ def _trend_arrow(current, l3, higher_is_better: bool = True) -> str:
     return f" <span style=\"color: {color};\">{arrow}</span>"
 
 
+def _to_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _rate(n: int, d: int) -> float:
-    if not d:
-        return 0.0
+    if not isinstance(n, (int, float)) or not isinstance(d, (int, float)) or not d:
+        return None
     return round((n / d) * 100.0, 1)
 
 
 def _team_zone_stats(team: dict) -> dict:
     xml_rz = _xml_row(team, "red_zone")
+    games = _games(team)
+    trz_trips = _sum(games, "tight_red_zone_trips")
+    trz_tds = _sum(games, "tight_red_zone_tds")
+    trz_fgs = _sum(games, "tight_red_zone_fgs")
+    gz_trips = _sum(games, "green_zone_trips")
+    gz_tds = _sum(games, "green_zone_tds")
+    gz_fgs = _sum(games, "green_zone_fgs")
+    gz_failed = _sum(games, "green_zone_failed")
+
     if xml_rz:
         rz_rate = xml_rz.get("rz_td_rate")
-        rz_trips = xml_rz.get("rz_trips", 0) or 0
-        rz_tds = xml_rz.get("rz_tds", 0) or 0
+        rz_trips = xml_rz.get("rz_trips")
+        rz_tds = xml_rz.get("rz_tds")
         if not isinstance(rz_rate, (int, float)):
-            rz_rate = (rz_tds / rz_trips) if rz_trips else 0.0
-        rz_td_pct = round(rz_rate * 100, 1) if rz_rate <= 1 else round(float(rz_rate), 1)
-        rz_eff = round((xml_rz.get("rz_conversion_rate", 0) or 0) * 100, 1)
+            rz_rate = (rz_tds / rz_trips) if isinstance(rz_tds, (int, float)) and isinstance(rz_trips, (int, float)) and rz_trips else None
+        rz_td_pct = (
+            round(rz_rate * 100, 1) if isinstance(rz_rate, (int, float)) and rz_rate <= 1 else
+            round(float(rz_rate), 1) if isinstance(rz_rate, (int, float)) else
+            "N/A"
+        )
+        conv_rate = xml_rz.get("rz_conversion_rate")
+        rz_eff = round(conv_rate * 100, 1) if isinstance(conv_rate, (int, float)) else "N/A"
         return {
-            "rz_trips": rz_trips,
-            "rz_tds": rz_tds,
-            "rz_fgs": xml_rz.get("rz_fgs", 0),
+            "rz_trips": rz_trips if rz_trips is not None else "N/A",
+            "rz_tds": rz_tds if rz_tds is not None else "N/A",
+            "rz_fgs": xml_rz.get("rz_fgs", "N/A"),
             "rz_td_pct": rz_td_pct,
             "rz_eff": rz_eff,
-            "trz_trips": 0,
-            "trz_tds": 0,
-            "trz_fgs": 0,
-            "trz_td_pct": 0.0,
-            "gz_trips": 0,
-            "gz_tds": 0,
-            "gz_fgs": 0,
-            "gz_success": 0.0,
-            "gz_failed": 0,
+            "trz_trips": trz_trips if trz_trips else "N/A",
+            "trz_tds": trz_tds if trz_trips else "N/A",
+            "trz_fgs": trz_fgs if trz_trips else "N/A",
+            "trz_td_pct": _rate(trz_tds, trz_trips) if trz_trips else "N/A",
+            "gz_trips": gz_trips if gz_trips else "N/A",
+            "gz_tds": gz_tds if gz_trips else "N/A",
+            "gz_fgs": gz_fgs if gz_trips else "N/A",
+            "gz_success": _rate(gz_tds + gz_fgs, gz_trips) if gz_trips else "N/A",
+            "gz_failed": gz_failed if gz_trips else "N/A",
         }
-
-    games = _games(team)
     rz_trips = _sum(games, "red_zone_trips")
     rz_tds = _sum(games, "red_zone_tds")
     rz_fgs = _sum(games, "red_zone_fgs")
@@ -129,7 +148,9 @@ def _team_html(team: dict) -> str:
     def _last_n_compare(current, l3_value, suffix: str = "", higher_is_better: bool = True, show_arrow: bool = False) -> str:
         if not show_last_n or l3_value is None:
             return ""
-        arrow = _trend_arrow(current, l3_value, higher_is_better) if show_arrow else ""
+        current_num = _to_float(current)
+        l3_num = _to_float(l3_value)
+        arrow = _trend_arrow(current_num, l3_num, higher_is_better) if show_arrow and current_num is not None and l3_num is not None else ""
         return f" →(L3) {l3_value}{suffix}{arrow}"
 
     return f"""
@@ -186,28 +207,38 @@ def _team_md(team: dict) -> str:
         if l3_gz_trips is not None and l3_gz_tds is not None:
             l3_gz_success = _rate(l3_gz_tds, l3_gz_trips)
 
-        if l3_rz_td_pct is not None and abs(l3_rz_td_pct - stats["rz_td_pct"]) >= 8:
+        rz_now = _to_float(stats.get("rz_td_pct"))
+        trz_now = _to_float(stats.get("trz_td_pct"))
+        gz_now = _to_float(stats.get("gz_success"))
+        l3_rz_num = _to_float(l3_rz_td_pct)
+        l3_trz_num = _to_float(l3_trz_td_pct)
+        l3_gz_num = _to_float(l3_gz_success)
+
+        if l3_rz_num is not None and rz_now is not None and abs(l3_rz_num - rz_now) >= 8:
             rz_note = f" (L{actual_n}: {l3_rz_td_pct}%)"
-        if l3_trz_td_pct is not None and abs(l3_trz_td_pct - stats["trz_td_pct"]) >= 8:
+        if l3_trz_num is not None and trz_now is not None and abs(l3_trz_num - trz_now) >= 8:
             trz_note = f" (L{actual_n}: {l3_trz_td_pct}%)"
-        if l3_gz_success is not None and abs(l3_gz_success - stats["gz_success"]) >= 8:
+        if l3_gz_num is not None and gz_now is not None and abs(l3_gz_num - gz_now) >= 8:
             gz_note = f" (L{actual_n}: {l3_gz_success}%)"
+    rz_td = f"{stats['rz_td_pct']}%" if isinstance(stats.get("rz_td_pct"), (int, float)) else "N/A"
+    trz_td = f"{stats['trz_td_pct']}%" if isinstance(stats.get("trz_td_pct"), (int, float)) else "N/A"
+    gz_success = f"{stats['gz_success']}%" if isinstance(stats.get("gz_success"), (int, float)) else "N/A"
     return "\n".join([
         f"*{team['display_name']}*",
-        f"- Red Zone TD%: {stats['rz_td_pct']}%{rz_note}",
-        f"- Tight RZ TD%: {stats['trz_td_pct']}%{trz_note}",
-        f"- Green Zone Success: {stats['gz_success']}%{gz_note}",
+        f"- Red Zone TD%: {rz_td}{rz_note}",
+        f"- Tight RZ TD%: {trz_td}{trz_note}",
+        f"- Green Zone Success: {gz_success}{gz_note}",
     ])
 
 
 def build(team1: dict, team2: dict) -> dict:
     """Red zone, tight red zone, green zone section."""
-    t1_stats = _team_zone_stats(team1) if team1.get("has_pbp") else {"rz_td_pct": 0}
-    t2_stats = _team_zone_stats(team2) if team2.get("has_pbp") else {"rz_td_pct": 0}
+    t1_stats = _team_zone_stats(team1) if team1.get("has_pbp") else {"rz_td_pct": "N/A"}
+    t2_stats = _team_zone_stats(team2) if team2.get("has_pbp") else {"rz_td_pct": "N/A"}
     t1_name = team1.get("display_name", "Team 1")
     t2_name = team2.get("display_name", "Team 2")
-    t1_rz = t1_stats.get("rz_td_pct", 0)
-    t2_rz = t2_stats.get("rz_td_pct", 0)
+    t1_rz = t1_stats.get("rz_td_pct", "N/A")
+    t2_rz = t2_stats.get("rz_td_pct", "N/A")
 
     html_content = f"""
     <div class="metric-compare"><p>{t1_name}: {t1_rz}% | {t2_name}: {t2_rz}% Red Zone TD%</p></div>

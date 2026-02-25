@@ -201,6 +201,202 @@ def _estimate_points_from_play_tree(play_tree: object, team_abbr: str | None, op
     return points[team], points[opp]
 
 
+def _parse_down(down_distance: object) -> int | None:
+    text = str(down_distance or "").strip()
+    if not text:
+        return None
+    head = text.split("-", 1)[0].strip()
+    if head.isdigit():
+        value = int(head)
+        return value if 1 <= value <= 4 else None
+    return None
+
+
+def _parse_int(pattern: str, text: str) -> int | None:
+    match = re.search(pattern, text, re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except Exception:
+        return None
+
+
+def _yards_to_goal_from_spot(spot: object, offense_abbr: str, opp_abbr: str) -> int | None:
+    text = str(spot or "").strip().upper()
+    if not text:
+        return None
+    if text == "50":
+        return 50
+    m = re.search(r"(\d{1,2})$", text)
+    if not m:
+        return None
+    yard = int(m.group(1))
+    offense_abbr = (offense_abbr or "").upper()
+    opp_abbr = (opp_abbr or "").upper()
+    if opp_abbr and opp_abbr in text:
+        return yard
+    if offense_abbr and offense_abbr in text:
+        return 100 - yard
+    return yard if yard <= 50 else 100 - yard
+
+
+def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> dict:
+    team = (team_abbr or "").upper()
+    opp = (opp_abbr or "").upper()
+    if not team or not opp:
+        return {}
+
+    third_att = third_conv = 0
+    fourth_att = fourth_conv = 0
+    penalty_count = penalty_yards = 0
+    penalties_off = penalties_def = penalties_st = 0
+    punts = punt_yards = punts_inside_20 = punt_touchbacks = punt_long = 0
+    punt_returns = punt_return_yards = punt_return_long = punt_return_20_plus = 0
+    kick_returns = kick_return_yards = kick_return_long = kick_return_30_plus = 0
+    rz_trips = rz_tds = rz_fgs = 0
+    trz_trips = trz_tds = trz_fgs = 0
+    gz_trips = gz_tds = gz_fgs = gz_failed = 0
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            drive_rz = drive_trz = drive_gz = False
+            drive_td = drive_fg = False
+            for play in drive.get("plays") or []:
+                if not isinstance(play, dict) or play.get("is_no_play"):
+                    continue
+                desc = str(play.get("description") or "")
+                desc_up = desc.upper()
+                offense = str(play.get("offense") or "").upper()
+                down = _parse_down(play.get("down_distance"))
+
+                if offense == team and play.get("is_scrimmage_play"):
+                    ytg = _yards_to_goal_from_spot(play.get("spot"), team, opp)
+                    if isinstance(ytg, int):
+                        if ytg <= 40:
+                            drive_gz = True
+                        if ytg <= 20:
+                            drive_rz = True
+                        if ytg <= 10:
+                            drive_trz = True
+                    if "TOUCHDOWN" in desc_up:
+                        drive_td = True
+                    if "FIELD GOAL" in desc_up and "GOOD" in desc_up:
+                        drive_fg = True
+
+                if offense == team and down in (3, 4):
+                    if down == 3:
+                        third_att += 1
+                    else:
+                        fourth_att += 1
+                    if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
+                        if down == 3:
+                            third_conv += 1
+                        else:
+                            fourth_conv += 1
+
+                if "PENALTY" in desc_up:
+                    penalty_count += 1
+                    y = _parse_int(r"(\d+)\s*yards?", desc) or 0
+                    penalty_yards += y
+                    if offense == team:
+                        penalties_off += 1
+                    elif offense == opp:
+                        penalties_def += 1
+                    else:
+                        penalties_st += 1
+
+                if offense == team and " PUNT " in f" {desc_up} ":
+                    py = _parse_int(r"punt\s+(\d+)\s+yards?", desc) or 0
+                    punts += 1
+                    punt_yards += py
+                    punt_long = max(punt_long, py)
+                    if "TOUCHBACK" in desc_up:
+                        punt_touchbacks += 1
+                    dest = _parse_int(r"to the [A-Z]{2,4}(\d{1,2})", desc)
+                    if dest is not None and 0 <= dest <= 20:
+                        punts_inside_20 += 1
+                    ret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
+                    if ret > 0:
+                        punt_returns += 1
+                        punt_return_yards += ret
+                        punt_return_long = max(punt_return_long, ret)
+                        if ret >= 20:
+                            punt_return_20_plus += 1
+
+                if offense == opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
+                    kret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
+                    if kret > 0:
+                        kick_returns += 1
+                        kick_return_yards += kret
+                        kick_return_long = max(kick_return_long, kret)
+                        if kret >= 30:
+                            kick_return_30_plus += 1
+
+            if drive_gz:
+                gz_trips += 1
+                if drive_td:
+                    gz_tds += 1
+                elif drive_fg:
+                    gz_fgs += 1
+                else:
+                    gz_failed += 1
+            if drive_rz:
+                rz_trips += 1
+                if drive_td:
+                    rz_tds += 1
+                elif drive_fg:
+                    rz_fgs += 1
+            if drive_trz:
+                trz_trips += 1
+                if drive_td:
+                    trz_tds += 1
+                elif drive_fg:
+                    trz_fgs += 1
+
+    special_teams = {
+        "punts": punts,
+        "punt_yards": punt_yards,
+        "punt_long": punt_long,
+        "punts_inside_20": punts_inside_20,
+        "punt_touchbacks": punt_touchbacks,
+        "punt_returns": punt_returns,
+        "punt_return_yards": punt_return_yards,
+        "punt_return_long": punt_return_long,
+        "punt_return_20_plus": punt_return_20_plus,
+        "kickoff_returns": kick_returns,
+        "kickoff_return_yards": kick_return_yards,
+        "kickoff_return_long": kick_return_long,
+        "kick_return_30_plus": kick_return_30_plus,
+    }
+
+    return {
+        "third_down_attempts": third_att,
+        "third_down_conversions": third_conv,
+        "4th_down_attempts": fourth_att,
+        "4th_down_conversions": fourth_conv,
+        "penalties": penalty_count,
+        "penalty_yards": penalty_yards,
+        "penalties_offense": penalties_off,
+        "penalties_defense": penalties_def,
+        "penalties_special_teams": penalties_st,
+        "red_zone_trips": rz_trips,
+        "red_zone_tds": rz_tds,
+        "red_zone_fgs": rz_fgs,
+        "tight_red_zone_trips": trz_trips,
+        "tight_red_zone_tds": trz_tds,
+        "tight_red_zone_fgs": trz_fgs,
+        "green_zone_trips": gz_trips,
+        "green_zone_tds": gz_tds,
+        "green_zone_fgs": gz_fgs,
+        "green_zone_failed": gz_failed,
+        "special_teams": special_teams,
+    }
+
+
 def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     stats = payload.get("stats") or {}
     home_abbr = _bundle_home_abbr(stats)
@@ -248,6 +444,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         opp_abbr = g.get("opponent_abbr") or g.get("opponent")
         play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
         game_rollup = _rollup_game_from_play_tree(play_tree, home_abbr, opp_abbr)
+        game_detail = _derive_game_detail_stats(play_tree, home_abbr, opp_abbr)
         estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, home_abbr, opp_abbr)
         raw_pf = g.get("points_for")
         raw_pa = g.get("points_against")
@@ -274,6 +471,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
             "play_tree": play_tree,
         }
         game.update(game_rollup)
+        game.update(game_detail)
         games_out.append(game)
 
     return {
@@ -463,6 +661,10 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     wins = losses = ties = 0
     pf_total = pa_total = 0.0
     decided_games = 0
+    third_att = third_conv = 0
+    fourth_att = fourth_conv = 0
+    sacks_allowed = sacks_forced = 0
+    tfl_allowed = tfl_forced = 0
     for g in games:
         pf = g.get("points_for")
         pa = g.get("points_against")
@@ -476,6 +678,28 @@ def _extract_pbp_stats(team_data: dict) -> dict:
                 losses += 1
             else:
                 ties += 1
+        third_att += int(g.get("third_down_attempts") or 0)
+        third_conv += int(g.get("third_down_conversions") or 0)
+        fourth_att += int(g.get("4th_down_attempts") or 0)
+        fourth_conv += int(g.get("4th_down_conversions") or 0)
+        team_abbr = str(team_data.get("abbr") or "").upper()
+        opp_abbr = str(g.get("opponent_abbr") or "").upper()
+        for play in _iter_play_tree_plays(g.get("play_tree") or []):
+            if play.get("is_no_play"):
+                continue
+            offense = str(play.get("offense") or "").upper()
+            desc = str(play.get("description") or "").upper()
+            yards = play.get("yards")
+            if "SACK" in desc:
+                if offense == team_abbr:
+                    sacks_allowed += 1
+                elif offense == opp_abbr:
+                    sacks_forced += 1
+            if isinstance(yards, (int, float)) and yards < 0 and "RUSH" in desc:
+                if offense == team_abbr:
+                    tfl_allowed += 1
+                elif offense == opp_abbr:
+                    tfl_forced += 1
 
     record_fallback = f"{wins}-{losses}" + (f"-{ties}" if ties else "") if decided_games else "N/A"
     ppg_fallback = round(pf_total / decided_games, 1) if decided_games else "N/A"
@@ -490,6 +714,13 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         ppg_val = ppg_fallback
     if opp_ppg_val in ("N/A", None, ""):
         opp_ppg_val = opp_ppg_fallback
+
+    third_down_text = "N/A"
+    if third_att > 0:
+        third_down_text = f"{third_conv}/{third_att} ({round((third_conv / third_att) * 100, 1)}%)"
+    fourth_down_text = "N/A"
+    if fourth_att > 0:
+        fourth_down_text = f"{fourth_conv}/{fourth_att} ({round((fourth_conv / fourth_att) * 100, 1)}%)"
 
     def _best_xml_row(category: str) -> dict:
         cat = xml_stats.get(category) or {}
@@ -533,6 +764,8 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         "passing_defense": rank("passing_defense"),
         "explosives_rank": rank("explosives"),
         "third_down": rank("third_down"),
+        "third_down_derived": third_down_text,
+        "fourth_down_derived": fourth_down_text,
         "red_zone_rank": rank("red_zone"),
         "turnover_rank": rank("turnover_margin"),
         "recent_results": recent,
@@ -549,6 +782,10 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         "last3_middle8_points_against_pg": xml_m8.get("last_3_middle_eight_points_allowed_pg", "N/A"),
         "last3_middle8_games": xml_m8.get("last_n_games", "N/A"),
         "last3_penalties_pg": _best_xml_row("penalties").get("last_3_total_penalties_pg", "N/A"),
+        "sacks_allowed_derived_pg": round(sacks_allowed / decided_games, 1) if decided_games else "N/A",
+        "sacks_forced_derived_pg": round(sacks_forced / decided_games, 1) if decided_games else "N/A",
+        "tfl_allowed_derived_pg": round(tfl_allowed / decided_games, 1) if decided_games else "N/A",
+        "tfl_forced_derived_pg": round(tfl_forced / decided_games, 1) if decided_games else "N/A",
     }
 
 

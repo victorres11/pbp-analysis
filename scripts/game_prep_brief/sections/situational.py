@@ -42,6 +42,10 @@ def _num_display(value: object, suffix: str = "") -> str:
         return "N/A"
 
 
+def _is_na(value: object) -> bool:
+    return value in ("N/A", None, "")
+
+
 def _last_n_games(team: dict, n: int = 3) -> list[dict]:
     games = _games(team)
     return sorted(games, key=lambda g: g.get("game_number", 0))[-n:]
@@ -151,15 +155,17 @@ def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
     games = _games(team)
-    attempts = _sum(games, "4th_down_attempts")
-    conversions = _sum(games, "4th_down_conversions")
-    pct = round((conversions / attempts) * 100, 1) if attempts else 0.0
+    attempts = _sum(games, "4th_down_attempts") if games else None
+    conversions = _sum(games, "4th_down_conversions") if games else None
+    pct = round((conversions / attempts) * 100, 1) if isinstance(attempts, int) and attempts else "N/A"
     per_game = [
         f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {g.get('4th_down_attempts',0)} att"
         for g in sorted(games, key=lambda x: x.get("game_number", 0))
     ]
     per_game_html = "".join(f"<li>{l}</li>" for l in per_game) or "<li>N/A</li>"
     third_down = team.get("stats", {}).get("third_down", "N/A")
+    if third_down in ("N/A", None, ""):
+        third_down = team.get("stats", {}).get("third_down_derived", "N/A")
     blitz_pct = team.get("stats", {}).get("blitz_pct", "N/A")
     blitz_pct_last3 = team.get("stats", {}).get("blitz_pct_last3", "N/A")
     stats = team.get("stats", {}) or {}
@@ -173,9 +179,17 @@ def _team_html(team: dict) -> str:
     off_plays_l3 = last_n_stats.get("offense_plays_per_game", "N/A")
     def_plays_l3 = last_n_stats.get("defense_plays_allowed_per_game", "N/A")
     sacks_allowed_pg = stats.get("pff_sacks_allowed_pg", "N/A")
+    if sacks_allowed_pg in ("N/A", None, ""):
+        sacks_allowed_pg = stats.get("sacks_allowed_derived_pg", "N/A")
     sacks_pg = stats.get("pff_sacks_pg", "N/A")
+    if sacks_pg in ("N/A", None, ""):
+        sacks_pg = stats.get("sacks_forced_derived_pg", "N/A")
     tfl_pg = stats.get("pff_tfl_pg", "N/A")
+    if tfl_pg in ("N/A", None, ""):
+        tfl_pg = stats.get("tfl_forced_derived_pg", "N/A")
     tfl_allowed = ((team.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {}).get("tfl_offense", {}).get("value", "N/A"))
+    if tfl_allowed in ("N/A", None, ""):
+        tfl_allowed = stats.get("tfl_allowed_derived_pg", "N/A")
     mt_pg = stats.get("pff_missed_tackles_pg", "N/A")
     fmt_pg = stats.get("pff_fmt_pg", "N/A")
     targets = _collect_target_tendencies(team)
@@ -193,16 +207,28 @@ def _team_html(team: dict) -> str:
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
-        l3_attempts = last_n.get("fourth_down_attempts", 0)
-        l3_conversions = last_n.get("fourth_down_conversions", 0)
-        l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if l3_attempts else 0.0
+        l3_attempts = last_n.get("fourth_down_attempts", "N/A")
+        l3_conversions = last_n.get("fourth_down_conversions", "N/A")
+        l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if isinstance(l3_attempts, (int, float)) and l3_attempts else "N/A"
         l3_display = f"L{actual_n}: {l3_attempts} att / {l3_conversions} conv ({l3_pct}%)"
-        if l3_pct > pct:
+        if isinstance(l3_pct, (int, float)) and isinstance(pct, (int, float)) and l3_pct > pct:
             last_n_line = f"<li><span style=\"color: #1b7f3a;\">{l3_display}</span></li>"
-        elif l3_pct < pct:
+        elif isinstance(l3_pct, (int, float)) and isinstance(pct, (int, float)) and l3_pct < pct:
             last_n_line = f"<li><span style=\"color: #b3261e;\">{l3_display}</span></li>"
         else:
             last_n_line = f"<li>{l3_display}</li>"
+
+    trenches_unavailable = all(_is_na(v) for v in (sacks_allowed_pg, sacks_pg, tfl_pg, tfl_allowed, mt_pg, fmt_pg))
+    trenches_html = (
+        "<li>XML source currently does not include blitz/missed-tackle charting.</li>"
+        if trenches_unavailable
+        else (
+            f"<li>Sacks Allowed/G: {_num_display(sacks_allowed_pg)}</li>"
+            f"<li>Sacks (Def)/G: {_num_display(sacks_pg)} | TFL/G: {_num_display(tfl_pg)}</li>"
+            f"<li>TFL Allowed (season): {tfl_allowed}</li>"
+            f"<li>Missed Tackles/G: {_num_display(mt_pg)} | FMT/G: {_num_display(fmt_pg)}</li>"
+        )
+    )
 
     return f"""
     <div class="team-card">
@@ -237,10 +263,7 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Trenches Snapshot</h4>
         <ul>
-          <li>Sacks Allowed/G: {_num_display(sacks_allowed_pg)}</li>
-          <li>Sacks (Def)/G: {_num_display(sacks_pg)} | TFL/G: {_num_display(tfl_pg)}</li>
-          <li>TFL Allowed (season): {tfl_allowed}</li>
-          <li>Missed Tackles/G: {_num_display(mt_pg)} | FMT/G: {_num_display(fmt_pg)}</li>
+          {trenches_html}
         </ul>
       </div>
       <div class="block">
@@ -254,8 +277,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>4th Down</h4>
         <ul>
-          <li>Attempts / Conversions: {attempts} / {conversions}</li>
-          <li>Conversion %: {pct}%</li>
+          <li>Attempts / Conversions: {attempts if attempts is not None else 'N/A'} / {conversions if conversions is not None else 'N/A'}</li>
+          <li>Conversion %: {f"{pct}%" if isinstance(pct, (int, float)) else "N/A"}</li>
           {last_n_line}
           <li>CFBStats: {_fourth_down_rank(team)}</li>
         </ul>
@@ -272,10 +295,12 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- 3rd/4th Down: N/A"
     games = _games(team)
-    attempts = _sum(games, "4th_down_attempts")
-    conversions = _sum(games, "4th_down_conversions")
-    pct = round((conversions / attempts) * 100, 1) if attempts else 0.0
+    attempts = _sum(games, "4th_down_attempts") if games else "N/A"
+    conversions = _sum(games, "4th_down_conversions") if games else "N/A"
+    pct = round((conversions / attempts) * 100, 1) if isinstance(attempts, (int, float)) and attempts else "N/A"
     third_down = team.get("stats", {}).get("third_down", "N/A")
+    if third_down in ("N/A", None, ""):
+        third_down = team.get("stats", {}).get("third_down_derived", "N/A")
     blitz_pct = team.get("stats", {}).get("blitz_pct", "N/A")
     blitz_pct_last3 = team.get("stats", {}).get("blitz_pct_last3", "N/A")
     stats = team.get("stats", {}) or {}
@@ -289,8 +314,14 @@ def _team_md(team: dict) -> str:
     off_plays_l3 = last_n_stats.get("offense_plays_per_game", "N/A")
     def_plays_l3 = last_n_stats.get("defense_plays_allowed_per_game", "N/A")
     sacks_allowed_pg = stats.get("pff_sacks_allowed_pg", "N/A")
+    if sacks_allowed_pg in ("N/A", None, ""):
+        sacks_allowed_pg = stats.get("sacks_allowed_derived_pg", "N/A")
     sacks_pg = stats.get("pff_sacks_pg", "N/A")
+    if sacks_pg in ("N/A", None, ""):
+        sacks_pg = stats.get("sacks_forced_derived_pg", "N/A")
     tfl_pg = stats.get("pff_tfl_pg", "N/A")
+    if tfl_pg in ("N/A", None, ""):
+        tfl_pg = stats.get("tfl_forced_derived_pg", "N/A")
     mt_pg = stats.get("pff_missed_tackles_pg", "N/A")
     fmt_pg = stats.get("pff_fmt_pg", "N/A")
     targets = _collect_target_tendencies(team)
@@ -300,21 +331,32 @@ def _team_md(team: dict) -> str:
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
-        l3_attempts = last_n.get("fourth_down_attempts", 0)
-        l3_conversions = last_n.get("fourth_down_conversions", 0)
-        l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if l3_attempts else 0.0
-        if abs(l3_pct - pct) >= 8:
+        l3_attempts = last_n.get("fourth_down_attempts", "N/A")
+        l3_conversions = last_n.get("fourth_down_conversions", "N/A")
+        l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if isinstance(l3_attempts, (int, float)) and l3_attempts else "N/A"
+        if isinstance(l3_pct, (int, float)) and isinstance(pct, (int, float)) and abs(l3_pct - pct) >= 8:
             last_n_suffix = f" (L{actual_n}: {l3_conversions}/{l3_attempts}, {l3_pct}%)"
+    trenches_line = (
+        "- Sacks Allowed/Sacks/TFL: XML-only coverage; advanced charting unavailable"
+        if all(_is_na(v) for v in (sacks_allowed_pg, sacks_pg, tfl_pg))
+        else f"- Sacks Allowed/Sacks/TFL: {sacks_allowed_pg}/{sacks_pg}/{tfl_pg}"
+    )
+    miss_fmt_line = (
+        "- Missed Tackles/FMT: XML-only coverage; advanced charting unavailable"
+        if all(_is_na(v) for v in (mt_pg, fmt_pg))
+        else f"- Missed Tackles/FMT: {mt_pg}/{fmt_pg}"
+    )
+
     return "\n".join([
         f"*{team['display_name']}*",
         f"- 3rd Down: {third_down}",
         f"- Blitz %: {blitz_pct} (L3: {blitz_pct_last3})",
         f"- Negative Plays O/D: {neg_off}/{neg_def} (L3: {neg_off_l3}/{neg_def_l3})",
         f"- Plays/G O/D: {off_plays_pg}/{def_plays_pg} (L3: {off_plays_l3}/{def_plays_l3})",
-        f"- Sacks Allowed/Sacks/TFL: {sacks_allowed_pg}/{sacks_pg}/{tfl_pg}",
-        f"- Missed Tackles/FMT: {mt_pg}/{fmt_pg}",
+        trenches_line,
+        miss_fmt_line,
         f"- Top Targets (L3) 3rd/RZ: {top_3d} / {top_rz}",
-        f"- 4th Down: {conversions}/{attempts} ({pct}%){last_n_suffix}",
+        f"- 4th Down: {conversions}/{attempts} ({f'{pct}%' if isinstance(pct, (int, float)) else 'N/A'}){last_n_suffix}",
     ])
 
 

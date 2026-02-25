@@ -38,7 +38,7 @@ def _season_summary(team: dict) -> list[str]:
     conf_record = stats.get("conf_record", "")
     conf = team.get("conference", "")
     record_line = record
-    if conf_record and conf_record != "0-0":
+    if conf_record and conf_record not in {"0-0", "N/A"}:
         record_line = f"{record} ({conf_record} {conf})"
     ppg = stats.get("ppg", "N/A")
     opp_ppg = stats.get("opp_ppg", "N/A")
@@ -104,7 +104,7 @@ def _team_md(team: dict) -> str:
     conf_record = stats.get("conf_record", "")
     conf = team.get("conference", "")
     record_line = record
-    if conf_record and conf_record != "0-0":
+    if conf_record and conf_record not in {"0-0", "N/A"}:
         record_line = f"{record} ({conf_record} {conf})"
     lines.append(f"- Record: {record_line}")
 
