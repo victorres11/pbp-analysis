@@ -438,6 +438,7 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     agg = team_data.get("aggregates", {})
     rankings = team_data.get("cfbstats", {}).get("rankings", {}).get("all", {})
     games = team_data.get("games", [])
+    xml_stats = team_data.get("xml_stats") or {}
 
     def rank(key: str) -> str:
         r = rankings.get(key, {})
@@ -490,6 +491,27 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     if opp_ppg_val in ("N/A", None, ""):
         opp_ppg_val = opp_ppg_fallback
 
+    def _best_xml_row(category: str) -> dict:
+        cat = xml_stats.get(category) or {}
+        if not isinstance(cat, dict) or not cat:
+            return {}
+        key = team_data.get("abbr")
+        if key and isinstance(cat.get(key), dict):
+            return cat.get(key) or {}
+        _, row = max(
+            cat.items(),
+            key=lambda item: (
+                item[1].get("games")
+                if isinstance(item[1], dict) and isinstance(item[1].get("games"), int)
+                else 0
+            ),
+        )
+        return row if isinstance(row, dict) else {}
+
+    xml_tov = _best_xml_row("turnovers")
+    xml_pot = _best_xml_row("points_off_turnovers")
+    xml_m8 = _best_xml_row("middle_eight")
+
     return {
         "record": record_val,
         "conf_record": agg.get("conf_record", "N/A"),
@@ -517,6 +539,16 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         "color": team_data.get("color", "#888888"),
         "conference": team_data.get("conference", ""),
         "abbr": team_data.get("abbr", ""),
+        "last3_turnovers_gained": xml_tov.get("last_n_turnovers_forced", "N/A"),
+        "last3_turnovers_lost": xml_tov.get("last_n_turnovers", "N/A"),
+        "last3_points_off_turnovers_for": xml_pot.get("last_3_points_off_turnovers", "N/A"),
+        "last3_points_off_turnovers_against": xml_pot.get("last_3_points_off_turnovers_allowed", "N/A"),
+        "last3_middle8_points_for": xml_m8.get("last_3_middle_eight_points", "N/A"),
+        "last3_middle8_points_against": xml_m8.get("last_3_middle_eight_points_allowed", "N/A"),
+        "last3_middle8_points_for_pg": xml_m8.get("last_3_middle_eight_points_pg", "N/A"),
+        "last3_middle8_points_against_pg": xml_m8.get("last_3_middle_eight_points_allowed_pg", "N/A"),
+        "last3_middle8_games": xml_m8.get("last_n_games", "N/A"),
+        "last3_penalties_pg": _best_xml_row("penalties").get("last_3_total_penalties_pg", "N/A"),
     }
 
 
@@ -858,6 +890,57 @@ def gather_team_data(
         pbp_stats["offense_plays_per_game"] = offense_plays_pg
         pbp_stats["defense_plays_allowed_per_game"] = round(sum(defense_counts) / len(defense_counts), 1) if defense_counts else "N/A"
     last_n_stats = compute_last_n_stats(games, last_n)
+    # Prefer XML bundle last-3 aggregates when available; per-game mirrors can be incomplete.
+    if isinstance(pbp_stats.get("last3_turnovers_gained"), (int, float)) and isinstance(
+        pbp_stats.get("last3_turnovers_lost"), (int, float)
+    ):
+        last_n_stats["turnovers_gained"] = int(pbp_stats["last3_turnovers_gained"])
+        last_n_stats["turnovers_lost"] = int(pbp_stats["last3_turnovers_lost"])
+        last_n_stats["turnover_margin"] = int(pbp_stats["last3_turnovers_gained"]) - int(
+            pbp_stats["last3_turnovers_lost"]
+        )
+    if isinstance(pbp_stats.get("last3_points_off_turnovers_for"), (int, float)):
+        last_n_stats["points_off_turnovers_for"] = int(pbp_stats["last3_points_off_turnovers_for"])
+    if isinstance(pbp_stats.get("last3_points_off_turnovers_against"), (int, float)):
+        last_n_stats["points_off_turnovers_against"] = int(
+            pbp_stats["last3_points_off_turnovers_against"]
+        )
+    if isinstance(pbp_stats.get("last3_middle8_points_for"), (int, float)):
+        last_n_stats["middle8_points_for"] = int(pbp_stats["last3_middle8_points_for"])
+    if isinstance(pbp_stats.get("last3_middle8_points_against"), (int, float)):
+        last_n_stats["middle8_points_against"] = int(pbp_stats["last3_middle8_points_against"])
+    needs_m8_for = (
+        not isinstance(last_n_stats.get("middle8_points_for"), (int, float))
+        or last_n_stats.get("middle8_points_for") == 0
+    )
+    if needs_m8_for and isinstance(pbp_stats.get("last3_middle8_points_for_pg"), (int, float)):
+        n_games = (
+            int(pbp_stats["last3_middle8_games"])
+            if isinstance(pbp_stats.get("last3_middle8_games"), (int, float))
+            else int(last_n_stats.get("actual_n", 3) or 3)
+        )
+        last_n_stats["middle8_points_for"] = int(round(float(pbp_stats["last3_middle8_points_for_pg"]) * n_games))
+    needs_m8_against = (
+        not isinstance(last_n_stats.get("middle8_points_against"), (int, float))
+        or last_n_stats.get("middle8_points_against") == 0
+    )
+    if needs_m8_against and isinstance(pbp_stats.get("last3_middle8_points_against_pg"), (int, float)):
+        n_games = (
+            int(pbp_stats["last3_middle8_games"])
+            if isinstance(pbp_stats.get("last3_middle8_games"), (int, float))
+            else int(last_n_stats.get("actual_n", 3) or 3)
+        )
+        last_n_stats["middle8_points_against"] = int(
+            round(float(pbp_stats["last3_middle8_points_against_pg"]) * n_games)
+        )
+    if isinstance(last_n_stats.get("middle8_points_for"), (int, float)) and isinstance(
+        last_n_stats.get("middle8_points_against"), (int, float)
+    ):
+        last_n_stats["middle8_margin"] = int(last_n_stats["middle8_points_for"]) - int(
+            last_n_stats["middle8_points_against"]
+        )
+    if isinstance(pbp_stats.get("last3_penalties_pg"), (int, float)):
+        last_n_stats["penalties_per_game"] = float(pbp_stats["last3_penalties_pg"])
 
     conference = pbp_stats.get("conference", "")
 
