@@ -1260,11 +1260,9 @@ def _parse_int(pattern: str, text: str) -> int | None:
         return None
 
 
-def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: object) -> tuple[int, int] | None:
-    team_aliases = _abbr_set(team_abbr)
-    if not team_aliases or _upstream_fourth_down_stats is None or ParserPlay is None:
-        return None
-    team = sorted(team_aliases)[0]
+def _parser_plays_from_play_tree(play_tree: object) -> list[ParserPlay]:
+    if ParserPlay is None:
+        return []
     parser_plays: list[ParserPlay] = []
     for quarter in play_tree or []:
         if not isinstance(quarter, dict):
@@ -1283,7 +1281,7 @@ def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: obje
                 parser_plays.append(
                     ParserPlay(
                         quarter=qnum,
-                        offense=(str(play.get("offense") or "").upper() or None),
+                        offense=(str(play.get("offense") or "").upper().strip() or None),
                         clock=(str(play.get("clock") or "").strip() or None),
                         down_distance=(str(play.get("down_distance") or "").strip() or None),
                         spot=(str(play.get("spot") or "").strip() or None),
@@ -1295,6 +1293,15 @@ def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: obje
                         is_scoring=bool(play.get("is_scoring")),
                     )
                 )
+    return parser_plays
+
+
+def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: object) -> tuple[int, int] | None:
+    team_aliases = _abbr_set(team_abbr)
+    if not team_aliases or _upstream_fourth_down_stats is None or ParserPlay is None:
+        return None
+    team = sorted(team_aliases)[0]
+    parser_plays = _parser_plays_from_play_tree(play_tree)
     if not parser_plays:
         return None
     try:
@@ -1324,46 +1331,18 @@ def _compute_red_zone_20_stats_from_play_tree(
     ):
         return None
 
-    parser_plays: list[ParserPlay] = []
-    team_tokens: dict[str, int] = {}
-    opp_tokens: dict[str, int] = {}
-    for quarter in play_tree or []:
-        if not isinstance(quarter, dict):
-            continue
-        quarter_num = quarter.get("quarter")
-        qnum = quarter_num if isinstance(quarter_num, int) and quarter_num > 0 else 1
-        for drive in quarter.get("drives") or []:
-            if not isinstance(drive, dict):
-                continue
-            for play in drive.get("plays") or []:
-                if not isinstance(play, dict):
-                    continue
-                desc = str(play.get("description") or "")
-                if not desc:
-                    continue
-                offense = str(play.get("offense") or "").upper().strip() or None
-                if offense is not None:
-                    if offense in team_aliases:
-                        team_tokens[offense] = team_tokens.get(offense, 0) + 1
-                    if offense in opp_aliases:
-                        opp_tokens[offense] = opp_tokens.get(offense, 0) + 1
-                parser_plays.append(
-                    ParserPlay(
-                        quarter=qnum,
-                        offense=offense,
-                        clock=(str(play.get("clock") or "").strip() or None),
-                        down_distance=(str(play.get("down_distance") or "").strip() or None),
-                        spot=(str(play.get("spot") or "").strip() or None),
-                        description=desc,
-                        yards=play.get("yards") if isinstance(play.get("yards"), int) else None,
-                        is_no_play=bool(play.get("is_no_play")),
-                        is_scrimmage_play=bool(play.get("is_scrimmage_play")),
-                        is_turnover=bool(play.get("is_turnover")),
-                        is_scoring=bool(play.get("is_scoring")),
-                    )
-                )
+    parser_plays = _parser_plays_from_play_tree(play_tree)
     if not parser_plays:
         return None
+
+    team_tokens: dict[str, int] = {}
+    opp_tokens: dict[str, int] = {}
+    for play in parser_plays:
+        offense = (play.offense or "").upper()
+        if offense in team_aliases:
+            team_tokens[offense] = team_tokens.get(offense, 0) + 1
+        if offense in opp_aliases:
+            opp_tokens[offense] = opp_tokens.get(offense, 0) + 1
 
     team = max(team_tokens, key=team_tokens.get) if team_tokens else sorted(team_aliases)[0]
     opp = max(opp_tokens, key=opp_tokens.get) if opp_tokens else sorted(opp_aliases)[0]
