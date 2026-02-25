@@ -3,6 +3,22 @@ import re
 from collections import defaultdict
 
 
+def _abbr_set(value: object) -> set[str]:
+    if isinstance(value, str):
+        cleaned = value.strip().upper()
+        return {cleaned} if cleaned else set()
+    if isinstance(value, (list, tuple, set)):
+        out: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            cleaned = item.strip().upper()
+            if cleaned:
+                out.add(cleaned)
+        return out
+    return set()
+
+
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
     return pbp.get("games", [])
@@ -157,10 +173,39 @@ def _collect_target_tendencies(team: dict) -> dict:
     return {"third_down": _rows(third_down), "red_zone": _rows(red_zone)}
 
 
+def _third_down_from_games(team: dict, games: list[dict]) -> tuple[int, int, float | str]:
+    pbp = team.get("pbp_entry") or {}
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
+    if not team_aliases:
+        return 0, 0, "N/A"
+
+    attempts = 0
+    conversions = 0
+    for g in games:
+        for q in g.get("play_tree") or []:
+            for drive in q.get("drives") or []:
+                for p in drive.get("plays") or []:
+                    if p.get("is_no_play"):
+                        continue
+                    offense = str(p.get("offense") or "").upper()
+                    if offense not in team_aliases:
+                        continue
+                    dd = str(p.get("down_distance") or "").upper().strip()
+                    if not (dd.startswith("3-") or dd.startswith("3RD")):
+                        continue
+                    attempts += 1
+                    desc_up = str(p.get("description") or "").upper()
+                    if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
+                        conversions += 1
+    pct = round((conversions / attempts) * 100, 1) if attempts else "N/A"
+    return conversions, attempts, pct
+
+
 def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
     games = _games(team)
+    third_conv, third_att, third_pct_derived = _third_down_from_games(team, games)
     attempts = _sum(games, "4th_down_attempts") if games else None
     conversions = _sum(games, "4th_down_conversions") if games else None
     pct = round((conversions / attempts) * 100, 1) if isinstance(attempts, int) and attempts else "N/A"
@@ -210,9 +255,17 @@ def _team_html(team: dict) -> str:
         for r in rz_targets
     ) or "<li>N/A</li>"
     last_n_line = ""
+    third_down_l3_line = ""
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
+        l3_games = sorted(games, key=lambda g: g.get("game_number", 0))[-actual_n:] if actual_n else []
+        l3_3d_conv, l3_3d_att, l3_3d_pct = _third_down_from_games(team, l3_games)
+        if l3_3d_att:
+            third_down_l3_line = (
+                f"<li>L{actual_n} Conversions / Attempts: {l3_3d_conv} / {l3_3d_att} "
+                f"({l3_3d_pct if isinstance(l3_3d_pct, (int, float)) else 'N/A'}%)</li>"
+            )
         l3_attempts = last_n.get("fourth_down_attempts", "N/A")
         l3_conversions = last_n.get("fourth_down_conversions", "N/A")
         l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if isinstance(l3_attempts, (int, float)) and l3_attempts else "N/A"
@@ -243,6 +296,8 @@ def _team_html(team: dict) -> str:
         <h4>3rd Down</h4>
         <ul>
           <li>CFBStats: {third_down}</li>
+          <li>Conversions / Attempts (PBP): {third_conv} / {third_att} ({f"{third_pct_derived}%" if isinstance(third_pct_derived, (int, float)) else "N/A"})</li>
+          {third_down_l3_line}
         </ul>
       </div>
       <div class="block">
@@ -301,6 +356,7 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- 3rd/4th Down: N/A"
     games = _games(team)
+    third_conv, third_att, third_pct_derived = _third_down_from_games(team, games)
     attempts = _sum(games, "4th_down_attempts") if games else "N/A"
     conversions = _sum(games, "4th_down_conversions") if games else "N/A"
     pct = round((conversions / attempts) * 100, 1) if isinstance(attempts, (int, float)) and attempts else "N/A"
@@ -334,9 +390,14 @@ def _team_md(team: dict) -> str:
     top_3d = targets["third_down"][0]["receiver"] if targets["third_down"] else "N/A"
     top_rz = targets["red_zone"][0]["receiver"] if targets["red_zone"] else "N/A"
     last_n_suffix = ""
+    third_down_l3_suffix = ""
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
+        l3_games = sorted(games, key=lambda g: g.get("game_number", 0))[-actual_n:] if actual_n else []
+        l3_3d_conv, l3_3d_att, l3_3d_pct = _third_down_from_games(team, l3_games)
+        if l3_3d_att:
+            third_down_l3_suffix = f" (L{actual_n}: {l3_3d_conv}/{l3_3d_att}, {l3_3d_pct}%)"
         l3_attempts = last_n.get("fourth_down_attempts", "N/A")
         l3_conversions = last_n.get("fourth_down_conversions", "N/A")
         l3_pct = round((l3_conversions / l3_attempts) * 100, 1) if isinstance(l3_attempts, (int, float)) and l3_attempts else "N/A"
@@ -355,7 +416,7 @@ def _team_md(team: dict) -> str:
 
     return "\n".join([
         f"*{team['display_name']}*",
-        f"- 3rd Down: {third_down}",
+        f"- 3rd Down: {third_down} · {third_conv}/{third_att} ({f'{third_pct_derived}%' if isinstance(third_pct_derived, (int, float)) else 'N/A'}){third_down_l3_suffix}",
         f"- Blitz %: {_display_or_unavailable(blitz_pct, '%')} (L3: {_display_or_unavailable(blitz_pct_last3, '%')})",
         f"- Negative Plays O/D: {neg_off}/{neg_def} (L3: {neg_off_l3}/{neg_def_l3})",
         f"- Plays/G O/D: {off_plays_pg}/{def_plays_pg} (L3: {off_plays_l3}/{def_plays_l3})",
