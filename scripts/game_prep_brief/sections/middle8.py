@@ -1,8 +1,6 @@
 from __future__ import annotations
 import re
 
-from .delta import metric_delta_html, metric_delta_md
-
 
 def _parse_play_fields(p: dict) -> dict:
     """Extract yards, type, player from description when raw fields are missing."""
@@ -98,6 +96,21 @@ def _sum(games: list[dict], key: str) -> int:
     return sum(g.get(key, 0) or 0 for g in games)
 
 
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def _scoring_plays(games: list[dict]) -> list[str]:
     plays = []
     for g in games:
@@ -149,8 +162,9 @@ def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
     games = _games(team)
-    pts_for = _sum(games, "middle8_points_for")
-    pts_against = _sum(games, "middle8_points_against")
+    xml_m8 = _xml_row(team, "middle_eight")
+    pts_for = xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for"))
+    pts_against = xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against"))
     margin = pts_for - pts_against
     per_game = [
         f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {g.get('middle8_points_for',0)}-{g.get('middle8_points_against',0)}"
@@ -208,8 +222,9 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- Middle 8: N/A"
     games = _games(team)
-    pts_for = _sum(games, "middle8_points_for")
-    pts_against = _sum(games, "middle8_points_against")
+    xml_m8 = _xml_row(team, "middle_eight")
+    pts_for = xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for"))
+    pts_against = xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against"))
     margin = pts_for - pts_against
     last_n_note = ""
     if _should_show_last_n(team):
@@ -231,28 +246,7 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Middle 8 momentum section."""
-    t1_games = _games(team1)
-    t2_games = _games(team2)
-    t1_margin = _sum(t1_games, "middle8_points_for") - _sum(t1_games, "middle8_points_against")
-    t2_margin = _sum(t2_games, "middle8_points_for") - _sum(t2_games, "middle8_points_against")
-    delta_html = metric_delta_html(
-        "Middle 8 Margin",
-        team1["display_name"],
-        t1_margin,
-        team2["display_name"],
-        t2_margin,
-        higher_is_better=True,
-    )
-    delta_md = metric_delta_md(
-        "Middle 8 Margin",
-        team1["display_name"],
-        t1_margin,
-        team2["display_name"],
-        t2_margin,
-        higher_is_better=True,
-    )
     html_content = f"""
-    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -260,7 +254,6 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Middle 8*",
-        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

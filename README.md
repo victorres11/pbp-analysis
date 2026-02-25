@@ -51,7 +51,10 @@ Outputs default to:
 - `outputs/game_prep_brief/*.html`
 
 Notes:
-- Uses `data.json` as the base source.
+- Uses XML/StatBroadcast bundle source by default (`GAME_PREP_DATA_SOURCE=xml`).
+- Default XML bundle path: `../yr-data-api/data/pbp_stats_bundle.json`
+  - Override with `GAME_PREP_XML_BUNDLE_PATH=/path/to/pbp_stats_bundle.json`
+- Set `GAME_PREP_DATA_SOURCE=local` to force legacy `data.json` source.
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
 
@@ -74,6 +77,11 @@ open app/index.html
 python3 -m http.server 8000 --directory app
 # Then visit http://localhost:8000
 ```
+
+### Export/Print Status
+- Legacy in-app print/export menu flow is deprecated and no longer exposed in the UI.
+- Supported export workflow is the standalone Game Prep Brief renderer:
+  - `python3 -m scripts.game_prep_brief "<Team A>" "<Team B>" --season 2025 --format both`
 
 ## Data Structure
 

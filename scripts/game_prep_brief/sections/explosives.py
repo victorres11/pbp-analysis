@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .delta import metric_delta_html, metric_delta_md
-
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -26,6 +24,21 @@ def _aggregate_explosives(games: list[dict]) -> dict:
     return totals
 
 
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {}) or {}
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
@@ -40,6 +53,68 @@ def _per_game_trend(games: list[dict]) -> list[str]:
             count = (g.get("explosive_passes", 0) or 0) + (g.get("explosive_rushes", 0) or 0)
         trend.append(f"G{g.get('game_number', '?')} vs {opp}: {count}")
     return trend
+
+
+def _iter_offensive_plays(game: dict, team_abbr: str) -> list[dict]:
+    """Flatten quarter/drive play_tree into offense-only play rows."""
+    out: list[dict] = []
+    play_tree = game.get("play_tree") or []
+    for quarter in play_tree:
+        for drive in (quarter.get("drives") or []):
+            for play in (drive.get("plays") or []):
+                if (play.get("offense") or "").upper() != team_abbr:
+                    continue
+                if play.get("is_no_play"):
+                    continue
+                out.append(play)
+    return out
+
+
+def _is_rush(desc: str) -> bool:
+    d = desc.lower()
+    if "kneel" in d:
+        return False
+    return " rush " in f" {d} "
+
+
+def _is_pass(desc: str) -> bool:
+    d = desc.lower()
+    return " pass " in f" {d} "
+
+
+def _to_yards(value: object) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _non_explosive_profile(games: list[dict], team_abbr: str) -> dict:
+    """Avg run/pass yards excluding explosive plays (15+ rush, 20+ pass)."""
+    rush_att = rush_yds = 0.0
+    pass_att = pass_yds = 0.0
+
+    for g in games:
+        for p in _iter_offensive_plays(g, team_abbr):
+            desc = p.get("description") or ""
+            yards = _to_yards(p.get("yards"))
+            if yards is None:
+                continue
+            if _is_rush(desc):
+                if yards < 15:
+                    rush_att += 1
+                    rush_yds += yards
+            elif _is_pass(desc):
+                if yards < 20:
+                    pass_att += 1
+                    pass_yds += yards
+
+    return {
+        "rush_avg": round(rush_yds / rush_att, 2) if rush_att else 0.0,
+        "pass_avg": round(pass_yds / pass_att, 2) if pass_att else 0.0,
+        "rush_att": int(rush_att),
+        "pass_att": int(pass_att),
+    }
 
 
 def _top_explosive_plays(games: list[dict]) -> list[dict]:
@@ -75,8 +150,17 @@ def _team_html(team: dict) -> str:
 
     games = _games(team)
     totals = _aggregate_explosives(games)
+    xml_expl = _xml_row(team, "explosives")
+    if xml_expl:
+        totals = {
+            "explosives": xml_expl.get("explosives", totals["explosives"]),
+            "explosive_passes": xml_expl.get("explosive_pass", totals["explosive_passes"]),
+            "explosive_rushes": xml_expl.get("explosive_run", totals["explosive_rushes"]),
+        }
     trend = _per_game_trend(games)
     top_plays = _top_explosive_plays(games)
+    team_abbr = ((team.get("stats") or {}).get("abbr") or ((team.get("pbp_entry") or {}).get("abbr") or "")).upper()
+    ne_season = _non_explosive_profile(games, team_abbr) if team_abbr else {"rush_avg": 0.0, "pass_avg": 0.0, "rush_att": 0, "pass_att": 0}
 
     trend_html = "".join(f"<li>{t}</li>" for t in trend) if trend else "<li>N/A</li>"
     plays_html = "".join(_explosive_play_html(p) for p in top_plays) or "<li>N/A</li>"
@@ -89,6 +173,8 @@ def _team_html(team: dict) -> str:
         l3_ppg = last_n.get("explosive_passes_per_game", 0) or 0
         l3_rpg = last_n.get("explosive_rushes_per_game", 0) or 0
         season_epg = totals["explosives"] / len(games) if games else 0
+        last_n_games = sorted(games, key=lambda x: x.get("game_number", 0))[-actual_n:] if actual_n else []
+        ne_last_n = _non_explosive_profile(last_n_games, team_abbr) if team_abbr and last_n_games else {"rush_avg": 0.0, "pass_avg": 0.0}
 
         epg_arrow = ""
         if l3_epg > season_epg:
@@ -102,6 +188,7 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Explosives/Game: {l3_epg:.1f} (Season: {season_epg:.1f}){epg_arrow}</li>
           <li>Pass/Game: {l3_ppg:.1f} / Rush/Game: {l3_rpg:.1f}</li>
+          <li>Non-Explosive Avg (Run/Pass): {ne_last_n['rush_avg']:.2f} / {ne_last_n['pass_avg']:.2f}</li>
         </ul>
       </div>
         """
@@ -123,6 +210,13 @@ def _team_html(team: dict) -> str:
         <ul>{trend_html}</ul>
       </div>
       <div class="block">
+        <h4>Without Explosives</h4>
+        <ul>
+          <li>Run Avg (&lt;15y): {ne_season['rush_avg']:.2f} ({ne_season['rush_att']} att)</li>
+          <li>Pass Avg (&lt;20y): {ne_season['pass_avg']:.2f} ({ne_season['pass_att']} att)</li>
+        </ul>
+      </div>
+      <div class="block">
         <h4>Top Explosive Plays</h4>
         <ul>{plays_html}</ul>
       </div>
@@ -135,7 +229,16 @@ def _team_md(team: dict) -> str:
         return f"*{team['display_name']}*\n- Explosives: N/A"
     games = _games(team)
     totals = _aggregate_explosives(games)
+    xml_expl = _xml_row(team, "explosives")
+    if xml_expl:
+        totals = {
+            "explosives": xml_expl.get("explosives", totals["explosives"]),
+            "explosive_passes": xml_expl.get("explosive_pass", totals["explosive_passes"]),
+            "explosive_rushes": xml_expl.get("explosive_run", totals["explosive_rushes"]),
+        }
     top_plays = _top_explosive_plays(games)[:3]
+    team_abbr = ((team.get("stats") or {}).get("abbr") or ((team.get("pbp_entry") or {}).get("abbr") or "")).upper()
+    ne_season = _non_explosive_profile(games, team_abbr) if team_abbr else {"rush_avg": 0.0, "pass_avg": 0.0}
     lines = [f"*{team['display_name']}*"]
     explosives_suffix = ""
     if _should_show_last_n(team):
@@ -148,6 +251,9 @@ def _team_md(team: dict) -> str:
     lines.append(
         f"- Total Explosives: {totals['explosives']} (Pass {totals['explosive_passes']}, Rush {totals['explosive_rushes']}){explosives_suffix}"
     )
+    lines.append(
+        f"- Without Explosives: Run {ne_season['rush_avg']:.2f} / Pass {ne_season['pass_avg']:.2f}"
+    )
     if top_plays:
         lines.append("- Top Plays:")
         for p in top_plays:
@@ -157,30 +263,7 @@ def _team_md(team: dict) -> str:
 
 def build(team1: dict, team2: dict) -> dict:
     """Explosive plays section."""
-    t1_games = _games(team1)
-    t2_games = _games(team2)
-    t1_totals = _aggregate_explosives(t1_games)
-    t2_totals = _aggregate_explosives(t2_games)
-    t1_epg = (t1_totals["explosives"] / len(t1_games)) if t1_games else None
-    t2_epg = (t2_totals["explosives"] / len(t2_games)) if t2_games else None
-    delta_html = metric_delta_html(
-        "Explosives Per Game",
-        team1["display_name"],
-        t1_epg,
-        team2["display_name"],
-        t2_epg,
-        higher_is_better=True,
-    )
-    delta_md = metric_delta_md(
-        "Explosives Per Game",
-        team1["display_name"],
-        t1_epg,
-        team2["display_name"],
-        t2_epg,
-        higher_is_better=True,
-    )
     html_content = f"""
-    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -188,7 +271,6 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Explosive Plays*",
-        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

@@ -4,14 +4,13 @@ from datetime import datetime
 
 SECTION_ORDER = [
     "overview",
+    "matchups",
     "schedule",
     "rankings",
     "explosives",
     "zones",
     "turnovers",
     "middle8",
-    "two_point",
-    "trenches",
     "situational",
     "special_teams",
     "penalties",
@@ -32,18 +31,57 @@ def _order_sections(sections: list[dict]) -> list[dict]:
     return ordered
 
 
+PFF_WARNING_KEYS = (
+    "blitz_pct",
+    "blitz_pct_last3",
+    "pff_plays_offense_pg",
+    "pff_plays_defense_pg",
+    "pff_missed_tackles_pg",
+    "pff_tfl_pg",
+    "pff_sacks_pg",
+    "pff_sacks_allowed_pg",
+    "pff_fmt_total",
+    "pff_fmt_pg",
+)
+
+
+def _is_missing(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        text = value.strip()
+        return not text or text.upper() == "N/A"
+    return False
+
+
+def _missing_warning(team1: dict, team2: dict) -> str:
+    impacted: list[str] = []
+    for team in (team1, team2):
+        stats = team.get("stats", {})
+        if any(_is_missing(stats.get(key)) for key in PFF_WARNING_KEYS):
+            impacted.append(team.get("display_name", "Team"))
+    if not impacted:
+        return ""
+    teams_text = ", ".join(impacted)
+    return (
+        f"PFF/API snapshot is partial for: {teams_text}. "
+        "Some situational/trenches metrics are shown as N/A."
+    )
+
+
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
-    """Render full HTML optimized for continuous print flow."""
+    """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
     week_str = f"Week {week} · " if week else ""
     t1_color = team1.get("stats", {}).get("color", "#2563eb")
     t2_color = team2.get("stats", {}).get("color", "#dc2626")
+    warning = _missing_warning(team1, team2)
 
     section_html = []
     for s in _order_sections(sections):
         section_html.append(
             f"""
-            <section class=\"section\" id=\"{s.get('key','section')}\">
+            <section class=\"section page-break\" id=\"{s.get('key','section')}\">
               <div class=\"section-header\">{s.get('title','Section')}</div>
               <div class=\"section-body\">{s.get('html_content','')}</div>
             </section>
@@ -114,9 +152,6 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
     }}
-    .section-grid--single {{
-      grid-template-columns: 1fr;
-    }}
     .team-card {{
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -132,46 +167,25 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     .rankings-table {{ width: 100%; border-collapse: collapse; margin-bottom: 12px; }}
     .rankings-table th, .rankings-table td {{ border-bottom: 1px solid var(--border); padding: 6px 8px; font-size: 12px; }}
     .rankings-table th {{ text-transform: uppercase; font-size: 11px; color: #64748b; text-align: left; }}
+    .warning {{
+      margin-top: 10px;
+      border: 1px solid #fbbf24;
+      background: #fef9c3;
+      color: #78350f;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.4;
+    }}
 
     .metric-compare {{ margin: 8px 0 12px; }}
-    .schedule-table-wrap {{ overflow-x: auto; }}
-    .schedule-table th, .schedule-table td {{
-      padding: 4px 6px;
-      vertical-align: top;
-      white-space: nowrap;
-      border-bottom: 1px solid var(--border);
-      font-size: 11px;
-    }}
-    .schedule-table th {{
-      color: #475569;
-      font-weight: 700;
-    }}
-    .schedule-table td:nth-child(2), .schedule-table th:nth-child(2) {{
-      white-space: normal;
-      min-width: 120px;
-    }}
+
+    .page-break {{ page-break-before: always; }}
+    .page-break:first-child {{ page-break-before: auto; }}
 
     @media print {{
-      body {{ background: white; padding: 8px; }}
-      .section {{
-        box-shadow: none;
-        border: 1px solid #ddd;
-        margin-bottom: 10px;
-        padding: 12px 14px 14px;
-        break-inside: auto;
-        page-break-inside: auto;
-      }}
-      .section-header {{
-        margin-bottom: 8px;
-        padding-bottom: 4px;
-      }}
-      .section-grid {{ gap: 10px; }}
-      .section-grid--single {{ grid-template-columns: 1fr; }}
-      .team-card {{
-        break-inside: avoid-page;
-        page-break-inside: avoid;
-      }}
-      .schedule-table-wrap {{ overflow: visible; }}
+      body {{ background: white; padding: 12px; }}
+      .section {{ box-shadow: none; border: 1px solid #ddd; }}
       .header {{ box-shadow: none; }}
       @page {{ margin: 1cm; }}
     }}
@@ -185,6 +199,7 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     <div class="header-content">
       <h1>Game Prep Brief v2</h1>
       <div class="subtitle">{week_str}{season} Season · {team1['display_name']} vs {team2['display_name']} · Generated {now}</div>
+      {"<div class='warning'><strong>Data Notice:</strong> " + warning + "</div>" if warning else ""}
     </div>
   </header>
 

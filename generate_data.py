@@ -191,6 +191,14 @@ CFBSTATS_METRIC_CONFIGS = (
         "stat_candidates": ("TFL", "TFLs", "Tackles For Loss", "Tackles for Loss"),
     },
     {
+        "key": "tfl_defense",
+        "label": "tackles for loss",
+        "category": 21,
+        "offense": "defense",
+        "sort": 1,
+        "stat_candidates": ("TFL", "TFLs", "Tackles For Loss", "Tackles for Loss"),
+    },
+    {
         "key": "total_offense",
         "label": "total offense",
         "category": 10,
@@ -1951,6 +1959,9 @@ def process_team_games(pdf_dir, team_identifier):
         negative_plays_detail = parse_negative_plays(g.plays, our_abbr)
         negative_plays_pass = sum(1 for p in negative_plays_detail if p['play_type'] == 'pass' and not p['is_kneel'])
         negative_plays_rush = sum(1 for p in negative_plays_detail if p['play_type'] == 'rush' and not p['is_kneel'])
+        negative_plays_forced_detail = parse_negative_plays(g.plays, opp_abbr)
+        negative_plays_forced_pass = sum(1 for p in negative_plays_forced_detail if p['play_type'] == 'pass' and not p['is_kneel'])
+        negative_plays_forced_rush = sum(1 for p in negative_plays_forced_detail if p['play_type'] == 'rush' and not p['is_kneel'])
         play_tree = build_play_tree(g.plays)
 
         game_data = {
@@ -1978,6 +1989,9 @@ def process_team_games(pdf_dir, team_identifier):
             'negative_plays': negative_plays_pass + negative_plays_rush,
             'negative_plays_pass': negative_plays_pass,
             'negative_plays_rush': negative_plays_rush,
+            'negative_plays_forced': negative_plays_forced_pass + negative_plays_forced_rush,
+            'negative_plays_forced_pass': negative_plays_forced_pass,
+            'negative_plays_forced_rush': negative_plays_forced_rush,
             'penalties': our_penalties,
             'penalty_details': penalty_details,
             'red_zone_trips': rz_trips,
@@ -2043,6 +2057,7 @@ def process_team_games(pdf_dir, team_identifier):
     total_tof = sum(g['turnovers_gained'] for g in games)
     total_tol = sum(g['turnovers_lost'] for g in games)
     total_negative = sum(g.get('negative_plays', 0) for g in games)
+    total_negative_forced = sum(g.get('negative_plays_forced', 0) for g in games)
     total_pen = sum(g['penalties'] for g in games)
     total_rzt = sum(g['red_zone_trips'] for g in games)
     total_rztd = sum(g['red_zone_tds'] for g in games)
@@ -2061,6 +2076,7 @@ def process_team_games(pdf_dir, team_identifier):
         'opp_ppg': round(total_pa / n, 1),
         'explosives_per_game': round(total_expl / n, 1),
         'negative_plays_per_game': round(total_negative / n, 1),
+        'negative_plays_forced_per_game': round(total_negative_forced / n, 1),
         'turnover_margin': total_tof - total_tol,
         'penalties_per_game': round(total_pen / n, 1),
         'red_zone_trips': total_rzt,

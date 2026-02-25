@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .delta import metric_delta_html, metric_delta_md
-
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -15,13 +13,52 @@ def _sum(values: list[float]) -> float:
 def _avg(values: list[float]) -> float:
     vals = [v for v in values if v is not None]
     if not vals:
-        return 0.0
+        return None
     return round(sum(vals) / len(vals), 2)
+
+
+def _fmt_num(v: object, suffix: str = "") -> str:
+    try:
+        return f"{float(v):.1f}{suffix}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _fmt_two_pt(conv: object, att: object) -> str:
+    try:
+        c = int(conv)
+        a = int(att)
+    except (TypeError, ValueError):
+        return "N/A"
+    if a <= 0:
+        return "0/0"
+    return f"{c}/{a}"
 
 
 def _team_stats(team: dict) -> dict:
     games = _games(team)
+    pbp = team.get("pbp_entry") or {}
+    xml_stats = pbp.get("xml_stats") or {}
+    xml_st = xml_stats.get("special_teams") if isinstance(xml_stats.get("special_teams"), dict) else {}
+    xml_tp = xml_stats.get("two_point") if isinstance(xml_stats.get("two_point"), dict) else {}
+
+    team_abbr = str((team.get("stats") or {}).get("abbr") or "").upper()
+
+    def _xml_row(category: dict) -> dict:
+        if not category:
+            return {}
+        if team_abbr and isinstance(category.get(team_abbr), dict):
+            return category.get(team_abbr) or {}
+        _, row = max(
+            category.items(),
+            key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),
+        )
+        return row if isinstance(row, dict) else {}
+
+    xml_st_row = _xml_row(xml_st)
+    xml_tp_row = _xml_row(xml_tp)
     st_list = [g.get("special_teams", {}) or {} for g in games]
+    has_any_data = bool(st_list) or bool(xml_st_row) or bool(xml_tp_row)
 
     fg_made = _sum([st.get("field_goals_made") for st in st_list])
     fg_att = _sum([st.get("field_goals_attempts") for st in st_list])
@@ -49,29 +86,94 @@ def _team_stats(team: dict) -> dict:
     kick_return_long = max([st.get("kickoff_return_long", 0) or 0 for st in st_list] or [0])
     kick_30_plus = _sum([st.get("kick_return_30_plus") for st in st_list])
 
-    return {
+    two_pt_att = int(_sum([g.get("two_pt_attempts") for g in games]))
+    two_pt_conv = int(_sum([g.get("two_pt_conversions") for g in games]))
+    two_pt_allowed_att = int(_sum([g.get("opp_two_pt_attempts") for g in games]))
+    two_pt_allowed_conv = int(_sum([g.get("opp_two_pt_conversions") for g in games]))
+
+    last3_games = sorted(games, key=lambda g: g.get("game_number", 0))[-3:]
+    l3_two_pt_att = int(_sum([g.get("two_pt_attempts") for g in last3_games]))
+    l3_two_pt_conv = int(_sum([g.get("two_pt_conversions") for g in last3_games]))
+    l3_two_pt_allowed_att = int(_sum([g.get("opp_two_pt_attempts") for g in last3_games]))
+    l3_two_pt_allowed_conv = int(_sum([g.get("opp_two_pt_conversions") for g in last3_games]))
+
+    out = {
         "fg_made": int(fg_made),
         "fg_att": int(fg_att),
-        "fg_pct": fg_pct,
-        "fg_long": fg_long,
+        "fg_pct": fg_pct if has_any_data else "N/A",
+        "fg_long": fg_long if has_any_data else "N/A",
         "punts": int(punts),
         "punt_avg": punt_avg,
         "punt_net_avg": punt_net_avg,
-        "punt_long": punt_long,
+        "punt_long": punt_long if has_any_data else "N/A",
         "punts_inside_20": int(punts_inside_20),
         "punt_touchbacks": int(punt_touchbacks),
         "punt_return_avg": punt_return_avg,
-        "punt_return_long": punt_return_long,
+        "punt_return_long": punt_return_long if has_any_data else "N/A",
         "punt_20_plus": int(punt_20_plus),
         "kick_return_avg": kick_return_avg,
-        "kick_return_long": kick_return_long,
+        "kick_return_long": kick_return_long if has_any_data else "N/A",
         "kick_30_plus": int(kick_30_plus),
         "special_teams_tds": int(_sum([st.get("special_teams_tds") for st in st_list])),
         "fg_blocks": int(_sum([st.get("fg_blocks") for st in st_list])),
         "punt_blocks": int(_sum([st.get("punt_blocks") for st in st_list])),
         "onside_attempts": int(_sum([st.get("onside_kicks_attempted") for st in st_list])),
         "onside_recovered": int(_sum([st.get("onside_kicks_recovered") for st in st_list])),
+        "two_pt_att": two_pt_att,
+        "two_pt_conv": two_pt_conv,
+        "two_pt_allowed_att": two_pt_allowed_att,
+        "two_pt_allowed_conv": two_pt_allowed_conv,
+        "l3_two_pt_att": l3_two_pt_att,
+        "l3_two_pt_conv": l3_two_pt_conv,
+        "l3_two_pt_allowed_att": l3_two_pt_allowed_att,
+        "l3_two_pt_allowed_conv": l3_two_pt_allowed_conv,
     }
+    if xml_st_row:
+        out["fg_att"] = int(xml_st_row.get("fg_attempts", out["fg_att"]) or 0)
+        out["fg_made"] = int(xml_st_row.get("fg_made", out["fg_made"]) or 0)
+        out["fg_pct"] = round((out["fg_made"] / out["fg_att"]) * 100, 1) if out["fg_att"] else "N/A"
+        out["fg_long"] = xml_st_row.get("fg_longest", out["fg_long"])
+    if xml_tp_row:
+        out["two_pt_att"] = int(xml_tp_row.get("two_point_attempts", out["two_pt_att"]) or 0)
+        out["two_pt_conv"] = int(xml_tp_row.get("two_point_conversions", out["two_pt_conv"]) or 0)
+        out["two_pt_allowed_att"] = int(xml_tp_row.get("two_point_allowed_attempts", out["two_pt_allowed_att"]) or 0)
+        out["two_pt_allowed_conv"] = int(xml_tp_row.get("two_point_allowed_conversions", out["two_pt_allowed_conv"]) or 0)
+    elif not games:
+        out["two_pt_att"] = "N/A"
+        out["two_pt_conv"] = "N/A"
+        out["two_pt_allowed_att"] = "N/A"
+        out["two_pt_allowed_conv"] = "N/A"
+        out["l3_two_pt_att"] = "N/A"
+        out["l3_two_pt_conv"] = "N/A"
+        out["l3_two_pt_allowed_att"] = "N/A"
+        out["l3_two_pt_allowed_conv"] = "N/A"
+    if not has_any_data:
+        out.update(
+            {
+                "fg_made": "N/A",
+                "fg_att": "N/A",
+                "fg_pct": "N/A",
+                "punts": "N/A",
+                "punts_inside_20": "N/A",
+                "punt_touchbacks": "N/A",
+                "punt_20_plus": "N/A",
+                "kick_30_plus": "N/A",
+                "special_teams_tds": "N/A",
+                "fg_blocks": "N/A",
+                "punt_blocks": "N/A",
+                "onside_attempts": "N/A",
+                "onside_recovered": "N/A",
+                "two_pt_att": "N/A",
+                "two_pt_conv": "N/A",
+                "two_pt_allowed_att": "N/A",
+                "two_pt_allowed_conv": "N/A",
+                "l3_two_pt_att": "N/A",
+                "l3_two_pt_conv": "N/A",
+                "l3_two_pt_allowed_att": "N/A",
+                "l3_two_pt_allowed_conv": "N/A",
+            }
+        )
+    return out
 
 
 def _team_html(team: dict) -> str:
@@ -85,14 +187,14 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Field Goals</h4>
         <ul>
-          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({stats['fg_pct']}%)</li>
+          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({_fmt_num(stats['fg_pct'], '%')})</li>
           <li>Long: {stats['fg_long']}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Punting</h4>
         <ul>
-          <li>Avg / Net: {stats['punt_avg']} / {stats['punt_net_avg']}</li>
+          <li>Avg / Net: {_fmt_num(stats['punt_avg'])} / {_fmt_num(stats['punt_net_avg'])}</li>
           <li>Long: {stats['punt_long']}</li>
           <li>Inside 20: {stats['punts_inside_20']} · TB: {stats['punt_touchbacks']}</li>
         </ul>
@@ -100,8 +202,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Returns</h4>
         <ul>
-          <li>Punt Return Avg/Long: {stats['punt_return_avg']} / {stats['punt_return_long']} (20+ {stats['punt_20_plus']})</li>
-          <li>KO Return Avg/Long: {stats['kick_return_avg']} / {stats['kick_return_long']} (30+ {stats['kick_30_plus']})</li>
+          <li>Punt Return Avg/Long: {_fmt_num(stats['punt_return_avg'])} / {stats['punt_return_long']} (20+ {stats['punt_20_plus']})</li>
+          <li>KO Return Avg/Long: {_fmt_num(stats['kick_return_avg'])} / {stats['kick_return_long']} (30+ {stats['kick_30_plus']})</li>
         </ul>
       </div>
       <div class="block">
@@ -110,6 +212,14 @@ def _team_html(team: dict) -> str:
           <li>ST TDs: {stats['special_teams_tds']}</li>
           <li>FG Blocks: {stats['fg_blocks']} · Punt Blocks: {stats['punt_blocks']}</li>
           <li>Onside: {stats['onside_recovered']} / {stats['onside_attempts']}</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Two-Point Conversions</h4>
+        <ul>
+          <li>Offense: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])}</li>
+          <li>Defense Allowed: {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}</li>
+          <li>Last 3 O/D: {_fmt_two_pt(stats['l3_two_pt_conv'], stats['l3_two_pt_att'])} · {_fmt_two_pt(stats['l3_two_pt_allowed_conv'], stats['l3_two_pt_allowed_att'])}</li>
         </ul>
       </div>
     </div>
@@ -122,36 +232,16 @@ def _team_md(team: dict) -> str:
     stats = _team_stats(team)
     return "\n".join([
         f"*{team['display_name']}*",
-        f"- FG%: {stats['fg_pct']}% (Long {stats['fg_long']})",
-        f"- Punt Avg: {stats['punt_avg']} (Net {stats['punt_net_avg']})",
+        f"- FG%: {_fmt_num(stats['fg_pct'], '%')} (Long {stats['fg_long']})",
+        f"- Punt Avg: {_fmt_num(stats['punt_avg'])} (Net {_fmt_num(stats['punt_net_avg'])})",
+        f"- 2PT O/D: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])} · {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}",
         f"- Return TDs: {stats['special_teams_tds']}",
     ])
 
 
 def build(team1: dict, team2: dict) -> dict:
     """Special teams deep-dive section."""
-    t1_stats = _team_stats(team1) if team1.get("has_pbp") else {}
-    t2_stats = _team_stats(team2) if team2.get("has_pbp") else {}
-    delta_html = metric_delta_html(
-        "Field Goal %",
-        team1["display_name"],
-        t1_stats.get("fg_pct"),
-        team2["display_name"],
-        t2_stats.get("fg_pct"),
-        higher_is_better=True,
-        suffix="%",
-    )
-    delta_md = metric_delta_md(
-        "Field Goal %",
-        team1["display_name"],
-        t1_stats.get("fg_pct"),
-        team2["display_name"],
-        t2_stats.get("fg_pct"),
-        higher_is_better=True,
-        suffix="%",
-    )
     html_content = f"""
-    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -159,7 +249,6 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Special Teams*",
-        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])

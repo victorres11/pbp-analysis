@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .delta import metric_delta_html, metric_delta_md
-
 CATEGORIES = [
     "scoring_offense",
     "scoring_defense",
@@ -21,6 +19,8 @@ CATEGORIES = [
     "time_of_possession",
     "sacks_offense",
     "sacks_defense",
+    "tfl_offense",
+    "tfl_defense",
 ]
 
 LABELS = {
@@ -42,6 +42,8 @@ LABELS = {
     "time_of_possession": "Time of Possession",
     "sacks_offense": "Sacks Allowed",
     "sacks_defense": "Sacks",
+    "tfl_offense": "TFL Allowed",
+    "tfl_defense": "TFL",
 }
 
 
@@ -107,28 +109,29 @@ def _top_bottom_md(team: dict) -> str:
     return "\n".join(lines)
 
 
+def _metric_text(team1: dict, team2: dict) -> str:
+    rankings1 = (team1.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
+    rankings2 = (team2.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
+
+    def val(rankings: dict, key: str) -> float:
+        v = rankings.get(key, {}).get("value")
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    lines = []
+    for key in ["scoring_offense", "scoring_defense", "total_offense", "total_defense"]:
+        v1 = val(rankings1, key)
+        v2 = val(rankings2, key)
+        lines.append(f"<p>{LABELS.get(key, key)}: {team1.get('display_name', 'Team 1')} {v1:.1f} | {team2.get('display_name', 'Team 2')} {v2:.1f}</p>")
+    return "".join(f"<div class=\"metric-compare\">{l}</div>" for l in lines)
+
+
 def build(team1: dict, team2: dict) -> dict:
-    """Full 18-category rankings section with all/conf/nonconf splits."""
-    all_1 = (team1.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
-    all_2 = (team2.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
-    delta_html = metric_delta_html(
-        "Scoring Margin",
-        team1["display_name"],
-        _rank(all_1, "scoring_margin").get("value"),
-        team2["display_name"],
-        _rank(all_2, "scoring_margin").get("value"),
-        higher_is_better=True,
-    )
-    delta_md = metric_delta_md(
-        "Scoring Margin",
-        team1["display_name"],
-        _rank(all_1, "scoring_margin").get("value"),
-        team2["display_name"],
-        _rank(all_2, "scoring_margin").get("value"),
-        higher_is_better=True,
-    )
+    """Full rankings section with all/conf/nonconf splits."""
     html_content = (
-        f"{delta_html}"
+        f"{_metric_text(team1, team2)}"
         f"{_table_html(team1, team2, 'all')}"
         f"{_table_html(team1, team2, 'conf')}"
         f"{_table_html(team1, team2, 'nonconf')}"
@@ -136,7 +139,6 @@ def build(team1: dict, team2: dict) -> dict:
 
     md_content = "\n\n".join([
         "*Rankings Highlights*",
-        delta_md,
         _top_bottom_md(team1),
         _top_bottom_md(team2),
     ])

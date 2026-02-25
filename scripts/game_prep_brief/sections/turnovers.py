@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .delta import metric_delta_html, metric_delta_md
-
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -10,6 +8,21 @@ def _games(team: dict) -> list[dict]:
 
 def _sum(games: list[dict], key: str) -> int:
     return sum(g.get(key, 0) or 0 for g in games)
+
+
+def _xml_row(team: dict, category: str) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    if not pbp.get("xml_source"):
+        return {}
+    stats = pbp.get("xml_stats") or {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    if cat:
+        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
+        if isinstance(row, dict):
+            return row
+    return {}
 
 
 def _should_show_last_n(team: dict) -> bool:
@@ -38,6 +51,11 @@ def _avg_pts_after_turnover(games: list[dict]) -> float:
     return round(total_pts / total_drives, 2)
 
 
+def _pg(total: int, games: list[dict]) -> float:
+    n = len(games)
+    return round(total / n, 1) if n else 0.0
+
+
 def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
@@ -53,6 +71,18 @@ def _team_html(team: dict) -> str:
         "pts_for": _sum(games, "points_off_turnovers_for"),
         "pts_against": _sum(games, "points_off_turnovers_against"),
     }
+    xml_tov = _xml_row(team, "turnovers")
+    xml_pot = _xml_row(team, "points_off_turnovers")
+    if xml_tov:
+        totals["lost"] = xml_tov.get("turnovers", totals["lost"])
+        totals["gained"] = xml_tov.get("turnovers_forced", totals["gained"])
+        totals["int_lost"] = xml_tov.get("interceptions", totals["int_lost"])
+        totals["fum_lost"] = xml_tov.get("fumbles_lost", totals["fum_lost"])
+    if xml_pot:
+        totals["pts_for"] = xml_pot.get("points_off_turnovers", totals["pts_for"])
+        totals["pts_against"] = xml_pot.get("points_off_turnovers_allowed", totals["pts_against"])
+    season_off_pg = _pg(totals["pts_for"], games)
+    season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
     drives_list = _post_turnover_drives(games)
     drives_html = "".join(f"<li>{d}</li>" for d in drives_list) or "<li>N/A</li>"
@@ -66,6 +96,8 @@ def _team_html(team: dict) -> str:
         l3_lost = last_n.get("turnovers_lost", 0)
         l3_pts_for = last_n.get("points_off_turnovers_for", 0)
         l3_pts_against = last_n.get("points_off_turnovers_against", 0)
+        l3_off_pg = round(l3_pts_for / actual_n, 1) if actual_n else 0.0
+        l3_def_pg = round(l3_pts_against / actual_n, 1) if actual_n else 0.0
         l3_margin_display = l3_margin if l3_margin is not None else "N/A"
 
         margin_color = ""
@@ -76,15 +108,15 @@ def _team_html(team: dict) -> str:
                 margin_color = " style=\"color: #b3261e;\""
 
         pts_for_arrow = ""
-        if l3_pts_for > totals["pts_for"]:
+        if l3_off_pg > season_off_pg:
             pts_for_arrow = " <span style=\"color: #1b7f3a;\">↑</span>"
-        elif l3_pts_for < totals["pts_for"]:
+        elif l3_off_pg < season_off_pg:
             pts_for_arrow = " <span style=\"color: #b3261e;\">↓</span>"
 
         pts_against_arrow = ""
-        if l3_pts_against < totals["pts_against"]:
+        if l3_def_pg < season_def_pg:
             pts_against_arrow = " <span style=\"color: #1b7f3a;\">↓</span>"
-        elif l3_pts_against > totals["pts_against"]:
+        elif l3_def_pg > season_def_pg:
             pts_against_arrow = " <span style=\"color: #b3261e;\">↑</span>"
 
         last_n_html = f"""
@@ -93,7 +125,8 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Margin: <span{margin_color}>{l3_margin_display}</span> (was {margin if margin is not None else 'N/A'})</li>
           <li>Gained/Lost: {l3_gained} / {l3_lost}</li>
-          <li>Points Off TO: {l3_pts_for} for{pts_for_arrow} / {l3_pts_against} against{pts_against_arrow}</li>
+          <li>Points Off Turnovers (Offense): {l3_pts_for} total ({l3_off_pg}/gm){pts_for_arrow}</li>
+          <li>Points Allowed Off Giveaways (Defense): {l3_pts_against} total ({l3_def_pg}/gm){pts_against_arrow}</li>
         </ul>
       </div>
         """
@@ -119,7 +152,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Points Off Turnovers</h4>
         <ul>
-          <li>For / Against: {totals['pts_for']} / {totals['pts_against']}</li>
+          <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm)</li>
+          <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm)</li>
           <li>Avg Points per Post-TO Drive: {_avg_pts_after_turnover(games)}</li>
         </ul>
       </div>
@@ -140,6 +174,16 @@ def _team_md(team: dict) -> str:
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin", "N/A")
     pts_for = _sum(games, "points_off_turnovers_for")
     pts_against = _sum(games, "points_off_turnovers_against")
+    xml_tov = _xml_row(team, "turnovers")
+    xml_pot = _xml_row(team, "points_off_turnovers")
+    if xml_tov:
+        lost = xml_tov.get("turnovers", lost)
+        gained = xml_tov.get("turnovers_forced", gained)
+    if xml_pot:
+        pts_for = xml_pot.get("points_off_turnovers", pts_for)
+        pts_against = xml_pot.get("points_off_turnovers_allowed", pts_against)
+    season_off_pg = _pg(pts_for, games)
+    season_def_pg = _pg(pts_against, games)
     margin_note = ""
     points_note = ""
     if _should_show_last_n(team):
@@ -170,32 +214,14 @@ def _team_md(team: dict) -> str:
     return "\n".join([
         f"*{team['display_name']}*",
         f"- Margin: {margin}{margin_note} (Gained {gained}, Lost {lost})",
-        f"- Points Off TO: {pts_for} for / {pts_against} against{points_note}",
+        f"- Offense Points Off TO: {pts_for} ({season_off_pg}/gm){points_note}",
+        f"- Defense Points Allowed Off Giveaways: {pts_against} ({season_def_pg}/gm)",
     ])
 
 
 def build(team1: dict, team2: dict) -> dict:
     """Turnover chain section."""
-    t1_margin = (team1.get("pbp_entry") or {}).get("aggregates", {}).get("turnover_margin")
-    t2_margin = (team2.get("pbp_entry") or {}).get("aggregates", {}).get("turnover_margin")
-    delta_html = metric_delta_html(
-        "Turnover Margin",
-        team1["display_name"],
-        t1_margin,
-        team2["display_name"],
-        t2_margin,
-        higher_is_better=True,
-    )
-    delta_md = metric_delta_md(
-        "Turnover Margin",
-        team1["display_name"],
-        t1_margin,
-        team2["display_name"],
-        t2_margin,
-        higher_is_better=True,
-    )
     html_content = f"""
-    {delta_html}
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
@@ -203,7 +229,6 @@ def build(team1: dict, team2: dict) -> dict:
     """
     md_content = "\n\n".join([
         "*Turnovers*",
-        delta_md,
         _team_md(team1),
         _team_md(team2),
     ])
