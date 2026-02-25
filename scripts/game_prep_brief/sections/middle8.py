@@ -2,6 +2,22 @@ from __future__ import annotations
 import re
 
 
+def _abbr_set(value: object) -> set[str]:
+    if isinstance(value, str):
+        cleaned = value.strip().upper()
+        return {cleaned} if cleaned else set()
+    if isinstance(value, (list, tuple, set)):
+        out: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            cleaned = item.strip().upper()
+            if cleaned:
+                out.add(cleaned)
+        return out
+    return set()
+
+
 def _parse_play_fields(p: dict) -> dict:
     """Extract yards, type, player from description when raw fields are missing."""
     out = dict(p)
@@ -119,6 +135,79 @@ def _scoring_plays(games: list[dict]) -> list[str]:
     return plays
 
 
+def _clock_to_seconds(clock: object) -> int | None:
+    if not isinstance(clock, str) or ":" not in clock:
+        return None
+    try:
+        mm, ss = clock.split(":", 1)
+        return int(mm) * 60 + int(ss)
+    except Exception:
+        return None
+
+
+def _is_middle8_window(quarter: object, clock: object) -> bool:
+    if not isinstance(quarter, int):
+        return False
+    secs = _clock_to_seconds(clock)
+    if secs is None:
+        return False
+    # Middle 8 = last 4:00 of Q2 + first 4:00 of Q3.
+    if quarter == 2:
+        return secs <= 240
+    if quarter == 3:
+        return secs >= 660
+    return False
+
+
+def _derived_middle8_scoring_plays(team: dict, games: list[dict], limit: int = 6) -> list[dict]:
+    pbp = team.get("pbp_entry") or {}
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
+    out: list[dict] = []
+    for g in sorted(games, key=lambda x: x.get("game_number", 0)):
+        opp_aliases = _abbr_set(g.get("opponent_abbr"))
+        for quarter in g.get("play_tree") or []:
+            if not isinstance(quarter, dict):
+                continue
+            qnum = quarter.get("quarter")
+            for drive in quarter.get("drives") or []:
+                if not isinstance(drive, dict):
+                    continue
+                for play in drive.get("plays") or []:
+                    if not isinstance(play, dict):
+                        continue
+                    if play.get("is_no_play") or not play.get("is_scoring"):
+                        continue
+                    if not _is_middle8_window(qnum, play.get("clock")):
+                        continue
+                    offense = str(play.get("offense") or "").upper()
+                    derived = dict(play)
+                    derived["quarter"] = qnum
+                    derived["game_number"] = g.get("game_number")
+                    derived["opponent"] = g.get("opponent")
+                    out.append(derived)
+    return out[:limit]
+
+
+def _middle8_game_score(team: dict, game: dict) -> tuple[int, int] | None:
+    pbp = team.get("pbp_entry") or {}
+    xml_stats = pbp.get("xml_stats") or {}
+    cat = xml_stats.get("middle_eight") or {}
+    if isinstance(cat, dict):
+        opp = str(game.get("opponent_abbr") or "").upper()
+        row = cat.get(opp) if isinstance(cat.get(opp), dict) else {}
+        if isinstance(row, dict) and row:
+            # Opponent-keyed row is opponent perspective; flip to team perspective.
+            pf = row.get("middle_eight_points_allowed")
+            pa = row.get("middle_eight_points")
+            if isinstance(pf, (int, float)) and isinstance(pa, (int, float)):
+                return int(pf), int(pa)
+    pf = game.get("middle8_points_for")
+    pa = game.get("middle8_points_against")
+    if isinstance(pf, (int, float)) and isinstance(pa, (int, float)):
+        return int(pf), int(pa)
+    return None
+
+
 def _play_html(p):
     if isinstance(p, dict):
         p = _parse_play_fields(p)
@@ -126,7 +215,10 @@ def _play_html(p):
         yards = p.get("yards", "?")
         ptype = p.get("type", "play")
         player = p.get("player", "?")
-        header = f"<strong>Q{p.get('quarter','?')} {clock} — {yards} yd {ptype}, {player}</strong>"
+        game_tag = ""
+        if p.get("game_number") is not None and p.get("opponent"):
+            game_tag = f"G{p.get('game_number')} vs {p.get('opponent')} · "
+        header = f"<strong>{game_tag}Q{p.get('quarter','?')} {clock} — {yards} yd {ptype}, {player}</strong>"
         desc = p.get("description") or p.get("play_text") or p.get("text") or ""
         if desc:
             return f"<li>{header}<br><span style=\"color:#555;font-size:0.9em;\">{desc}</span></li>"
@@ -143,7 +235,10 @@ def _play_md(p):
         yards = p.get("yards", "?")
         ptype = p.get("type", "play")
         player = p.get("player", "?")
-        header = f"**Q{p.get('quarter','?')} {clock} — {yards} yd {ptype}, {player}**"
+        game_tag = ""
+        if p.get("game_number") is not None and p.get("opponent"):
+            game_tag = f"G{p.get('game_number')} vs {p.get('opponent')} · "
+        header = f"**{game_tag}Q{p.get('quarter','?')} {clock} — {yards} yd {ptype}, {player}**"
         desc = p.get("description") or p.get("play_text") or p.get("text") or ""
         if desc:
             return f"  {header}\n    {desc}"
@@ -168,12 +263,13 @@ def _team_html(team: dict) -> str:
     margin = pts_for - pts_against
     per_game = []
     for g in sorted(games, key=lambda x: x.get("game_number", 0)):
-        pf = g.get("middle8_points_for")
-        pa = g.get("middle8_points_against")
-        score = f"{pf}-{pa}" if isinstance(pf, (int, float)) and isinstance(pa, (int, float)) else "N/A"
+        score_tuple = _middle8_game_score(team, g)
+        score = f"{score_tuple[0]}-{score_tuple[1]}" if score_tuple else "N/A"
         per_game.append(f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {score}")
     per_game_html = "".join(f"<li>{l}</li>" for l in per_game) or "<li>N/A</li>"
     plays = _scoring_plays(games)
+    if not plays:
+        plays = _derived_middle8_scoring_plays(team, games, limit=6)
     plays_html = "".join(_play_html(p) for p in plays[:6]) or "<li>N/A</li>"
     last_n_html = ""
     if _should_show_last_n(team):
@@ -235,7 +331,10 @@ def _team_md(team: dict) -> str:
         l3_margin = last_n.get("middle8_margin", 0)
         if l3_margin != margin:
             last_n_note = f" (L{actual_n}: {l3_margin})"
-    plays = _scoring_plays(games)[:3]
+    plays = _scoring_plays(games)
+    if not plays:
+        plays = _derived_middle8_scoring_plays(team, games, limit=3)
+    plays = plays[:3]
     lines = [
         f"*{team['display_name']}*",
         f"- Middle 8 Margin: {margin} ({pts_for} for / {pts_against} against){last_n_note}",
