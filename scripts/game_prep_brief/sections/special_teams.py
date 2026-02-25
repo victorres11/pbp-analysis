@@ -31,7 +31,7 @@ def _fmt_two_pt(conv: object, att: object) -> str:
     except (TypeError, ValueError):
         return "N/A"
     if a <= 0:
-        return "N/A"
+        return "0/0"
     return f"{c}/{a}"
 
 
@@ -42,9 +42,13 @@ def _team_stats(team: dict) -> dict:
     xml_st = xml_stats.get("special_teams") if isinstance(xml_stats.get("special_teams"), dict) else {}
     xml_tp = xml_stats.get("two_point") if isinstance(xml_stats.get("two_point"), dict) else {}
 
+    team_abbr = str((team.get("stats") or {}).get("abbr") or "").upper()
+
     def _xml_row(category: dict) -> dict:
         if not category:
             return {}
+        if team_abbr and isinstance(category.get(team_abbr), dict):
+            return category.get(team_abbr) or {}
         _, row = max(
             category.items(),
             key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),

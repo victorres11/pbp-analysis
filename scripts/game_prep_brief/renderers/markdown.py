@@ -45,8 +45,17 @@ def _missing_warning(team1: dict, team2: dict) -> str:
         return ""
     return (
         f"⚠️ PFF/API snapshot partial for {', '.join(impacted)}; "
-        "some situational/trenches fields may be `N/A`."
+        "some situational/trenches fields may be unavailable."
     )
+
+
+def _parity_warning(team1: dict, team2: dict) -> str:
+    gaps = list(team1.get("parity_gaps") or []) + list(team2.get("parity_gaps") or [])
+    if not gaps:
+        return ""
+    preview = "; ".join(gaps[:6])
+    more = f" (+{len(gaps) - 6} more)" if len(gaps) > 6 else ""
+    return f"⚠️ XML parity gaps detected: {preview}{more}"
 
 
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
@@ -54,12 +63,14 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     now = datetime.now().strftime("%b %d, %Y %H:%M")
     week_str = f"Week {week} | " if week else ""
     warning = _missing_warning(team1, team2)
+    parity_warning = _parity_warning(team1, team2)
 
     header = [
         "🏈 *GAME PREP BRIEF v2*",
         f"📅 {week_str}{season} Season",
         f"*{team1['display_name']} vs {team2['display_name']}*",
         warning if warning else "",
+        parity_warning if parity_warning else "",
         "",
     ]
 

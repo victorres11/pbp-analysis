@@ -46,6 +46,12 @@ def _is_na(value: object) -> bool:
     return value in ("N/A", None, "")
 
 
+def _display_or_unavailable(value: object, suffix: str = "") -> str:
+    if _is_na(value):
+        return "Unavailable (API)"
+    return _num_display(value, suffix)
+
+
 def _last_n_games(team: dict, n: int = 3) -> list[dict]:
     games = _games(team)
     return sorted(games, key=lambda g: g.get("game_number", 0))[-n:]
@@ -242,8 +248,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Blitz Rate</h4>
         <ul>
-          <li>Season: {_pct_display(blitz_pct)}</li>
-          <li>Last 3: {_pct_display(blitz_pct_last3)}</li>
+          <li>Season: {_display_or_unavailable(blitz_pct, '%')}</li>
+          <li>Last 3: {_display_or_unavailable(blitz_pct_last3, '%')}</li>
         </ul>
       </div>
       <div class="block">
@@ -350,7 +356,7 @@ def _team_md(team: dict) -> str:
     return "\n".join([
         f"*{team['display_name']}*",
         f"- 3rd Down: {third_down}",
-        f"- Blitz %: {blitz_pct} (L3: {blitz_pct_last3})",
+        f"- Blitz %: {_display_or_unavailable(blitz_pct, '%')} (L3: {_display_or_unavailable(blitz_pct_last3, '%')})",
         f"- Negative Plays O/D: {neg_off}/{neg_def} (L3: {neg_off_l3}/{neg_def_l3})",
         f"- Plays/G O/D: {off_plays_pg}/{def_plays_pg} (L3: {off_plays_l3}/{def_plays_l3})",
         trenches_line,

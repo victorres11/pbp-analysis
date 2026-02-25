@@ -7,6 +7,7 @@ import sys
 import urllib.error
 import urllib.request
 import urllib.parse
+import time
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -42,12 +43,52 @@ SLUG_ALIASES = {
     "arizona state": "asu",
 }
 
+TEAM_API_ALIASES = {
+    "ohio-state": ["ohio-state"],
+    "washington": ["washington", "wash"],
+}
+
 
 def slugify(name: str) -> str:
     lower = name.strip().lower()
     if lower in SLUG_ALIASES:
         return SLUG_ALIASES[lower]
     return re.sub(r"[^a-z0-9]+", "-", lower).strip("-")
+
+
+def _candidate_team_ids(team_slug: str, team_name: str | None = None) -> list[str]:
+    candidates: list[str] = []
+    slug = (team_slug or "").strip().lower()
+    if slug:
+        candidates.append(slug)
+    for alias in TEAM_API_ALIASES.get(slug, []):
+        if alias not in candidates:
+            candidates.append(alias)
+    if team_name:
+        normalized_name = re.sub(r"[^a-z0-9]+", "-", team_name.strip().lower()).strip("-")
+        if normalized_name and normalized_name not in candidates:
+            candidates.append(normalized_name)
+    return candidates
+
+
+def _fetch_text_from_candidates(candidates: list[str], suffix: str, timeout: int = 8, attempts: int = 3) -> str | None:
+    if not candidates:
+        return None
+    for candidate in candidates:
+        encoded = urllib.parse.quote(candidate)
+        url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
+        for attempt in range(1, attempts + 1):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    text = (resp.read().decode("utf-8", errors="ignore") or "").strip()
+                if text:
+                    return text
+            except Exception:
+                if attempt < attempts:
+                    time.sleep(0.2 * attempt)
+                continue
+    return None
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -794,29 +835,14 @@ def _fetch_blitz_stats(team_slug: str, team_name: str | None = None) -> dict:
     if not team_slug and not team_name:
         return {"blitz_pct": "N/A", "blitz_pct_last3": "N/A"}
 
-    candidates: list[str] = []
-    if team_slug:
-        candidates.append(team_slug)
-    if team_name:
-        normalized_name = re.sub(r"[^a-z0-9]+", "-", team_name.strip().lower()).strip("-")
-        if normalized_name and normalized_name not in candidates:
-            candidates.append(normalized_name)
+    candidates = _candidate_team_ids(team_slug, team_name)
 
     out = {"blitz_pct": "N/A", "blitz_pct_last3": "N/A"}
 
     for scope_key, scope in (("blitz_pct", "season"), ("blitz_pct_last3", "last3")):
-        for candidate in candidates:
-            encoded = urllib.parse.quote(candidate)
-            url = f"{YR_DATA_API_BASE}/yr/{encoded}/pff/blitz?scope={scope}&format=text"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    text = (resp.read().decode("utf-8", errors="ignore") or "").strip()
-                if text:
-                    out[scope_key] = text
-                    break
-            except Exception:
-                continue
+        text = _fetch_text_from_candidates(candidates, f"pff/blitz?scope={scope}&format=text")
+        if text:
+            out[scope_key] = text
 
     return out
 
@@ -831,13 +857,7 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
             "negative_plays_forced_pg_last3_api": "N/A",
         }
 
-    candidates: list[str] = []
-    if team_slug:
-        candidates.append(team_slug)
-    if team_name:
-        normalized_name = re.sub(r"[^a-z0-9]+", "-", team_name.strip().lower()).strip("-")
-        if normalized_name and normalized_name not in candidates:
-            candidates.append(normalized_name)
+    candidates = _candidate_team_ids(team_slug, team_name)
 
     out = {
         "negative_plays_pg_api": "N/A",
@@ -854,18 +874,9 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
     ]
 
     for key, suffix in endpoint_specs:
-        for candidate in candidates:
-            encoded = urllib.parse.quote(candidate)
-            url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    text = (resp.read().decode("utf-8", errors="ignore") or "").strip()
-                if text:
-                    out[key] = text
-                    break
-            except Exception:
-                continue
+        text = _fetch_text_from_candidates(candidates, suffix)
+        if text:
+            out[key] = text
 
     return out
 
@@ -884,13 +895,7 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
             "pff_fmt_pg": "N/A",
         }
 
-    candidates: list[str] = []
-    if team_slug:
-        candidates.append(team_slug)
-    if team_name:
-        normalized_name = re.sub(r"[^a-z0-9]+", "-", team_name.strip().lower()).strip("-")
-        if normalized_name and normalized_name not in candidates:
-            candidates.append(normalized_name)
+    candidates = _candidate_team_ids(team_slug, team_name)
 
     out = {
         "pff_plays_offense_pg": "N/A",
@@ -904,18 +909,7 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
     }
 
     def _try_fetch(suffix: str) -> str | None:
-        for candidate in candidates:
-            encoded = urllib.parse.quote(candidate)
-            url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=4) as resp:
-                    text = (resp.read().decode("utf-8", errors="ignore") or "").strip()
-                if text:
-                    return text
-            except Exception:
-                continue
-        return None
+        return _fetch_text_from_candidates(candidates, suffix)
 
     plays = _try_fetch("pff/plays?side=both&format=text")
     if plays and "," in plays:

@@ -17,7 +17,8 @@ def _safe_float(value: object) -> float | None:
 
 def _coach_lines(team: dict) -> list[str]:
     coaches = team.get("coaches", {})
-    lines = [f"Head Coach: {coaches.get('head_coach', 'N/A')}"]
+    head = coaches.get("head_coach")
+    lines = [f"Head Coach: {head}" if head and head != "N/A" else "Head Coach: Unavailable in current source"]
     play_caller = coaches.get("play_caller")
     if play_caller:
         title = coaches.get("play_caller_title") or "Play Caller"
