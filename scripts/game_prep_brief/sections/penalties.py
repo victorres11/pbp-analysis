@@ -66,6 +66,7 @@ def _penalty_group(pen: dict) -> str:
 def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
+    team_abbr = str((team.get("pbp_entry") or {}).get("abbr") or "").upper()
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -128,17 +129,42 @@ def _aggregate(team: dict) -> dict:
                         desc = str(play.get("description") or "")
                         if "PENALTY" not in desc.upper():
                             continue
-                        ptype = _simplify_penalty({"description": desc})
+                        pen_obj = {"description": desc}
+                        ptype = _simplify_penalty(pen_obj)
                         by_type_count[ptype] += 1
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
                         by_type_yards[ptype] += y_val
+                        group = _penalty_group(pen_obj)
+                        by_group[group]["count"] += 1
+                        by_group[group]["yards"] += y_val
+                        total += 1
+                        yards += y_val
+                        game_row["count"] += 1
+                        game_row["yards"] += y_val
+                        if group == "procedural":
+                            game_row["procedural_count"] += 1
+                            game_row["procedural_yards"] += y_val
+                        else:
+                            game_row["live_ball_count"] += 1
+                            game_row["live_ball_yards"] += y_val
+                        if "PASS INTERFERENCE" in desc.upper():
+                            m = re.search(r"PENALTY\s+([A-Z0-9]+)\s+", desc.upper())
+                            penalized = m.group(1) if m else ""
+                            if team_abbr and penalized == team_abbr:
+                                pi_allowed += 1
+                            elif team_abbr and penalized and penalized != team_abbr:
+                                pi_drawn += 1
 
         per_game.append(game_row)
 
     # Prefer bundle-level penalty rollups when available (source of truth).
     has_group_breakdown = False
     has_pi_breakdown = False
+    derived_procedural = dict(by_group["procedural"])
+    derived_live_ball = dict(by_group["live_ball"])
+    derived_pi_drawn = pi_drawn
+    derived_pi_allowed = pi_allowed
     if stats_row:
         total = int(stats_row.get("total_penalties", total) or total)
         yards = int(stats_row.get("total_penalty_yards", yards) or yards)
@@ -182,6 +208,28 @@ def _aggregate(team: dict) -> dict:
                 "pass_interference_allowed_yards",
             )
         ) and not (total > 0 and pi_drawn == 0 and pi_allowed == 0)
+        # XML feeds can publish zeroed advanced splits while per-play details are present.
+        if (
+            total > 0
+            and by_group["procedural"]["count"] == 0
+            and by_group["live_ball"]["count"] == 0
+            and (derived_procedural["count"] > 0 or derived_live_ball["count"] > 0)
+        ):
+            by_group["procedural"] = derived_procedural
+            by_group["live_ball"] = derived_live_ball
+            has_group_breakdown = True
+        if total > 0 and pi_drawn == 0 and pi_allowed == 0 and (
+            derived_pi_drawn > 0 or derived_pi_allowed > 0
+        ):
+            pi_drawn = derived_pi_drawn
+            pi_allowed = derived_pi_allowed
+            has_pi_breakdown = True
+        if not has_group_breakdown and (
+            by_group["procedural"]["count"] > 0 or by_group["live_ball"]["count"] > 0
+        ):
+            has_group_breakdown = True
+        if not has_pi_breakdown and (pi_drawn > 0 or pi_allowed > 0):
+            has_pi_breakdown = True
     else:
         has_group_breakdown = bool(by_group["procedural"]["count"] or by_group["live_ball"]["count"])
         has_pi_breakdown = bool(pi_drawn or pi_allowed)

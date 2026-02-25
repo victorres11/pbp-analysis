@@ -4,10 +4,12 @@ import json
 import os
 import re
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 import urllib.parse
 import time
+from html.parser import HTMLParser
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,6 +67,491 @@ ENRICHMENT_KEYS = (
     "pff_fmt_total",
     "pff_fmt_pg",
 )
+
+_PBP_PARSER_SRC = ROOT_DIR.parent / "pbp-parser" / "src"
+if str(_PBP_PARSER_SRC) not in sys.path:
+    sys.path.insert(0, str(_PBP_PARSER_SRC))
+
+try:
+    from pbp_parser.cfbstats.scraper_v2 import CfbstatsScraper
+    from pbp_parser.rate_limit import RateLimitConfig
+    from pbp_parser.reference.teams import get_team_conference
+except Exception:
+    CfbstatsScraper = None  # type: ignore[assignment]
+    RateLimitConfig = None  # type: ignore[assignment]
+    get_team_conference = None  # type: ignore[assignment]
+
+_CONFERENCE_NAME_MAP = {
+    "AAC": "American",
+    "Conference USA": "C-USA",
+    "Independents": "FBS Independents",
+}
+
+_FALLBACK_CONFERENCE_IDS = {
+    "American": 823,
+    "ACC": 821,
+    "Big 12": 25354,
+    "Big Ten": 827,
+    "C-USA": 24312,
+    "FBS Independents": 99001,
+    "MAC": 875,
+    "Mountain West": 5486,
+    "Pac-12": 905,
+    "SEC": 911,
+    "Sun Belt": 818,
+}
+
+_FALLBACK_CONFERENCE_MEMBERS = {
+    "SEC": (
+        "Alabama", "Arkansas", "Auburn", "Florida", "Georgia", "Kentucky", "LSU",
+        "Mississippi", "Mississippi State", "Missouri", "Oklahoma", "South Carolina",
+        "Tennessee", "Texas", "Texas A&M", "Vanderbilt",
+    ),
+    "Big Ten": (
+        "Illinois", "Indiana", "Iowa", "Maryland", "Michigan", "Michigan State",
+        "Minnesota", "Nebraska", "Northwestern", "Ohio State", "Oregon", "Penn State",
+        "Purdue", "Rutgers", "UCLA", "USC", "Washington", "Wisconsin",
+    ),
+    "Big 12": (
+        "Arizona", "Arizona State", "Baylor", "BYU", "Cincinnati", "Colorado",
+        "Houston", "Iowa State", "Kansas", "Kansas State", "Oklahoma State", "TCU",
+        "Texas Tech", "UCF", "Utah", "West Virginia",
+    ),
+    "ACC": (
+        "Boston College", "California", "Clemson", "Duke", "Florida State",
+        "Georgia Tech", "Louisville", "Miami", "North Carolina", "NC State",
+        "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
+        "Wake Forest",
+    ),
+    "American": (
+        "Army", "Charlotte", "East Carolina", "Florida Atlantic", "Memphis", "Navy",
+        "North Texas", "Rice", "South Florida", "Temple", "Tulane", "Tulsa", "UAB",
+        "UTSA",
+    ),
+    "Mountain West": (
+        "Air Force", "Boise State", "Colorado State", "Fresno State", "Hawaii",
+        "Nevada", "New Mexico", "San Diego State", "San Jose State", "UNLV",
+        "Utah State", "Wyoming",
+    ),
+    "Sun Belt": (
+        "Appalachian State", "Arkansas State", "Coastal Carolina", "Georgia Southern",
+        "Georgia State", "James Madison", "Louisiana", "Marshall", "Old Dominion",
+        "South Alabama", "Southern Miss", "Texas State", "Troy", "UL Monroe",
+    ),
+    "MAC": (
+        "Akron", "Ball State", "Bowling Green", "Buffalo", "Central Michigan",
+        "Eastern Michigan", "Kent State", "Miami (OH)", "Northern Illinois", "Ohio",
+        "Toledo", "UMass", "Western Michigan",
+    ),
+    "C-USA": (
+        "Delaware", "FIU", "Jacksonville State", "Kennesaw State", "Liberty",
+        "Louisiana Tech", "Middle Tennessee State", "New Mexico State", "Sam Houston State",
+        "UTEP", "Western Kentucky",
+    ),
+    "Pac-12": ("Oregon State", "Washington State"),
+    "FBS Independents": ("Connecticut", "Notre Dame"),
+}
+
+_FALLBACK_TEAM_ALIASES = {
+    "ole miss": "mississippi",
+    "southern california": "usc",
+    "miami fl": "miami",
+    "miami florida": "miami",
+    "miami (fl)": "miami",
+    "texas am": "texas a&m",
+    "texas a and m": "texas a&m",
+}
+
+
+def _norm_team_name(value: str | None) -> str:
+    if not value:
+        return ""
+    cleaned = value.lower().replace("&", " and ")
+    cleaned = re.sub(r"[^a-z0-9]+", " ", cleaned)
+    return " ".join(cleaned.split())
+
+
+_FALLBACK_TEAM_TO_CONFERENCE: dict[str, str] = {}
+for _conf, _members in _FALLBACK_CONFERENCE_MEMBERS.items():
+    for _member in _members:
+        _FALLBACK_TEAM_TO_CONFERENCE[_norm_team_name(_member)] = _conf
+for _alias, _target in _FALLBACK_TEAM_ALIASES.items():
+    _FALLBACK_TEAM_TO_CONFERENCE[_norm_team_name(_alias)] = _FALLBACK_TEAM_TO_CONFERENCE.get(
+        _norm_team_name(_target), ""
+    )
+
+
+class _LeaderboardTableParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self._table_depth = 0
+        self._in_row = False
+        self._in_cell = False
+        self._cell_parts: list[str] = []
+        self._row_cells: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "table":
+            if self._table_depth == 0:
+                self.rows = []
+            self._table_depth += 1
+        if self._table_depth == 0:
+            return
+        if tag == "tr":
+            self._in_row = True
+            self._row_cells = []
+        if self._in_row and tag in ("td", "th"):
+            self._in_cell = True
+            self._cell_parts = []
+
+    def handle_endtag(self, tag):
+        if tag == "table" and self._table_depth > 0:
+            self._table_depth -= 1
+        if self._table_depth == 0:
+            return
+        if tag in ("td", "th") and self._in_cell:
+            cell = " ".join("".join(self._cell_parts).split()).strip()
+            self._row_cells.append(cell)
+            self._in_cell = False
+        if tag == "tr" and self._in_row:
+            if any(c for c in self._row_cells):
+                self.rows.append(self._row_cells)
+            self._row_cells = []
+            self._in_row = False
+
+    def handle_data(self, data):
+        if self._in_cell:
+            self._cell_parts.append(data)
+
+
+def _norm_header(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"[^a-z0-9%]+", "", value.lower())
+
+
+def _find_col(headers: list[str], candidates: list[str]) -> str | None:
+    normalized_headers = [_norm_header(h) for h in headers]
+    normalized_candidates = [_norm_header(c) for c in candidates]
+    candidate_set = set(normalized_candidates)
+    for idx, h in enumerate(normalized_headers):
+        if h in candidate_set:
+            return headers[idx]
+    for idx, h in enumerate(normalized_headers):
+        for c in normalized_candidates:
+            if c and c in h:
+                return headers[idx]
+    if {"rank", "rk", "#"} & set(normalized_candidates):
+        if headers and (_norm_header(headers[0]) in {"", "col0"} or headers[0] == ""):
+            return headers[0]
+    return None
+
+
+def _parse_cfbstats_table(html: str) -> tuple[list[str], list[dict]]:
+    parser = _LeaderboardTableParser()
+    parser.feed(html)
+    rows = parser.rows
+    if not rows:
+        return [], []
+    header_idx = 0
+    for idx, row in enumerate(rows):
+        norm = [_norm_header(c) for c in row]
+        if "team" in norm or "name" in norm:
+            header_idx = idx
+            break
+    raw_headers = rows[header_idx]
+    headers: list[str] = []
+    seen: dict[str, int] = {}
+    for i, header in enumerate(raw_headers):
+        base = header if header else ("" if i == 0 else f"col_{i}")
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        headers.append(base if count == 0 else f"{base}__{count}")
+    out_rows: list[dict] = []
+    for row in rows[header_idx + 1 :]:
+        if len(row) < 2:
+            continue
+        padded = row[: len(headers)] + [""] * max(0, len(headers) - len(row))
+        out_rows.append({headers[i]: padded[i] for i in range(len(headers))})
+    return headers, out_rows
+
+
+def _to_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+    cleaned = re.sub(r"[^0-9.+-]", "", str(value))
+    if not cleaned or cleaned in {"+", "-"}:
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _fetch_cfbstats_rows(
+    year: int,
+    conference_id: int,
+    split: str,
+    category: int,
+    offense: str,
+    timeout: int = 8,
+) -> tuple[list[str], list[dict]]:
+    def _req(use_split: str) -> tuple[list[str], list[dict]]:
+        url = (
+            f"https://cfbstats.com/{year}/leader/{conference_id}/team/{offense}/"
+            f"{use_split}/category{int(category):02d}/sort01.html"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+        return _parse_cfbstats_table(html)
+
+    try:
+        return _req(split)
+    except urllib.error.HTTPError as exc:
+        # CFBStats currently 404s for split05/split06 leaderboards.
+        # Fall back to split01 so conference/nonconf tables are still live-populated.
+        if exc.code == 404 and split != "split01":
+            return _req("split01")
+        raise
+
+
+def _team_name_variants(team_name: str, team_slug: str) -> set[str]:
+    base = _norm_team_name(team_name)
+    variants = {base, _norm_team_name(team_slug)}
+    if " state" in base:
+        variants.add(base.replace(" state", " st"))
+    if " st" in base:
+        variants.add(base.replace(" st", " state"))
+    return {v for v in variants if v}
+
+
+def _match_row_for_team(rows: list[dict], team_col: str, team_names: set[str]) -> dict | None:
+    for row in rows:
+        row_team = _norm_team_name(row.get(team_col))
+        if row_team in team_names:
+            return row
+    return None
+
+
+def _fallback_team_conference(team_name: str) -> str:
+    return _FALLBACK_TEAM_TO_CONFERENCE.get(_norm_team_name(team_name), "")
+
+
+def _fetch_live_rankings_fallback(team_name: str, team_slug: str, season: int) -> tuple[str, dict]:
+    conference = _normalize_cfbstats_conference(_fallback_team_conference(team_name))
+    conference_id = _FALLBACK_CONFERENCE_IDS.get(conference)
+    if not conference or not conference_id:
+        return "", {"all": {}, "conf": {}, "nonconf": {}}
+
+    configs = [
+        ("red_zone", "red zone TD%", 27, "offense", ["TD %", "TD%", "TD Pct"]),
+        ("third_down", "third down %", 25, "offense", ["Conversion %", "Pct", "Conv %", "Conv%"]),
+        ("explosives", "explosive plays (20+)", 30, "offense", ["20+", "20+ Plays", "20+ Yds", "20"]),
+        ("fourth_down", "4th down conversion %", 26, "offense", ["Conversion %", "Conv %", "Conv%", "Pct"]),
+        ("penalties", "penalty yards/game", 14, "offense", ["Yards/G", "Yds/G", "Yards/Gm", "Yds/Gm"]),
+        ("time_of_possession", "time of possession", 15, "offense", ["TOP", "Time", "Time of Possession"]),
+        ("sacks_offense", "sacks allowed", 20, "offense", ["Sacks", "Sack", "Sk"]),
+        ("sacks_defense", "sacks", 20, "defense", ["Sacks", "Sack", "Sk"]),
+        ("tfl_offense", "TFL allowed", 21, "offense", ["TFL", "TFL/G", "TFLA"]),
+        ("tfl_defense", "TFL", 21, "defense", ["TFL", "TFL/G"]),
+        ("total_offense", "total offense", 10, "offense", ["Yards/G", "Yds/G", "Total", "Yds"]),
+        ("total_defense", "total defense", 10, "defense", ["Yards/G", "Yds/G", "Total", "Yds"]),
+        ("rushing_offense", "rushing offense", 1, "offense", ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G"]),
+        ("rushing_defense", "rushing defense", 1, "defense", ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G"]),
+        ("passing_offense", "passing offense", 2, "offense", ["Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G"]),
+        ("passing_defense", "passing defense", 2, "defense", ["Pass Yds/G", "Pass Yards/G", "Yards/G", "Yds/G"]),
+        ("scoring_offense", "scoring offense", 9, "offense", ["Points/G", "Pts/G", "Pts/Gm", "PPG"]),
+        ("scoring_defense", "scoring defense", 9, "defense", ["Points/G", "Pts/G", "Pts/Gm", "PPG"]),
+        ("turnover_margin", "turnover margin", 12, "offense", ["Margin", "TO Margin", "Margin/G", "+/-"]),
+    ]
+
+    split_map = {"all": "split01", "conf": "split05", "nonconf": "split06"}
+    team_names = _team_name_variants(team_name, team_slug)
+    rankings = {"all": {}, "conf": {}, "nonconf": {}}
+
+    for scope, split in split_map.items():
+        cached_tables: dict[tuple[int, str], tuple[list[str], list[dict]]] = {}
+        for key, label, category, offense, stat_candidates in configs:
+            try:
+                headers, rows = cached_tables.get((category, offense), ([], []))
+                if not rows:
+                    headers, rows = _fetch_cfbstats_rows(season, conference_id, split, category, offense)
+                    cached_tables[(category, offense)] = (headers, rows)
+                if not rows:
+                    continue
+                team_col = _find_col(headers, ["Team", "Name"])
+                rank_col = _find_col(headers, ["Rank", "Rk", "#"])
+                stat_col = _find_col(headers, stat_candidates)
+                if stat_col is None and key == "explosives" and len(headers) > 4:
+                    # category30 table uses duplicate "Yards" headers by threshold.
+                    # index 4 is the 20+ column after ['', Name, G, 10+, 20+, ...].
+                    stat_col = headers[4]
+                if team_col is None or rank_col is None or stat_col is None:
+                    continue
+                row = _match_row_for_team(rows, team_col, team_names)
+                if not row:
+                    continue
+                rank = _to_float(row.get(rank_col))
+                if rank is None:
+                    continue
+                value_raw = (row.get(stat_col) or "").strip()
+                if "%" in value_raw:
+                    value_raw = value_raw.replace("%", "").strip()
+                value_num = _to_float(value_raw)
+                value = value_raw
+                if value_num is not None and ":" not in value_raw:
+                    value = f"{value_num:.1f}" if not value_num.is_integer() else str(int(value_num))
+                rankings[scope][key] = {
+                    "rank": int(rank),
+                    "conference": conference,
+                    "value": value or "N/A",
+                    "label": label,
+                    "total": sum(1 for r in rows if r.get(team_col)),
+                }
+            except Exception:
+                continue
+
+        # Derive scoring margin from scoring offense/defense leaderboards.
+        try:
+            off_headers, off_rows = cached_tables.get((9, "offense"), ([], []))
+            def_headers, def_rows = cached_tables.get((9, "defense"), ([], []))
+            off_team_col = _find_col(off_headers, ["Team", "Name"]) if off_headers else None
+            def_team_col = _find_col(def_headers, ["Team", "Name"]) if def_headers else None
+            off_stat_col = _find_col(off_headers, ["Points/G", "Pts/G", "Pts/Gm", "PPG"]) if off_headers else None
+            def_stat_col = _find_col(def_headers, ["Points/G", "Pts/G", "Pts/Gm", "PPG"]) if def_headers else None
+            if off_team_col and def_team_col and off_stat_col and def_stat_col:
+                off_map = {
+                    _norm_team_name(r.get(off_team_col)): _to_float(r.get(off_stat_col))
+                    for r in off_rows
+                    if r.get(off_team_col)
+                }
+                def_map = {
+                    _norm_team_name(r.get(def_team_col)): _to_float(r.get(def_stat_col))
+                    for r in def_rows
+                    if r.get(def_team_col)
+                }
+                margin_map = {}
+                for k, off in off_map.items():
+                    deff = def_map.get(k)
+                    if off is None or deff is None:
+                        continue
+                    margin_map[k] = off - deff
+                if margin_map:
+                    ranked = sorted(margin_map.items(), key=lambda item: item[1], reverse=True)
+                    rank_lookup = {name: idx + 1 for idx, (name, _) in enumerate(ranked)}
+                    team_key = next((name for name in team_names if name in margin_map), None)
+                    if team_key:
+                        margin_value = margin_map[team_key]
+                        rankings[scope]["scoring_margin"] = {
+                            "rank": rank_lookup[team_key],
+                            "conference": conference,
+                            "value": f"{margin_value:+.1f}",
+                            "label": "scoring margin",
+                            "total": len(ranked),
+                        }
+        except Exception:
+            pass
+
+    return conference, rankings
+
+
+def _normalize_cfbstats_conference(conference: str | None) -> str:
+    if not conference:
+        return ""
+    return _CONFERENCE_NAME_MAP.get(conference, conference)
+
+
+def _is_missing_rankings(team_entry: dict | None) -> bool:
+    if not isinstance(team_entry, dict):
+        return True
+    rankings = team_entry.get("cfbstats", {}).get("rankings", {})
+    all_rankings = rankings.get("all")
+    return not isinstance(all_rankings, dict) or not all_rankings
+
+
+def _flatten_badges(payload: dict, slug: str) -> dict:
+    split_rows = payload.get(slug, {}) if isinstance(payload, dict) else {}
+    if not isinstance(split_rows, dict):
+        return {}
+
+    out: dict = {}
+    for key, rows in split_rows.items():
+        if not isinstance(rows, list) or not rows:
+            continue
+        row = rows[0] if isinstance(rows[0], dict) else None
+        if not row:
+            continue
+        rank = row.get("rank")
+        total = row.get("total")
+        value = row.get("value")
+        conference = row.get("conference")
+        label = row.get("label")
+        if rank is None or value in (None, ""):
+            continue
+        out[key] = {
+            "rank": rank,
+            "total": total if isinstance(total, int) else None,
+            "value": value,
+            "conference": conference or "",
+            "label": label or key.replace("_", " "),
+        }
+    return out
+
+
+def _fetch_live_rankings(team_name: str, team_slug: str, season: int) -> tuple[str, dict]:
+    if CfbstatsScraper is None or RateLimitConfig is None or get_team_conference is None:
+        return _fetch_live_rankings_fallback(team_name, team_slug, season)
+
+    conference = _normalize_cfbstats_conference(get_team_conference(team_name))
+    if not conference:
+        return "", {"all": {}, "conf": {}, "nonconf": {}}
+
+    team_payload = {
+        team_slug: {
+            "name": team_name,
+            "abbr": team_slug[:4].upper(),
+            "conference": conference,
+        }
+    }
+
+    # Use an ephemeral cache directory per generation run to avoid stale rankings.
+    cache_dir = Path(tempfile.gettempdir()) / f"cfbstats_live_{os.getpid()}_{time.time_ns()}"
+    rate_cfg = RateLimitConfig(  # type: ignore[misc]
+        min_delay=0.0,
+        max_delay=0.05,
+        max_retries=0,
+        backoff_base=0.0,
+        backoff_factor=1.0,
+        max_backoff=0.0,
+        jitter=0.0,
+    )
+    scraper = CfbstatsScraper(cache_dir=cache_dir, timeout=6, rate_config=rate_cfg)
+    split_map = {"all": "split01", "conf": "split05", "nonconf": "split06"}
+
+    rankings = {"all": {}, "conf": {}, "nonconf": {}}
+    try:
+        for scope, split in split_map.items():
+            badges = scraper.get_context_badges(season, team_payload, split=split)
+            rankings[scope] = _flatten_badges(badges, team_slug)
+    except Exception:
+        return _fetch_live_rankings_fallback(team_name, team_slug, season)
+    fb_conf, fb_rankings = _fetch_live_rankings_fallback(team_name, team_slug, season)
+    for scope in ("all", "conf", "nonconf"):
+        primary_scope = rankings.get(scope) if isinstance(rankings.get(scope), dict) else {}
+        fallback_scope = fb_rankings.get(scope) if isinstance(fb_rankings.get(scope), dict) else {}
+        if not primary_scope:
+            rankings[scope] = fallback_scope
+            continue
+        if fallback_scope:
+            for key, value in fallback_scope.items():
+                if key not in primary_scope or not isinstance(primary_scope.get(key), dict):
+                    primary_scope[key] = value
+            rankings[scope] = primary_scope
+    if not rankings.get("all"):
+        return fb_conf or conference, fb_rankings
+    return fb_conf or conference, rankings
 
 
 def slugify(name: str) -> str:
@@ -173,7 +660,48 @@ def _iter_play_tree_plays(play_tree: object):
                     yield play
 
 
-def _rollup_game_from_play_tree(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> dict:
+def _abbr_set(value: object) -> set[str]:
+    if isinstance(value, str):
+        cleaned = value.strip().upper()
+        return {cleaned} if cleaned else set()
+    if isinstance(value, (list, tuple, set)):
+        out: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            cleaned = item.strip().upper()
+            if cleaned:
+                out.add(cleaned)
+        return out
+    return set()
+
+
+def _team_aliases_from_bundle(home_abbr: str | None, stats: object, games: object) -> set[str]:
+    aliases = _abbr_set(home_abbr)
+    opponent_abbrs = {
+        str(g.get("opponent_abbr") or "").strip().upper()
+        for g in (games or [])
+        if isinstance(g, dict) and g.get("opponent_abbr")
+    }
+    if isinstance(stats, dict):
+        for category in stats.values():
+            if not isinstance(category, dict):
+                continue
+            for abbr, row in category.items():
+                if not isinstance(abbr, str):
+                    continue
+                cleaned = abbr.strip().upper()
+                if not cleaned or cleaned in opponent_abbrs:
+                    continue
+                if isinstance(row, dict):
+                    games_count = row.get("games")
+                    if isinstance(games_count, int) and games_count <= 0:
+                        continue
+                aliases.add(cleaned)
+    return aliases
+
+
+def _rollup_game_from_play_tree(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
     explosive_passes = 0
     explosive_rushes = 0
     negative_plays = 0
@@ -181,25 +709,27 @@ def _rollup_game_from_play_tree(play_tree: object, team_abbr: str | None, opp_ab
     turnovers_lost = 0
     turnovers_gained = 0
 
-    team = (team_abbr or "").upper()
-    opp = (opp_abbr or "").upper()
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
     for play in _iter_play_tree_plays(play_tree):
         if play.get("is_no_play"):
             continue
         offense = (play.get("offense") or "").upper()
         yards = play.get("yards")
         desc = (play.get("description") or "").upper()
+        is_interception = "INTERCEPT" in desc
 
-        if offense == team:
+        if offense in team_aliases:
             if isinstance(yards, (int, float)) and yards < 0:
                 negative_plays += 1
-            if isinstance(yards, (int, float)) and yards >= 20 and "PASS" in desc:
+            # Treat interception-return records as non-explosive for offense.
+            if isinstance(yards, (int, float)) and yards >= 20 and "PASS" in desc and not is_interception:
                 explosive_passes += 1
             if isinstance(yards, (int, float)) and yards >= 15 and "RUSH" in desc:
                 explosive_rushes += 1
             if play.get("is_turnover"):
                 turnovers_lost += 1
-        elif offense == opp:
+        elif offense in opp_aliases:
             if isinstance(yards, (int, float)) and yards < 0:
                 negative_plays_forced += 1
             if play.get("is_turnover"):
@@ -216,16 +746,16 @@ def _rollup_game_from_play_tree(play_tree: object, team_abbr: str | None, opp_ab
     }
 
 
-def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: str | None) -> int | None:
-    team = (team_abbr or "").upper()
-    if not team:
+def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: object) -> int | None:
+    team_aliases = _abbr_set(team_abbr)
+    if not team_aliases:
         return None
     total = 0
     seen = False
     for play in _iter_play_tree_plays(play_tree):
         if play.get("is_no_play"):
             continue
-        if str(play.get("offense") or "").upper() != team:
+        if str(play.get("offense") or "").upper() not in team_aliases:
             continue
         yards = play.get("yards")
         if isinstance(yards, (int, float)):
@@ -234,48 +764,66 @@ def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: str | Non
     return total if seen else None
 
 
-def _estimate_points_from_play_tree(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> tuple[int | None, int | None]:
-    team = (team_abbr or "").upper()
-    opp = (opp_abbr or "").upper()
-    if not team or not opp:
+def _estimate_points_from_play_tree(play_tree: object, team_abbr: object, opp_abbr: object) -> tuple[int | None, int | None]:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    if not team_aliases or not opp_aliases:
         return None, None
 
-    points = {team: 0, opp: 0}
-    pending_td_for: str | None = None
+    team_points = 0
+    opp_points = 0
+    pending_td_for_team: bool | None = None
 
     for play in _iter_play_tree_plays(play_tree):
         offense = (play.get("offense") or "").upper()
         desc = (play.get("description") or "").upper()
-        if offense not in points:
+        offense_is_team = offense in team_aliases
+        offense_is_opp = offense in opp_aliases
+        if not offense_is_team and not offense_is_opp:
             continue
 
         if "TOUCHDOWN" in desc:
-            points[offense] += 6
-            pending_td_for = offense
+            if offense_is_team:
+                team_points += 6
+                pending_td_for_team = True
+            else:
+                opp_points += 6
+                pending_td_for_team = False
             continue
         if "FIELD GOAL" in desc and "GOOD" in desc:
-            points[offense] += 3
-            pending_td_for = None
+            if offense_is_team:
+                team_points += 3
+            else:
+                opp_points += 3
+            pending_td_for_team = None
             continue
         if "SAFETY" in desc:
-            defense = opp if offense == team else team
-            points[defense] += 2
-            pending_td_for = None
+            if offense_is_team:
+                opp_points += 2
+            else:
+                team_points += 2
+            pending_td_for_team = None
             continue
 
-        if pending_td_for:
+        if pending_td_for_team is not None:
             if "2-POINT" in desc and ("GOOD" in desc or "SUCCESS" in desc):
-                points[pending_td_for] += 2
-                pending_td_for = None
+                if pending_td_for_team:
+                    team_points += 2
+                else:
+                    opp_points += 2
+                pending_td_for_team = None
                 continue
             if ("PAT" in desc or "KICK ATTEMPT" in desc) and "GOOD" in desc:
-                points[pending_td_for] += 1
-                pending_td_for = None
+                if pending_td_for_team:
+                    team_points += 1
+                else:
+                    opp_points += 1
+                pending_td_for_team = None
                 continue
             if "NO GOOD" in desc or "FAILED" in desc:
-                pending_td_for = None
+                pending_td_for_team = None
 
-    return points[team], points[opp]
+    return team_points, opp_points
 
 
 def _parse_down(down_distance: object) -> int | None:
@@ -318,10 +866,12 @@ def _yards_to_goal_from_spot(spot: object, offense_abbr: str, opp_abbr: str) -> 
     return yard if yard <= 50 else 100 - yard
 
 
-def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> dict:
-    team = (team_abbr or "").upper()
-    opp = (opp_abbr or "").upper()
-    if not team or not opp:
+def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    team = sorted(team_aliases)[0] if team_aliases else ""
+    opp = sorted(opp_aliases)[0] if opp_aliases else ""
+    if not team_aliases or not opp_aliases:
         return {}
 
     third_att = third_conv = 0
@@ -348,9 +898,11 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr
                 desc = str(play.get("description") or "")
                 desc_up = desc.upper()
                 offense = str(play.get("offense") or "").upper()
+                offense_is_team = offense in team_aliases
+                offense_is_opp = offense in opp_aliases
                 down = _parse_down(play.get("down_distance"))
 
-                if offense == team and play.get("is_scrimmage_play"):
+                if offense_is_team and play.get("is_scrimmage_play"):
                     ytg = _yards_to_goal_from_spot(play.get("spot"), team, opp)
                     if isinstance(ytg, int):
                         if ytg <= 40:
@@ -364,7 +916,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr
                     if "FIELD GOAL" in desc_up and "GOOD" in desc_up:
                         drive_fg = True
 
-                if offense == team and down in (3, 4):
+                if offense_is_team and down in (3, 4):
                     if down == 3:
                         third_att += 1
                     else:
@@ -379,14 +931,14 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr
                     penalty_count += 1
                     y = _parse_int(r"(\d+)\s*yards?", desc) or 0
                     penalty_yards += y
-                    if offense == team:
+                    if offense_is_team:
                         penalties_off += 1
-                    elif offense == opp:
+                    elif offense_is_opp:
                         penalties_def += 1
                     else:
                         penalties_st += 1
 
-                if offense == team and " PUNT " in f" {desc_up} ":
+                if offense_is_team and " PUNT " in f" {desc_up} ":
                     py = _parse_int(r"punt\s+(\d+)\s+yards?", desc) or 0
                     punts += 1
                     punt_yards += py
@@ -404,7 +956,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr
                         if ret >= 20:
                             punt_return_20_plus += 1
 
-                if offense == opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
+                if offense_is_opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
                     kret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
                     if kret > 0:
                         kick_returns += 1
@@ -477,6 +1029,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: str | None, opp_abbr
 def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     stats = payload.get("stats") or {}
     home_abbr = _bundle_home_abbr(stats)
+    team_aliases = _team_aliases_from_bundle(home_abbr, stats, payload.get("games"))
 
     expl = _bundle_row(stats, "explosives", home_abbr)
     neg = _bundle_row(stats, "negative_plays", home_abbr)
@@ -530,9 +1083,9 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
             continue
         opp_abbr = g.get("opponent_abbr") or g.get("opponent")
         play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
-        game_rollup = _rollup_game_from_play_tree(play_tree, home_abbr, opp_abbr)
-        game_detail = _derive_game_detail_stats(play_tree, home_abbr, opp_abbr)
-        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, home_abbr, opp_abbr)
+        game_rollup = _rollup_game_from_play_tree(play_tree, team_aliases, opp_abbr)
+        game_detail = _derive_game_detail_stats(play_tree, team_aliases, opp_abbr)
+        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
         raw_pf = g.get("points_for")
         raw_pa = g.get("points_against")
         points_for = estimated_pf if isinstance(estimated_pf, int) else raw_pf
@@ -544,7 +1097,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
                 for play in _iter_play_tree_plays(play_tree)
                 if not play.get("is_no_play") and play.get("is_scrimmage_play")
             )
-        total_yards = _estimate_total_yards_from_play_tree(play_tree, home_abbr)
+        total_yards = _estimate_total_yards_from_play_tree(play_tree, team_aliases)
 
         game = {
             "game_number": g.get("game_number") if isinstance(g.get("game_number"), int) else idx,
@@ -566,6 +1119,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     return {
         "name": payload.get("team_name") or slug.replace("-", " ").title(),
         "abbr": home_abbr or slug[:4].upper(),
+        "abbr_aliases": sorted(team_aliases),
         "conference": "",
         "color": "#888888",
         "cfbstats": {"rankings": {"all": {}, "conf": {}, "nonconf": {}}},
@@ -678,6 +1232,13 @@ def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
     if not isinstance(xml_stats, dict) or not xml_stats:
         return [f"{team_name}: missing xml_stats payload"]
 
+    games_payload = pbp_entry.get("games") or []
+    team_games = len(games_payload) if isinstance(games_payload, list) else 0
+    opponent_abbrs = {
+        str(g.get("opponent_abbr") or "").upper()
+        for g in games_payload
+        if isinstance(g, dict) and g.get("opponent_abbr")
+    }
     gaps: list[str] = []
     for category, required_fields in CORE_XML_FIELDS.items():
         row = _best_xml_row(xml_stats, category)
@@ -697,6 +1258,30 @@ def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
 
         values = [row.get(field) for field in required_fields]
         if values and all(_is_numeric_zero(v) for v in values):
+            if team_games and isinstance(games, int) and games < team_games:
+                # Some feeds split one team across aliases (e.g., UW/WASH/WAS).
+                # If non-opponent alias rows collectively cover the full season
+                # and remain all-zero, treat as valid instead of a parity gap.
+                category_rows = xml_stats.get(category) or {}
+                if isinstance(category_rows, dict):
+                    alias_rows = []
+                    for abbr, alias_row in category_rows.items():
+                        if not isinstance(alias_row, dict):
+                            continue
+                        if str(abbr).upper() in opponent_abbrs:
+                            continue
+                        alias_rows.append(alias_row)
+                    alias_games = sum(
+                        int(r.get("games") or 0) for r in alias_rows if isinstance(r.get("games"), int)
+                    )
+                    alias_all_zero = bool(alias_rows) and all(
+                        all(_is_numeric_zero(r.get(field)) for field in required_fields) for r in alias_rows
+                    )
+                    if alias_all_zero and alias_games >= team_games:
+                        continue
+            if team_games and isinstance(games, int) and games >= team_games:
+                # A full-season all-zero row can be a legitimate outcome.
+                continue
             gaps.append(
                 f"{team_name}: '{category}' has all-zero core fields across {games} games (parity risk)"
             )
@@ -754,6 +1339,7 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     fourth_att = fourth_conv = 0
     sacks_allowed = sacks_forced = 0
     tfl_allowed = tfl_forced = 0
+    team_aliases = _abbr_set(team_data.get("abbr_aliases") or team_data.get("abbr"))
     for g in games:
         pf = g.get("points_for")
         pa = g.get("points_against")
@@ -771,7 +1357,6 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         third_conv += int(g.get("third_down_conversions") or 0)
         fourth_att += int(g.get("4th_down_attempts") or 0)
         fourth_conv += int(g.get("4th_down_conversions") or 0)
-        team_abbr = str(team_data.get("abbr") or "").upper()
         opp_abbr = str(g.get("opponent_abbr") or "").upper()
         for play in _iter_play_tree_plays(g.get("play_tree") or []):
             if play.get("is_no_play"):
@@ -780,12 +1365,12 @@ def _extract_pbp_stats(team_data: dict) -> dict:
             desc = str(play.get("description") or "").upper()
             yards = play.get("yards")
             if "SACK" in desc:
-                if offense == team_abbr:
+                if offense in team_aliases:
                     sacks_allowed += 1
                 elif offense == opp_abbr:
                     sacks_forced += 1
             if isinstance(yards, (int, float)) and yards < 0 and "RUSH" in desc:
-                if offense == team_abbr:
+                if offense in team_aliases:
                     tfl_allowed += 1
                 elif offense == opp_abbr:
                     tfl_forced += 1
@@ -1215,6 +1800,19 @@ def gather_team_data(
 ) -> dict:
     school_slug = slugify(team_name)
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
+    if pbp_entry:
+        conf, rankings = _fetch_live_rankings(team_name, school_slug, season)
+        if conf:
+            pbp_entry["conference"] = conf
+        pbp_entry.setdefault("cfbstats", {})
+        pbp_entry["cfbstats"]["rankings"] = {"all": {}, "conf": {}, "nonconf": {}}
+        if rankings.get("all"):
+            pbp_entry["cfbstats"]["rankings"] = rankings
+        else:
+            print(
+                f"[warn] Live CFBStats rankings unavailable for {team_name} ({season}); rankings may render N/A",
+                file=sys.stderr,
+            )
     parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
     seeded = (enrichment_by_slug or {}).get(school_slug) or {}
