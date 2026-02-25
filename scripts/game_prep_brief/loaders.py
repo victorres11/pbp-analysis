@@ -216,6 +216,24 @@ def _rollup_game_from_play_tree(play_tree: object, team_abbr: str | None, opp_ab
     }
 
 
+def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: str | None) -> int | None:
+    team = (team_abbr or "").upper()
+    if not team:
+        return None
+    total = 0
+    seen = False
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        if str(play.get("offense") or "").upper() != team:
+            continue
+        yards = play.get("yards")
+        if isinstance(yards, (int, float)):
+            total += int(yards)
+            seen = True
+    return total if seen else None
+
+
 def _estimate_points_from_play_tree(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> tuple[int | None, int | None]:
     team = (team_abbr or "").upper()
     opp = (opp_abbr or "").upper()
@@ -475,6 +493,15 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     else:
         rz_pct = "N/A"
 
+    week_to_is_home: dict[int, bool | None] = {}
+    for g in payload.get("games") or []:
+        if not isinstance(g, dict):
+            continue
+        week = g.get("week")
+        if isinstance(week, int):
+            raw_home = g.get("is_home")
+            week_to_is_home[week] = raw_home if isinstance(raw_home, bool) else None
+
     schedule_games_out: list[dict] = []
     for g in sched.get("games") or []:
         if not isinstance(g, dict):
@@ -483,11 +510,12 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         opp = g.get("opponent")
         week = g.get("week_number")
         game_date = g.get("game_date")
+        inferred_is_home = week_to_is_home.get(week) if isinstance(week, int) else None
         schedule_games_out.append(
             {
                 "week": week,
                 "game_date": game_date,
-                "is_home": None,
+                "is_home": inferred_is_home,
                 "is_bye": is_bye,
                 "opponent": None if is_bye else (opp or "OPP"),
             }
@@ -516,6 +544,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
                 for play in _iter_play_tree_plays(play_tree)
                 if not play.get("is_no_play") and play.get("is_scrimmage_play")
             )
+        total_yards = _estimate_total_yards_from_play_tree(play_tree, home_abbr)
 
         game = {
             "game_number": g.get("game_number") if isinstance(g.get("game_number"), int) else idx,
@@ -527,6 +556,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
             "points_for": points_for,
             "points_against": points_against,
             "total_plays": total_plays,
+            "total_yards": total_yards,
             "play_tree": play_tree,
         }
         game.update(game_rollup)
