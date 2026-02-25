@@ -62,6 +62,19 @@ def _is_na(value: object) -> bool:
     return value in ("N/A", None, "")
 
 
+def _is_zero_like(value: object) -> bool:
+    try:
+        return float(value) == 0.0
+    except (TypeError, ValueError):
+        return False
+
+
+def _sanitize_charting_value(value: object) -> object:
+    if _is_na(value) or _is_zero_like(value):
+        return "N/A"
+    return value
+
+
 def _display_or_unavailable(value: object, suffix: str = "") -> str:
     if _is_na(value):
         return "Unavailable (API)"
@@ -229,20 +242,20 @@ def _team_html(team: dict) -> str:
     def_plays_pg = stats.get("defense_plays_allowed_per_game", stats.get("pff_plays_defense_pg", "N/A"))
     off_plays_l3 = last_n_stats.get("offense_plays_per_game", "N/A")
     def_plays_l3 = last_n_stats.get("defense_plays_allowed_per_game", "N/A")
-    sacks_allowed_pg = stats.get("pff_sacks_allowed_pg", "N/A")
+    sacks_allowed_pg = _sanitize_charting_value(stats.get("pff_sacks_allowed_pg", "N/A"))
     if sacks_allowed_pg in ("N/A", None, ""):
         sacks_allowed_pg = stats.get("sacks_allowed_derived_pg", "N/A")
-    sacks_pg = stats.get("pff_sacks_pg", "N/A")
+    sacks_pg = _sanitize_charting_value(stats.get("pff_sacks_pg", "N/A"))
     if sacks_pg in ("N/A", None, ""):
         sacks_pg = stats.get("sacks_forced_derived_pg", "N/A")
-    tfl_pg = stats.get("pff_tfl_pg", "N/A")
+    tfl_pg = _sanitize_charting_value(stats.get("pff_tfl_pg", "N/A"))
     if tfl_pg in ("N/A", None, ""):
         tfl_pg = stats.get("tfl_forced_derived_pg", "N/A")
     tfl_allowed = ((team.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {}).get("tfl_offense", {}).get("value", "N/A"))
     if tfl_allowed in ("N/A", None, ""):
         tfl_allowed = stats.get("tfl_allowed_derived_pg", "N/A")
-    mt_pg = stats.get("pff_missed_tackles_pg", "N/A")
-    fmt_pg = stats.get("pff_fmt_pg", "N/A")
+    mt_pg = _sanitize_charting_value(stats.get("pff_missed_tackles_pg", "N/A"))
+    fmt_pg = _sanitize_charting_value(stats.get("pff_fmt_pg", "N/A"))
     targets = _collect_target_tendencies(team)
     third_targets = targets["third_down"]
     rz_targets = targets["red_zone"]
@@ -375,17 +388,17 @@ def _team_md(team: dict) -> str:
     def_plays_pg = stats.get("defense_plays_allowed_per_game", stats.get("pff_plays_defense_pg", "N/A"))
     off_plays_l3 = last_n_stats.get("offense_plays_per_game", "N/A")
     def_plays_l3 = last_n_stats.get("defense_plays_allowed_per_game", "N/A")
-    sacks_allowed_pg = stats.get("pff_sacks_allowed_pg", "N/A")
+    sacks_allowed_pg = _sanitize_charting_value(stats.get("pff_sacks_allowed_pg", "N/A"))
     if sacks_allowed_pg in ("N/A", None, ""):
         sacks_allowed_pg = stats.get("sacks_allowed_derived_pg", "N/A")
-    sacks_pg = stats.get("pff_sacks_pg", "N/A")
+    sacks_pg = _sanitize_charting_value(stats.get("pff_sacks_pg", "N/A"))
     if sacks_pg in ("N/A", None, ""):
         sacks_pg = stats.get("sacks_forced_derived_pg", "N/A")
-    tfl_pg = stats.get("pff_tfl_pg", "N/A")
+    tfl_pg = _sanitize_charting_value(stats.get("pff_tfl_pg", "N/A"))
     if tfl_pg in ("N/A", None, ""):
         tfl_pg = stats.get("tfl_forced_derived_pg", "N/A")
-    mt_pg = stats.get("pff_missed_tackles_pg", "N/A")
-    fmt_pg = stats.get("pff_fmt_pg", "N/A")
+    mt_pg = _sanitize_charting_value(stats.get("pff_missed_tackles_pg", "N/A"))
+    fmt_pg = _sanitize_charting_value(stats.get("pff_fmt_pg", "N/A"))
     targets = _collect_target_tendencies(team)
     top_3d = targets["third_down"][0]["receiver"] if targets["third_down"] else "N/A"
     top_rz = targets["red_zone"][0]["receiver"] if targets["red_zone"] else "N/A"
