@@ -87,11 +87,118 @@ def _bundle_row(stats: dict, category: str, home_abbr: str | None) -> dict:
     if cat:
         key, row = max(
             cat.items(),
-            key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),
+            key=lambda item: (
+                item[1].get("games")
+                if isinstance(item[1], dict) and isinstance(item[1].get("games"), int)
+                else (
+                    len(item[1].get("games") or [])
+                    if isinstance(item[1], dict) and isinstance(item[1].get("games"), list)
+                    else 0
+                )
+            ),
         )
         if isinstance(row, dict):
             return row
     return {}
+
+
+def _iter_play_tree_plays(play_tree: object):
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if isinstance(play, dict):
+                    yield play
+
+
+def _rollup_game_from_play_tree(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> dict:
+    explosive_passes = 0
+    explosive_rushes = 0
+    negative_plays = 0
+    negative_plays_forced = 0
+    turnovers_lost = 0
+    turnovers_gained = 0
+
+    team = (team_abbr or "").upper()
+    opp = (opp_abbr or "").upper()
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        offense = (play.get("offense") or "").upper()
+        yards = play.get("yards")
+        desc = (play.get("description") or "").upper()
+
+        if offense == team:
+            if isinstance(yards, (int, float)) and yards < 0:
+                negative_plays += 1
+            if isinstance(yards, (int, float)) and yards >= 20 and "PASS" in desc:
+                explosive_passes += 1
+            if isinstance(yards, (int, float)) and yards >= 15 and "RUSH" in desc:
+                explosive_rushes += 1
+            if play.get("is_turnover"):
+                turnovers_lost += 1
+        elif offense == opp:
+            if isinstance(yards, (int, float)) and yards < 0:
+                negative_plays_forced += 1
+            if play.get("is_turnover"):
+                turnovers_gained += 1
+
+    return {
+        "explosive_passes": explosive_passes,
+        "explosive_rushes": explosive_rushes,
+        "explosives": explosive_passes + explosive_rushes,
+        "negative_plays": negative_plays,
+        "negative_plays_forced": negative_plays_forced,
+        "turnovers_lost": turnovers_lost,
+        "turnovers_gained": turnovers_gained,
+    }
+
+
+def _estimate_points_from_play_tree(play_tree: object, team_abbr: str | None, opp_abbr: str | None) -> tuple[int | None, int | None]:
+    team = (team_abbr or "").upper()
+    opp = (opp_abbr or "").upper()
+    if not team or not opp:
+        return None, None
+
+    points = {team: 0, opp: 0}
+    pending_td_for: str | None = None
+
+    for play in _iter_play_tree_plays(play_tree):
+        offense = (play.get("offense") or "").upper()
+        desc = (play.get("description") or "").upper()
+        if offense not in points:
+            continue
+
+        if "TOUCHDOWN" in desc:
+            points[offense] += 6
+            pending_td_for = offense
+            continue
+        if "FIELD GOAL" in desc and "GOOD" in desc:
+            points[offense] += 3
+            pending_td_for = None
+            continue
+        if "SAFETY" in desc:
+            defense = opp if offense == team else team
+            points[defense] += 2
+            pending_td_for = None
+            continue
+
+        if pending_td_for:
+            if "2-POINT" in desc and ("GOOD" in desc or "SUCCESS" in desc):
+                points[pending_td_for] += 2
+                pending_td_for = None
+                continue
+            if ("PAT" in desc or "KICK ATTEMPT" in desc) and "GOOD" in desc:
+                points[pending_td_for] += 1
+                pending_td_for = None
+                continue
+            if "NO GOOD" in desc or "FAILED" in desc:
+                pending_td_for = None
+
+    return points[team], points[opp]
 
 
 def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
@@ -131,9 +238,43 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
             }
         )
 
-    games_parsed = payload.get("games_parsed", 0) or 0
-    turnovers = tov.get("turnovers", 0) or 0
-    turnovers_forced = tov.get("turnovers_forced", 0) or 0
+    games_parsed = payload.get("games_parsed")
+    turnovers = tov.get("turnovers")
+    turnovers_forced = tov.get("turnovers_forced")
+    games_out: list[dict] = []
+    for idx, g in enumerate(payload.get("games") or [], start=1):
+        if not isinstance(g, dict):
+            continue
+        opp_abbr = g.get("opponent_abbr") or g.get("opponent")
+        play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
+        game_rollup = _rollup_game_from_play_tree(play_tree, home_abbr, opp_abbr)
+        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, home_abbr, opp_abbr)
+        raw_pf = g.get("points_for")
+        raw_pa = g.get("points_against")
+        points_for = estimated_pf if isinstance(estimated_pf, int) else raw_pf
+        points_against = estimated_pa if isinstance(estimated_pa, int) else raw_pa
+        total_plays = g.get("total_plays")
+        if not isinstance(total_plays, int):
+            total_plays = sum(
+                1
+                for play in _iter_play_tree_plays(play_tree)
+                if not play.get("is_no_play") and play.get("is_scrimmage_play")
+            )
+
+        game = {
+            "game_number": g.get("game_number") if isinstance(g.get("game_number"), int) else idx,
+            "week": g.get("week"),
+            "date": g.get("date") or g.get("game_date"),
+            "is_home": g.get("is_home"),
+            "opponent_abbr": opp_abbr,
+            "opponent": g.get("opponent") or opp_abbr or "OPP",
+            "points_for": points_for,
+            "points_against": points_against,
+            "total_plays": total_plays,
+            "play_tree": play_tree,
+        }
+        game.update(game_rollup)
+        games_out.append(game)
 
     return {
         "name": payload.get("team_name") or slug.replace("-", " ").title(),
@@ -142,7 +283,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         "color": "#888888",
         "cfbstats": {"rankings": {"all": {}, "conf": {}, "nonconf": {}}},
         "aggregates": {
-            "games": games_parsed,
+            "games": games_parsed if isinstance(games_parsed, int) else "N/A",
             "record": "N/A",
             "conf_record": "N/A",
             "ppg": "N/A",
@@ -156,7 +297,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         },
         "bye_weeks": sched.get("bye_weeks", []),
         "schedule": {"games": schedule_games_out},
-        "games": [],
+        "games": games_out,
         "xml_stats": stats,
         "xml_source": True,
     }
@@ -176,21 +317,17 @@ def _load_xml_bundle_data() -> dict:
 
 def load_pbp_data(matchup_slug: str | None = None) -> dict:
     base: dict = {}
-    if GAME_PREP_DATA_SOURCE == "xml":
-        base = _load_xml_bundle_data()
-        if not base and PBP_JSON.exists():
-            print(
-                f"[warn] XML bundle source unavailable at {XML_BUNDLE_JSON}; falling back to local data.json",
-                file=sys.stderr,
-            )
-            with open(PBP_JSON) as f:
-                raw = json.load(f)
-            base = raw.get("teams", {})
-    else:
-        if PBP_JSON.exists():
-            with open(PBP_JSON) as f:
-                raw = json.load(f)
-            base = raw.get("teams", {})
+    if GAME_PREP_DATA_SOURCE != "xml":
+        print(
+            f"[warn] Non-XML source '{GAME_PREP_DATA_SOURCE}' is disabled; forcing XML bundle mode",
+            file=sys.stderr,
+        )
+    base = _load_xml_bundle_data()
+    if not base:
+        print(
+            f"[warn] XML bundle source unavailable at {XML_BUNDLE_JSON}; returning empty team set",
+            file=sys.stderr,
+        )
 
     if matchup_slug:
         matchup_path = MATCHUPS_DIR / matchup_slug / "data.json"
@@ -210,6 +347,74 @@ def load_pbp_data(matchup_slug: str | None = None) -> dict:
             print(f"[warn] Matchup data not found at {matchup_path}", file=sys.stderr)
 
     return base
+
+
+CORE_XML_FIELDS = {
+    "explosives": ("explosives", "explosive_pass", "explosive_run"),
+    "red_zone": ("rz_trips", "rz_tds"),
+    "turnovers": ("turnovers", "turnovers_forced"),
+    "points_off_turnovers": ("points_off_turnovers", "points_off_turnovers_allowed"),
+    "middle_eight": ("middle_eight_points", "middle_eight_points_allowed"),
+    "special_teams": ("fg_attempts", "fg_made"),
+    "two_point": (
+        "two_point_attempts",
+        "two_point_conversions",
+        "two_point_allowed_attempts",
+        "two_point_allowed_conversions",
+    ),
+    "penalties": ("total_penalties", "total_penalty_yards"),
+}
+
+
+def _is_numeric_zero(value: object) -> bool:
+    return isinstance(value, (int, float)) and value == 0
+
+
+def _best_xml_row(xml_stats: dict, category: str) -> dict:
+    cat = xml_stats.get(category) or {}
+    if not isinstance(cat, dict) or not cat:
+        return {}
+    _, row = max(
+        cat.items(),
+        key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),
+    )
+    return row if isinstance(row, dict) else {}
+
+
+def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
+    if not pbp_entry:
+        return [f"{team_name}: missing team payload in XML bundle"]
+    if not pbp_entry.get("xml_source"):
+        return [f"{team_name}: non-XML source detected (unsupported)"]
+
+    xml_stats = pbp_entry.get("xml_stats") or {}
+    if not isinstance(xml_stats, dict) or not xml_stats:
+        return [f"{team_name}: missing xml_stats payload"]
+
+    gaps: list[str] = []
+    for category, required_fields in CORE_XML_FIELDS.items():
+        row = _best_xml_row(xml_stats, category)
+        if not row:
+            gaps.append(f"{team_name}: missing '{category}' category row")
+            continue
+
+        games = row.get("games")
+        if not isinstance(games, int) or games <= 0:
+            gaps.append(f"{team_name}: '{category}' row has invalid games count ({games})")
+            continue
+
+        missing = [field for field in required_fields if row.get(field) is None]
+        if missing:
+            gaps.append(f"{team_name}: '{category}' missing fields: {', '.join(missing)}")
+            continue
+
+        values = [row.get(field) for field in required_fields]
+        if values and all(_is_numeric_zero(v) for v in values):
+            gaps.append(
+                f"{team_name}: '{category}' has all-zero core fields across {games} games (parity risk)"
+            )
+
+    return gaps
 
 
 def get_team_pbp(pbp_teams: dict, team_name: str, school_slug: str) -> dict | None:
@@ -254,11 +459,42 @@ def _extract_pbp_stats(team_data: dict) -> dict:
             loc = "vs" if g.get("is_home", True) else "@"
             recent.append(f"{result} {pf}-{pa} {loc} {opp} ({date})")
 
+    wins = losses = ties = 0
+    pf_total = pa_total = 0.0
+    decided_games = 0
+    for g in games:
+        pf = g.get("points_for")
+        pa = g.get("points_against")
+        if isinstance(pf, (int, float)) and isinstance(pa, (int, float)):
+            decided_games += 1
+            pf_total += float(pf)
+            pa_total += float(pa)
+            if pf > pa:
+                wins += 1
+            elif pf < pa:
+                losses += 1
+            else:
+                ties += 1
+
+    record_fallback = f"{wins}-{losses}" + (f"-{ties}" if ties else "") if decided_games else "N/A"
+    ppg_fallback = round(pf_total / decided_games, 1) if decided_games else "N/A"
+    opp_ppg_fallback = round(pa_total / decided_games, 1) if decided_games else "N/A"
+
+    record_val = agg.get("record", "N/A")
+    ppg_val = agg.get("ppg", "N/A")
+    opp_ppg_val = agg.get("opp_ppg", "N/A")
+    if record_val in ("N/A", None, ""):
+        record_val = record_fallback
+    if ppg_val in ("N/A", None, ""):
+        ppg_val = ppg_fallback
+    if opp_ppg_val in ("N/A", None, ""):
+        opp_ppg_val = opp_ppg_fallback
+
     return {
-        "record": agg.get("record", "N/A"),
+        "record": record_val,
         "conf_record": agg.get("conf_record", "N/A"),
-        "ppg": agg.get("ppg", "N/A"),
-        "opp_ppg": agg.get("opp_ppg", "N/A"),
+        "ppg": ppg_val,
+        "opp_ppg": opp_ppg_val,
         "explosives_per_game": agg.get("explosives_per_game", "N/A"),
         "negative_plays_per_game": agg.get("negative_plays_per_game", "N/A"),
         "negative_plays_forced_per_game": agg.get("negative_plays_forced_per_game", "N/A"),
@@ -509,12 +745,41 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     tight_rz_tds = sum_stat("tight_red_zone_tds")
 
     if actual_n == 0:
-        explosives_per_game = 0
-        explosive_passes_per_game = 0
-        explosive_rushes_per_game = 0
-        penalties_per_game = 0
-        ppg = 0
-        opp_ppg = 0
+        return {
+            "actual_n": 0,
+            "required_n": n,
+            "ppg": "N/A",
+            "opp_ppg": "N/A",
+            "explosives_per_game": "N/A",
+            "negative_plays_per_game": "N/A",
+            "negative_plays_forced_per_game": "N/A",
+            "offense_plays_per_game": "N/A",
+            "defense_plays_allowed_per_game": "N/A",
+            "explosive_passes_per_game": "N/A",
+            "explosive_rushes_per_game": "N/A",
+            "rz_trips": "N/A",
+            "rz_tds": "N/A",
+            "rz_td_pct": "N/A",
+            "tight_rz_trips": "N/A",
+            "tight_rz_tds": "N/A",
+            "tight_rz_td_pct": "N/A",
+            "green_zone_trips": "N/A",
+            "green_zone_tds": "N/A",
+            "turnover_margin": "N/A",
+            "turnovers_gained": "N/A",
+            "turnovers_lost": "N/A",
+            "points_off_turnovers_for": "N/A",
+            "points_off_turnovers_against": "N/A",
+            "middle8_margin": "N/A",
+            "middle8_points_for": "N/A",
+            "middle8_points_against": "N/A",
+            "fourth_down_attempts": "N/A",
+            "fourth_down_conversions": "N/A",
+            "penalties_per_game": "N/A",
+            "penalties_offense": "N/A",
+            "penalties_defense": "N/A",
+            "penalties_special_teams": "N/A",
+        }
     else:
         explosives_per_game = explosives_total / actual_n
         explosive_passes_per_game = explosive_passes_total / actual_n
@@ -537,12 +802,12 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         "explosive_rushes_per_game": round(explosive_rushes_per_game, 1),
         "rz_trips": rz_trips,
         "rz_tds": rz_tds,
-        "rz_td_pct": round((rz_tds / rz_trips * 100), 1) if rz_trips else 0,
+        "rz_td_pct": round((rz_tds / rz_trips * 100), 1) if rz_trips else "N/A",
         "tight_rz_trips": tight_rz_trips,
         "tight_rz_tds": tight_rz_tds,
         "tight_rz_td_pct": round((tight_rz_tds / tight_rz_trips * 100), 1)
         if tight_rz_trips
-        else 0,
+        else "N/A",
         "green_zone_trips": sum_stat("green_zone_trips"),
         "green_zone_tds": sum_stat("green_zone_tds"),
         "turnover_margin": sum_stat("turnovers_gained") - sum_stat("turnovers_lost"),
@@ -570,6 +835,7 @@ def gather_team_data(
 ) -> dict:
     school_slug = slugify(team_name)
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
+    parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
     pbp_stats.update(_fetch_blitz_stats(school_slug, team_name=team_name))
     pbp_stats.update(_fetch_negative_play_stats(school_slug, team_name=team_name))
@@ -613,6 +879,7 @@ def gather_team_data(
         "stats": pbp_stats,
         "last_n": last_n_stats,
         "pbp_entry": pbp_entry,
+        "parity_gaps": parity_gaps,
         "has_pbp": pbp_entry is not None,
         "has_coaches": False,
     }
