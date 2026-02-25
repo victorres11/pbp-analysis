@@ -77,6 +77,9 @@ try:
     from pbp_parser.rate_limit import RateLimitConfig
     from pbp_parser.reference.teams import get_team_conference
     from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down_stats
+    from pbp_parser.points_off_turnovers import (
+        compute_team_points_off_turnover_splits as _upstream_points_off_turnovers_splits,
+    )
     from pbp_parser.red_zone import compute_team_red_zone_splits as _upstream_red_zone_splits
     from pbp_parser.models import ParsedGame as ParserParsedGame, Play as ParserPlay
 except Exception:
@@ -84,6 +87,7 @@ except Exception:
     RateLimitConfig = None  # type: ignore[assignment]
     get_team_conference = None  # type: ignore[assignment]
     _upstream_fourth_down_stats = None  # type: ignore[assignment]
+    _upstream_points_off_turnovers_splits = None  # type: ignore[assignment]
     _upstream_red_zone_splits = None  # type: ignore[assignment]
     ParserParsedGame = None  # type: ignore[assignment]
     ParserPlay = None  # type: ignore[assignment]
@@ -1101,6 +1105,10 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
             }
         )
 
+    shared_pot = _compute_points_off_turnovers_from_play_tree(play_tree, team_aliases, opp_aliases)
+    if shared_pot is not None:
+        points_off_turnovers_for, points_off_turnovers_against = shared_pot
+
     return {
         "post_turnover_drives": post_turnover_drives,
         "points_off_turnovers_for": points_off_turnovers_for,
@@ -1357,6 +1365,49 @@ def _compute_red_zone_20_stats_from_play_tree(
             return None
         season = team_splits.season
         return int(season.rz_trips or 0), int(season.rz_tds or 0), int(season.rz_fgs or 0)
+    except Exception:
+        return None
+
+
+def _compute_points_off_turnovers_from_play_tree(
+    play_tree: object, team_abbr: object, opp_abbr: object
+) -> tuple[int, int] | None:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    if (
+        not team_aliases
+        or not opp_aliases
+        or _upstream_points_off_turnovers_splits is None
+        or ParserParsedGame is None
+    ):
+        return None
+
+    parser_plays = _parser_plays_from_play_tree(play_tree)
+    if not parser_plays:
+        return None
+
+    team_tokens: dict[str, int] = {}
+    opp_tokens: dict[str, int] = {}
+    for play in parser_plays:
+        offense = (play.offense or "").upper()
+        if offense in team_aliases:
+            team_tokens[offense] = team_tokens.get(offense, 0) + 1
+        if offense in opp_aliases:
+            opp_tokens[offense] = opp_tokens.get(offense, 0) + 1
+
+    team = max(team_tokens, key=team_tokens.get) if team_tokens else sorted(team_aliases)[0]
+    opp = max(opp_tokens, key=opp_tokens.get) if opp_tokens else sorted(opp_aliases)[0]
+    if team == opp:
+        return None
+
+    try:
+        parsed_game = ParserParsedGame(pdf_path=Path("play_tree.json"), teams=[team, opp], plays=parser_plays)
+        splits = _upstream_points_off_turnovers_splits([parsed_game], last_n=3)
+        team_splits = splits.get(team)
+        if team_splits is None:
+            return None
+        season = team_splits.season
+        return int(season.points_for or 0), int(season.points_allowed or 0)
     except Exception:
         return None
 
