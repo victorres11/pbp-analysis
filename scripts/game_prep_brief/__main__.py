@@ -14,6 +14,7 @@ from .loaders import (
     OUTPUT_DIR,
     slugify,
     build_enrichment_payload,
+    merge_enrichment_payload,
     load_enrichment_file,
     write_enrichment_file,
     gather_team_data,
@@ -93,7 +94,7 @@ def main():
     if args.refresh_enrichment or not enrichment_by_slug:
         refreshed = build_enrichment_payload(team_specs)
         if refreshed:
-            enrichment_by_slug.update(refreshed)
+            enrichment_by_slug = merge_enrichment_payload(enrichment_by_slug, refreshed)
             write_enrichment_file(enrichment_file, enrichment_by_slug)
             print(f"[ok] Enrichment → {enrichment_file}", file=sys.stderr)
         else:

@@ -1033,6 +1033,27 @@ def write_enrichment_file(path: Path, payload: dict) -> None:
         json.dump(payload, f, indent=2, sort_keys=True)
 
 
+def merge_enrichment_payload(existing: dict, refreshed: dict) -> dict:
+    """Preserve prior non-empty enrichment values when live refresh is unavailable."""
+    merged: dict = dict(existing or {})
+    for slug, incoming in (refreshed or {}).items():
+        if not isinstance(incoming, dict):
+            continue
+        prior = merged.get(slug) if isinstance(merged.get(slug), dict) else {}
+        out = dict(prior)
+        for key, value in incoming.items():
+            if key in ENRICHMENT_KEYS and value in ("N/A", None, ""):
+                prior_value = prior.get(key)
+                if prior_value not in ("N/A", None, ""):
+                    out[key] = prior_value
+                    continue
+            out[key] = value
+        has_signal = any(out.get(k) not in ("N/A", None, "") for k in ENRICHMENT_KEYS)
+        out["_status"] = "ok" if has_signal else "unavailable"
+        merged[slug] = out
+    return merged
+
+
 def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     sorted_games = sorted(games, key=lambda g: g.get("game_number", 0), reverse=True)
     last_games = sorted_games[:n]
