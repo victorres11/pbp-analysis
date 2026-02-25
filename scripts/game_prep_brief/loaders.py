@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 import urllib.parse
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -47,6 +48,23 @@ TEAM_API_ALIASES = {
     "ohio-state": ["ohio-state"],
     "washington": ["washington", "wash"],
 }
+
+ENRICHMENT_KEYS = (
+    "blitz_pct",
+    "blitz_pct_last3",
+    "negative_plays_pg_api",
+    "negative_plays_forced_pg_api",
+    "negative_plays_pg_last3_api",
+    "negative_plays_forced_pg_last3_api",
+    "pff_plays_offense_pg",
+    "pff_plays_defense_pg",
+    "pff_missed_tackles_pg",
+    "pff_tfl_pg",
+    "pff_sacks_pg",
+    "pff_sacks_allowed_pg",
+    "pff_fmt_total",
+    "pff_fmt_pg",
+)
 
 
 def slugify(name: str) -> str:
@@ -939,6 +957,52 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
     return out
 
 
+def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> dict:
+    payload = {}
+    payload.update(_fetch_blitz_stats(team_slug, team_name=team_name))
+    payload.update(_fetch_negative_play_stats(team_slug, team_name=team_name))
+    payload.update(_fetch_pff_snapshot(team_slug, team_name=team_name))
+    return payload
+
+
+def build_team_enrichment(team_slug: str, team_name: str | None = None) -> dict:
+    data = _fetch_live_enrichment(team_slug, team_name=team_name)
+    has_signal = any(v not in ("N/A", None, "") for k, v in data.items() if k in ENRICHMENT_KEYS)
+    return {
+        **data,
+        "_fetched_at": datetime.now(timezone.utc).isoformat(),
+        "_source": "yr-data-api",
+        "_status": "ok" if has_signal else "unavailable",
+    }
+
+
+def build_enrichment_payload(team_specs: list[dict]) -> dict:
+    payload: dict = {}
+    for spec in team_specs:
+        slug = (spec.get("slug") or "").strip().lower()
+        if not slug:
+            continue
+        payload[slug] = build_team_enrichment(slug, team_name=spec.get("display_name"))
+    return payload
+
+
+def load_enrichment_file(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def write_enrichment_file(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
 def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     sorted_games = sorted(games, key=lambda g: g.get("game_number", 0), reverse=True)
     last_games = sorted_games[:n]
@@ -1095,14 +1159,25 @@ def gather_team_data(
     team_name: str,
     season: int,
     last_n: int = 3,
+    enrichment_by_slug: dict | None = None,
+    allow_live_enrichment: bool = False,
 ) -> dict:
     school_slug = slugify(team_name)
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
     parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
-    pbp_stats.update(_fetch_blitz_stats(school_slug, team_name=team_name))
-    pbp_stats.update(_fetch_negative_play_stats(school_slug, team_name=team_name))
-    pbp_stats.update(_fetch_pff_snapshot(school_slug, team_name=team_name))
+    seeded = (enrichment_by_slug or {}).get(school_slug) or {}
+    if isinstance(seeded, dict):
+        for key in ENRICHMENT_KEYS:
+            value = seeded.get(key)
+            if value not in (None, ""):
+                pbp_stats[key] = value
+    if allow_live_enrichment:
+        live = _fetch_live_enrichment(school_slug, team_name=team_name)
+        for key in ENRICHMENT_KEYS:
+            value = live.get(key)
+            if value not in (None, ""):
+                pbp_stats[key] = value
     games = pbp_entry.get("games", []) if pbp_entry else []
     if games:
         offense_plays_pg = round(sum((g.get("total_plays") or 0) for g in games) / len(games), 1)

@@ -12,6 +12,10 @@ from pathlib import Path
 
 from .loaders import (
     OUTPUT_DIR,
+    slugify,
+    build_enrichment_payload,
+    load_enrichment_file,
+    write_enrichment_file,
     gather_team_data,
     load_pbp_data,
     fetch_ncaa_scoreboard,
@@ -53,6 +57,22 @@ def parse_args():
         help="Number of last games for trending (default 3)",
     )
     p.add_argument("--print", action="store_true")
+    p.add_argument(
+        "--enrichment-file",
+        type=Path,
+        default=None,
+        help="JSON file containing per-team enrichment payload (blitz/PFF/API snapshot).",
+    )
+    p.add_argument(
+        "--refresh-enrichment",
+        action="store_true",
+        help="Refresh enrichment file from live API before rendering.",
+    )
+    p.add_argument(
+        "--allow-live-enrichment",
+        action="store_true",
+        help="Allow live enrichment fetch during render if enrichment file is missing/stale.",
+    )
     return p.parse_args()
 
 
@@ -61,9 +81,40 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     pbp_teams = load_pbp_data(matchup_slug=args.matchup_slug)
+    team_specs = [
+        {"slug": slugify(args.team1), "display_name": args.team1},
+        {"slug": slugify(args.team2), "display_name": args.team2},
+    ]
+    enrichment_file = args.enrichment_file or (
+        args.output_dir
+        / f"{team_specs[0]['slug']}_vs_{team_specs[1]['slug']}_{args.season}_enrichment.json"
+    )
+    enrichment_by_slug = load_enrichment_file(enrichment_file)
+    if args.refresh_enrichment or not enrichment_by_slug:
+        refreshed = build_enrichment_payload(team_specs)
+        if refreshed:
+            enrichment_by_slug.update(refreshed)
+            write_enrichment_file(enrichment_file, enrichment_by_slug)
+            print(f"[ok] Enrichment → {enrichment_file}", file=sys.stderr)
+        else:
+            print(f"[warn] Enrichment fetch returned empty payload; continuing.", file=sys.stderr)
 
-    team1 = gather_team_data(pbp_teams, args.team1, args.season, last_n=args.last_n)
-    team2 = gather_team_data(pbp_teams, args.team2, args.season, last_n=args.last_n)
+    team1 = gather_team_data(
+        pbp_teams,
+        args.team1,
+        args.season,
+        last_n=args.last_n,
+        enrichment_by_slug=enrichment_by_slug,
+        allow_live_enrichment=args.allow_live_enrichment,
+    )
+    team2 = gather_team_data(
+        pbp_teams,
+        args.team2,
+        args.season,
+        last_n=args.last_n,
+        enrichment_by_slug=enrichment_by_slug,
+        allow_live_enrichment=args.allow_live_enrichment,
+    )
 
     if args.week:
         games = fetch_ncaa_scoreboard(args.season, args.week)
