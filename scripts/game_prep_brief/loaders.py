@@ -2502,20 +2502,19 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
         pbp = {
             "gained": int(game.get("turnovers_gained") or 0),
             "lost": int(game.get("turnovers_lost") or 0),
-            "int_gained": int(game.get("interceptions_gained") or 0),
-            "fum_gained": int(game.get("fumbles_gained") or 0),
+            "int_lost": int(game.get("interceptions_lost") or 0),
+            "fum_lost": int(game.get("fumbles_lost") or 0),
             "pot_for": int(game.get("points_off_turnovers_for") or 0),
             "pot_against": int(game.get("points_off_turnovers_against") or 0),
         }
-        # Opponent-keyed XML game rows are stored in opponent perspective.
-        # Convert to team perspective for apples-to-apples reconciliation.
+        # Opponent-keyed XML rows are already in team perspective.
         cfb = {
-            "gained": int(tov_row.get("turnovers") or 0),
-            "lost": int(tov_row.get("turnovers_forced") or 0),
-            "int_gained": int(tov_row.get("interceptions") or 0),
-            "fum_gained": int(tov_row.get("fumbles_lost") or 0),
-            "pot_for": int(pot_row.get("points_off_turnovers_allowed") or 0),
-            "pot_against": int(pot_row.get("points_off_turnovers") or 0),
+            "gained": int(tov_row.get("turnovers_forced") or 0),
+            "lost": int(tov_row.get("turnovers") or 0),
+            "int_lost": int(tov_row.get("interceptions") or 0),
+            "fum_lost": int(tov_row.get("fumbles_lost") or 0),
+            "pot_for": int(pot_row.get("points_off_turnovers") or 0),
+            "pot_against": int(pot_row.get("points_off_turnovers_allowed") or 0),
         }
         delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
         in_sync = all(v == 0 for v in delta.values())
@@ -2532,6 +2531,92 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             }
         )
     return report
+
+
+def _turnover_events_for_game(game: dict, team_aliases: set[str], opp_aliases: set[str]) -> list[dict]:
+    events: list[dict] = []
+    play_tree = game.get("play_tree")
+    if not isinstance(play_tree, list):
+        return events
+    for quarter in play_tree:
+        if not isinstance(quarter, dict):
+            continue
+        qnum = quarter.get("quarter")
+        quarter_num = qnum if isinstance(qnum, int) else None
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if not isinstance(play, dict) or play.get("is_no_play"):
+                    continue
+                if not play.get("is_turnover"):
+                    continue
+                desc = str(play.get("description") or "")
+                desc_up = desc.upper()
+                turnover_type = "INT" if "INTERCEPT" in desc_up else ("FUM" if "FUMBLE" in desc_up else "OTHER")
+                offense = str(play.get("offense") or "").upper()
+                offense_side = "team" if offense in team_aliases else ("opp" if offense in opp_aliases else None)
+                recovery_side = _turnover_recovery_side(
+                    desc_up, offense_side, turnover_type, team_aliases, opp_aliases
+                )
+                events.append(
+                    {
+                        "quarter": quarter_num,
+                        "clock": play.get("clock") or "",
+                        "offense": offense,
+                        "description": desc,
+                        "turnover_type": turnover_type,
+                        "recovery_side": recovery_side or "?",
+                    }
+                )
+    return events
+
+
+def _print_turnover_debug(team_name: str, pbp_entry: dict, mismatch_games: list[dict], limit: int = 3) -> None:
+    team_aliases = _abbr_set(pbp_entry.get("abbr_aliases") or pbp_entry.get("abbr"))
+    for mismatch in mismatch_games[:limit]:
+        game_num = mismatch.get("game_number")
+        game = next(
+            (
+                g
+                for g in (pbp_entry.get("games") or [])
+                if isinstance(g, dict) and g.get("game_number") == game_num
+            ),
+            None,
+        )
+        if not isinstance(game, dict):
+            continue
+        opp = str(game.get("opponent_abbr") or "").upper()
+        opp_aliases = _abbr_set([opp])
+        if not opp_aliases:
+            continue
+        events = _turnover_events_for_game(game, team_aliases, opp_aliases)
+        drives = [d for d in (game.get("post_turnover_drives") or []) if isinstance(d, dict)]
+        print(
+            f"[debug] TO recon {team_name} G{game_num} vs {opp} delta={mismatch.get('delta')}",
+            file=sys.stderr,
+        )
+        if not events:
+            print("[debug]   turnover_events: none", file=sys.stderr)
+        else:
+            for e in events[:8]:
+                print(
+                    "[debug]   turnover_event "
+                    f"q={e.get('quarter')} t={e.get('clock')} off={e.get('offense')} "
+                    f"type={e.get('turnover_type')} rec={e.get('recovery_side')} desc={e.get('description')}",
+                    file=sys.stderr,
+                )
+        if not drives:
+            print("[debug]   post_turnover_drives: none", file=sys.stderr)
+        else:
+            for d in drives[:8]:
+                print(
+                    "[debug]   post_turnover_drive "
+                    f"q={d.get('quarter')} t={d.get('clock')} type={d.get('turnover_type')} "
+                    f"rec={d.get('recovered_by')} result={d.get('drive_result')} pts={d.get('points_scored')} "
+                    f"desc={d.get('turnover_description')}",
+                    file=sys.stderr,
+                )
 
 
 def gather_team_data(
@@ -2600,6 +2685,9 @@ def gather_team_data(
                 f"[warn] Turnover game mismatches for {team_name}: {sample_text}",
                 file=sys.stderr,
             )
+            debug_flag = str(os.getenv("GAME_PREP_TURNOVER_DEBUG") or "").strip().lower()
+            if debug_flag in {"1", "true", "yes", "on"}:
+                _print_turnover_debug(team_name, pbp_entry, mismatch_games, limit=3)
     if games:
         offense_plays_pg = round(sum((g.get("total_plays") or 0) for g in games) / len(games), 1)
         defense_counts = []
