@@ -180,6 +180,8 @@ for _alias, _target in _FALLBACK_TEAM_ALIASES.items():
         _norm_team_name(_target), ""
     )
 
+_LIVE_TURNOVER_SPLIT_CACHE: dict[tuple[int, str], dict] = {}
+
 
 class _LeaderboardTableParser(HTMLParser):
     def __init__(self) -> None:
@@ -554,6 +556,79 @@ def _fetch_live_rankings(team_name: str, team_slug: str, season: int) -> tuple[s
     return fb_conf or conference, rankings
 
 
+def _parse_turnover_split_all_games(html: str) -> dict:
+    m = re.search(
+        r'<td class="split-name">All Games</td>\s*'
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>(\d+)</td>\s*"
+        r"<td>([-+]?\d+)</td>\s*"
+        r"<td>([-+]?\d*\.?\d+)</td>",
+        html,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not m:
+        return {}
+    g, fum_gain, int_gain, total_gain, fum_lost, int_lost, total_lost, margin, margin_pg = m.groups()
+    return {
+        "games": int(g),
+        "fumbles_gained": int(fum_gain),
+        "interceptions_gained": int(int_gain),
+        "turnovers_gained": int(total_gain),
+        "fumbles_lost": int(fum_lost),
+        "interceptions_lost": int(int_lost),
+        "turnovers_lost": int(total_lost),
+        "margin": int(margin),
+        "margin_per_game": float(margin_pg),
+    }
+
+
+def _fetch_live_turnover_split(team_name: str, team_slug: str, season: int, timeout: int = 8) -> dict:
+    key = (season, team_slug)
+    cached = _LIVE_TURNOVER_SPLIT_CACHE.get(key)
+    if isinstance(cached, dict) and cached:
+        return cached
+
+    team_variants = _team_name_variants(team_name, team_slug)
+    index_url = f"https://cfbstats.com/{season}/team/index.html"
+    try:
+        req = urllib.request.Request(index_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            index_html = resp.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return {}
+
+    team_id: str | None = None
+    for match in re.finditer(
+        rf'/{season}/team/(\d+)/index\.html"[^>]*>([^<]+)<',
+        index_html,
+        re.IGNORECASE,
+    ):
+        cand_id = match.group(1)
+        cand_name = _norm_team_name(match.group(2))
+        if cand_name in team_variants:
+            team_id = cand_id
+            break
+    if not team_id:
+        return {}
+
+    split_url = f"https://cfbstats.com/{season}/team/{team_id}/turnovermargin/split.html"
+    try:
+        req = urllib.request.Request(split_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            split_html = resp.read().decode("utf-8", errors="ignore")
+        parsed = _parse_turnover_split_all_games(split_html)
+    except Exception:
+        parsed = {}
+    if parsed:
+        _LIVE_TURNOVER_SPLIT_CACHE[key] = parsed
+    return parsed
+
+
 def slugify(name: str) -> str:
     lower = name.strip().lower()
     if lower in SLUG_ALIASES:
@@ -660,6 +735,19 @@ def _iter_play_tree_plays(play_tree: object):
                     yield play
 
 
+def _iter_play_tree_drives(play_tree: object):
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        quarter_num = quarter.get("quarter")
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            plays = [p for p in (drive.get("plays") or []) if isinstance(p, dict)]
+            if plays:
+                yield quarter_num, plays
+
+
 def _abbr_set(value: object) -> set[str]:
     if isinstance(value, str):
         cleaned = value.strip().upper()
@@ -699,6 +787,159 @@ def _team_aliases_from_bundle(home_abbr: str | None, stats: object, games: objec
                         continue
                 aliases.add(cleaned)
     return aliases
+
+
+def _aggregate_xml_alias_rows(stats: object, category: str, team_aliases: set[str]) -> dict:
+    if not isinstance(stats, dict):
+        return {}
+    cat = stats.get(category) or {}
+    if not isinstance(cat, dict):
+        return {}
+    rows = [
+        row
+        for abbr, row in cat.items()
+        if isinstance(abbr, str) and abbr.strip().upper() in team_aliases and isinstance(row, dict)
+    ]
+    if not rows:
+        return {}
+    out: dict[str, object] = {}
+    for row in rows:
+        for key, value in row.items():
+            if isinstance(value, (int, float)):
+                out[key] = (out.get(key) or 0) + value
+            elif key not in out and value not in (None, ""):
+                out[key] = value
+    return out
+
+
+def _drive_offense_abbr(plays: list[dict]) -> str:
+    for play in plays:
+        offense = str(play.get("offense") or "").strip().upper()
+        if offense:
+            return offense
+    return ""
+
+
+def _drive_points_result(plays: list[dict]) -> tuple[str, int]:
+    for play in plays:
+        if not play.get("is_scoring"):
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        if "TOUCHDOWN" in desc_up or re.search(r"\bTD\b", desc_up):
+            return "TD", 6
+        if "FIELD GOAL" in desc_up or re.search(r"\bFG\b", desc_up):
+            return "FG", 3
+        if "SAFETY" in desc_up:
+            return "SAFETY", 2
+    return "NO SCORE", 0
+
+
+def _drive_takeaway_event(
+    plays: list[dict], team_aliases: set[str], opp_aliases: set[str]
+) -> tuple[str, str, dict] | None:
+    last_event: tuple[str, str, dict] | None = None
+    for play in plays:
+        if not play.get("is_turnover"):
+            continue
+        offense = str(play.get("offense") or "").upper()
+        desc_up = str(play.get("description") or "").upper()
+        if "INTERCEPT" in desc_up:
+            turnover_type = "INT"
+        elif "FUMBLE" in desc_up:
+            turnover_type = "FUM"
+        else:
+            # Exclude turnover-on-downs and other possession flips from takeaway stats.
+            continue
+        if offense in team_aliases:
+            last_event = ("team_lost", turnover_type, play)
+        elif offense in opp_aliases:
+            last_event = ("team_gained", turnover_type, play)
+    return last_event
+
+
+def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    if not team_aliases or not opp_aliases:
+        return {}
+
+    post_turnover_drives: list[dict] = []
+    points_off_turnovers_for = 0
+    points_off_turnovers_against = 0
+    ints_lost = ints_gained = fum_lost = fum_gained = 0
+    turnovers_lost = turnovers_gained = 0
+
+    drives = list(_iter_play_tree_drives(play_tree))
+
+    # First pass: turnover totals + INT/FUM breakdown (one validated takeaway per drive).
+    for _, plays in drives:
+        event = _drive_takeaway_event(plays, team_aliases, opp_aliases)
+        if not event:
+            continue
+        side, turnover_type, _ = event
+        if side == "team_lost":
+            turnovers_lost += 1
+            if turnover_type == "INT":
+                ints_lost += 1
+            else:
+                fum_lost += 1
+        else:
+            turnovers_gained += 1
+            if turnover_type == "INT":
+                ints_gained += 1
+            else:
+                fum_gained += 1
+
+    # Second pass: post-turnover drives and points off turnovers.
+    for idx, (quarter_num, plays) in enumerate(drives):
+        event = _drive_takeaway_event(plays, team_aliases, opp_aliases)
+        if not event:
+            continue
+        turnover_side, turnover_type, turnover_play = event
+        if not turnover_play or not turnover_side or idx + 1 >= len(drives):
+            continue
+
+        next_quarter, next_plays = drives[idx + 1]
+        next_offense = _drive_offense_abbr(next_plays)
+        if turnover_side == "team_gained":
+            if next_offense not in team_aliases:
+                continue
+            recovered_by = next_offense
+            lost_by = str(turnover_play.get("offense") or "").upper()
+            drive_result, points_scored = _drive_points_result(next_plays)
+            points_off_turnovers_for += points_scored
+        else:
+            if next_offense not in opp_aliases:
+                continue
+            recovered_by = next_offense
+            lost_by = str(turnover_play.get("offense") or "").upper()
+            drive_result, points_scored = _drive_points_result(next_plays)
+            points_off_turnovers_against += points_scored
+
+        post_turnover_drives.append(
+            {
+                "quarter": quarter_num if isinstance(quarter_num, int) else next_quarter,
+                "clock": turnover_play.get("clock") or "",
+                "turnover_type": turnover_type,
+                "lost_by": lost_by or "?",
+                "recovered_by": recovered_by or "?",
+                "drive_result": drive_result,
+                "points_scored": points_scored,
+                "turnover_description": turnover_play.get("description") or "",
+            }
+        )
+
+    return {
+        "post_turnover_drives": post_turnover_drives,
+        "points_off_turnovers_for": points_off_turnovers_for,
+        "points_off_turnovers_against": points_off_turnovers_against,
+        "interceptions_lost": ints_lost,
+        "interceptions_gained": ints_gained,
+        "fumbles_lost": fum_lost,
+        "fumbles_gained": fum_gained,
+        "turnovers_lost": turnovers_lost,
+        "turnovers_gained": turnovers_gained,
+    }
 
 
 def _rollup_game_from_play_tree(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
@@ -847,7 +1088,19 @@ def _parse_int(pattern: str, text: str) -> int | None:
         return None
 
 
-def _yards_to_goal_from_spot(spot: object, offense_abbr: str, opp_abbr: str) -> int | None:
+def _is_scrimmage_play(play: dict, down: int | None) -> bool:
+    explicit = play.get("is_scrimmage_play")
+    if isinstance(explicit, bool):
+        return explicit
+    if down in (1, 2, 3, 4):
+        return True
+    desc = str(play.get("description") or "").upper()
+    if " PASS " in f" {desc} " or " RUSH " in f" {desc} " or " SACK " in f" {desc} ":
+        return True
+    return False
+
+
+def _yards_to_goal_from_spot(spot: object, offense_abbr: object, opp_abbr: object) -> int | None:
     text = str(spot or "").strip().upper()
     if not text:
         return None
@@ -857,11 +1110,11 @@ def _yards_to_goal_from_spot(spot: object, offense_abbr: str, opp_abbr: str) -> 
     if not m:
         return None
     yard = int(m.group(1))
-    offense_abbr = (offense_abbr or "").upper()
-    opp_abbr = (opp_abbr or "").upper()
-    if opp_abbr and opp_abbr in text:
+    offense_aliases = _abbr_set(offense_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    if any(alias in text for alias in opp_aliases):
         return yard
-    if offense_abbr and offense_abbr in text:
+    if any(alias in text for alias in offense_aliases):
         return 100 - yard
     return yard if yard <= 50 else 100 - yard
 
@@ -901,9 +1154,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 offense_is_team = offense in team_aliases
                 offense_is_opp = offense in opp_aliases
                 down = _parse_down(play.get("down_distance"))
+                is_scrimmage = _is_scrimmage_play(play, down)
 
-                if offense_is_team and play.get("is_scrimmage_play"):
-                    ytg = _yards_to_goal_from_spot(play.get("spot"), team, opp)
+                if offense_is_team and is_scrimmage:
+                    ytg = _yards_to_goal_from_spot(play.get("spot"), offense, opp_aliases)
                     if isinstance(ytg, int):
                         if ytg <= 40:
                             drive_gz = True
@@ -1030,6 +1284,8 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     stats = payload.get("stats") or {}
     home_abbr = _bundle_home_abbr(stats)
     team_aliases = _team_aliases_from_bundle(home_abbr, stats, payload.get("games"))
+    tov_rollup = _aggregate_xml_alias_rows(stats, "turnovers", team_aliases)
+    pot_rollup = _aggregate_xml_alias_rows(stats, "points_off_turnovers", team_aliases)
 
     expl = _bundle_row(stats, "explosives", home_abbr)
     neg = _bundle_row(stats, "negative_plays", home_abbr)
@@ -1075,8 +1331,8 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         )
 
     games_parsed = payload.get("games_parsed")
-    turnovers = tov.get("turnovers")
-    turnovers_forced = tov.get("turnovers_forced")
+    turnovers = tov_rollup.get("turnovers", tov.get("turnovers"))
+    turnovers_forced = tov_rollup.get("turnovers_forced", tov.get("turnovers_forced"))
     games_out: list[dict] = []
     for idx, g in enumerate(payload.get("games") or [], start=1):
         if not isinstance(g, dict):
@@ -1085,6 +1341,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
         game_rollup = _rollup_game_from_play_tree(play_tree, team_aliases, opp_abbr)
         game_detail = _derive_game_detail_stats(play_tree, team_aliases, opp_abbr)
+        game_turnover_detail = _derive_turnover_drive_stats(play_tree, team_aliases, opp_abbr)
         estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
         raw_pf = g.get("points_for")
         raw_pa = g.get("points_against")
@@ -1114,6 +1371,7 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         }
         game.update(game_rollup)
         game.update(game_detail)
+        game.update(game_turnover_detail)
         games_out.append(game)
 
     return {
@@ -1123,6 +1381,10 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         "conference": "",
         "color": "#888888",
         "cfbstats": {"rankings": {"all": {}, "conf": {}, "nonconf": {}}},
+        "xml_rollups": {
+            "turnovers": tov_rollup or tov,
+            "points_off_turnovers": pot_rollup,
+        },
         "aggregates": {
             "games": games_parsed if isinstance(games_parsed, int) else "N/A",
             "record": "N/A",
@@ -1311,6 +1573,7 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     rankings = team_data.get("cfbstats", {}).get("rankings", {}).get("all", {})
     games = team_data.get("games", [])
     xml_stats = team_data.get("xml_stats") or {}
+    xml_rollups = team_data.get("xml_rollups") or {}
 
     def rank(key: str) -> str:
         r = rankings.get(key, {})
@@ -1413,8 +1676,16 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         )
         return row if isinstance(row, dict) else {}
 
-    xml_tov = _best_xml_row("turnovers")
-    xml_pot = _best_xml_row("points_off_turnovers")
+    xml_tov = (
+        xml_rollups.get("turnovers")
+        if isinstance(xml_rollups.get("turnovers"), dict) and xml_rollups.get("turnovers")
+        else _best_xml_row("turnovers")
+    )
+    xml_pot = (
+        xml_rollups.get("points_off_turnovers")
+        if isinstance(xml_rollups.get("points_off_turnovers"), dict) and xml_rollups.get("points_off_turnovers")
+        else _best_xml_row("points_off_turnovers")
+    )
     xml_m8 = _best_xml_row("middle_eight")
 
     return {
@@ -1728,6 +1999,8 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
             "tight_rz_td_pct": "N/A",
             "green_zone_trips": "N/A",
             "green_zone_tds": "N/A",
+            "green_zone_fgs": "N/A",
+            "green_zone_success": "N/A",
             "turnover_margin": "N/A",
             "turnovers_gained": "N/A",
             "turnovers_lost": "N/A",
@@ -1751,6 +2024,10 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         ppg = avg_stat("points_for")
         opp_ppg = avg_stat("points_against")
 
+    green_zone_trips = sum_stat("green_zone_trips")
+    green_zone_tds = sum_stat("green_zone_tds")
+    green_zone_fgs = sum_stat("green_zone_fgs")
+
     return {
         "actual_n": actual_n,
         "required_n": n,
@@ -1771,8 +2048,12 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         "tight_rz_td_pct": round((tight_rz_tds / tight_rz_trips * 100), 1)
         if tight_rz_trips
         else "N/A",
-        "green_zone_trips": sum_stat("green_zone_trips"),
-        "green_zone_tds": sum_stat("green_zone_tds"),
+        "green_zone_trips": green_zone_trips,
+        "green_zone_tds": green_zone_tds,
+        "green_zone_fgs": green_zone_fgs,
+        "green_zone_success": round(((green_zone_tds + green_zone_fgs) / green_zone_trips * 100), 1)
+        if green_zone_trips
+        else "N/A",
         "turnover_margin": sum_stat("turnovers_gained") - sum_stat("turnovers_lost"),
         "turnovers_gained": sum_stat("turnovers_gained"),
         "turnovers_lost": sum_stat("turnovers_lost"),
@@ -1788,6 +2069,121 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         "penalties_defense": penalties_defense,
         "penalties_special_teams": penalties_special_teams,
     }
+
+
+def _turnover_reconciliation(pbp_entry: dict) -> dict:
+    games = pbp_entry.get("games") or []
+    xml_rollups = pbp_entry.get("xml_rollups") or {}
+    cfb_live = (pbp_entry.get("cfbstats") or {}).get("turnover_split")
+    xml_tov = xml_rollups.get("turnovers") if isinstance(xml_rollups.get("turnovers"), dict) else {}
+    xml_pot = (
+        xml_rollups.get("points_off_turnovers")
+        if isinstance(xml_rollups.get("points_off_turnovers"), dict)
+        else {}
+    )
+
+    pbp_totals = {
+        "gained": sum(int(g.get("turnovers_gained") or 0) for g in games if isinstance(g, dict)),
+        "lost": sum(int(g.get("turnovers_lost") or 0) for g in games if isinstance(g, dict)),
+        "int_gained": sum(int(g.get("interceptions_gained") or 0) for g in games if isinstance(g, dict)),
+        "int_lost": sum(int(g.get("interceptions_lost") or 0) for g in games if isinstance(g, dict)),
+        "fum_gained": sum(int(g.get("fumbles_gained") or 0) for g in games if isinstance(g, dict)),
+        "fum_lost": sum(int(g.get("fumbles_lost") or 0) for g in games if isinstance(g, dict)),
+        "pot_for": sum(int(g.get("points_off_turnovers_for") or 0) for g in games if isinstance(g, dict)),
+        "pot_against": sum(int(g.get("points_off_turnovers_against") or 0) for g in games if isinstance(g, dict)),
+        "post_to_drives": sum(len(g.get("post_turnover_drives") or []) for g in games if isinstance(g, dict)),
+    }
+
+    cfb_totals = {
+        "gained": int(
+            (cfb_live.get("turnovers_gained") if isinstance(cfb_live, dict) else None)
+            or xml_tov.get("turnovers_forced")
+            or 0
+        ),
+        "lost": int(
+            (cfb_live.get("turnovers_lost") if isinstance(cfb_live, dict) else None)
+            or xml_tov.get("turnovers")
+            or 0
+        ),
+        "int_lost": int(
+            (cfb_live.get("interceptions_lost") if isinstance(cfb_live, dict) else None)
+            or xml_tov.get("interceptions")
+            or 0
+        ),
+        "fum_lost": int(
+            (cfb_live.get("fumbles_lost") if isinstance(cfb_live, dict) else None)
+            or xml_tov.get("fumbles_lost")
+            or 0
+        ),
+        "pot_for": int(xml_pot.get("points_off_turnovers") or 0),
+        "pot_against": int(xml_pot.get("points_off_turnovers_allowed") or 0),
+    }
+
+    deltas = {
+        "gained": pbp_totals["gained"] - cfb_totals["gained"],
+        "lost": pbp_totals["lost"] - cfb_totals["lost"],
+        "int_lost": pbp_totals["int_lost"] - cfb_totals["int_lost"],
+        "fum_lost": pbp_totals["fum_lost"] - cfb_totals["fum_lost"],
+        "pot_for": pbp_totals["pot_for"] - cfb_totals["pot_for"],
+        "pot_against": pbp_totals["pot_against"] - cfb_totals["pot_against"],
+    }
+    in_sync = all(v == 0 for v in deltas.values())
+    return {"pbp": pbp_totals, "cfbstats": cfb_totals, "delta": deltas, "in_sync": in_sync}
+
+
+def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    xml_stats = pbp_entry.get("xml_stats") or {}
+    tov_cat = xml_stats.get("turnovers") or {}
+    pot_cat = xml_stats.get("points_off_turnovers") or {}
+    if not isinstance(tov_cat, dict):
+        tov_cat = {}
+    if not isinstance(pot_cat, dict):
+        pot_cat = {}
+
+    report: list[dict] = []
+    for game in games:
+        opp = str(game.get("opponent_abbr") or "").upper()
+        if not opp:
+            continue
+        tov_row = tov_cat.get(opp) if isinstance(tov_cat.get(opp), dict) else {}
+        pot_row = pot_cat.get(opp) if isinstance(pot_cat.get(opp), dict) else {}
+        if not tov_row and not pot_row:
+            continue
+
+        pbp = {
+            "gained": int(game.get("turnovers_gained") or 0),
+            "lost": int(game.get("turnovers_lost") or 0),
+            "int_gained": int(game.get("interceptions_gained") or 0),
+            "fum_gained": int(game.get("fumbles_gained") or 0),
+            "pot_for": int(game.get("points_off_turnovers_for") or 0),
+            "pot_against": int(game.get("points_off_turnovers_against") or 0),
+        }
+        # Opponent-keyed XML game rows are stored in opponent perspective.
+        # Convert to team perspective for apples-to-apples reconciliation.
+        cfb = {
+            "gained": int(tov_row.get("turnovers") or 0),
+            "lost": int(tov_row.get("turnovers_forced") or 0),
+            "int_gained": int(tov_row.get("interceptions") or 0),
+            "fum_gained": int(tov_row.get("fumbles_lost") or 0),
+            "pot_for": int(pot_row.get("points_off_turnovers_allowed") or 0),
+            "pot_against": int(pot_row.get("points_off_turnovers") or 0),
+        }
+        delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
+        in_sync = all(v == 0 for v in delta.values())
+        report.append(
+            {
+                "game_number": game.get("game_number"),
+                "opponent_abbr": opp,
+                "opponent": game.get("opponent"),
+                "date": game.get("date"),
+                "pbp": pbp,
+                "cfbstats": cfb,
+                "delta": delta,
+                "in_sync": in_sync,
+            }
+        )
+    return report
 
 
 def gather_team_data(
@@ -1813,6 +2209,13 @@ def gather_team_data(
                 f"[warn] Live CFBStats rankings unavailable for {team_name} ({season}); rankings may render N/A",
                 file=sys.stderr,
             )
+        live_turnover_split = _fetch_live_turnover_split(team_name, school_slug, season)
+        if live_turnover_split:
+            pbp_entry["cfbstats"]["turnover_split"] = live_turnover_split
+            pbp_entry.setdefault("aggregates", {})
+            pbp_entry["aggregates"]["turnover_margin"] = live_turnover_split.get(
+                "margin", pbp_entry["aggregates"].get("turnover_margin")
+            )
     parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
     seeded = (enrichment_by_slug or {}).get(school_slug) or {}
@@ -1828,6 +2231,27 @@ def gather_team_data(
             if value not in (None, ""):
                 pbp_stats[key] = value
     games = pbp_entry.get("games", []) if pbp_entry else []
+    turnover_recon = _turnover_reconciliation(pbp_entry) if pbp_entry else {}
+    turnover_game_recon = _turnover_game_reconciliation(pbp_entry) if pbp_entry else []
+    if pbp_entry:
+        pbp_entry["turnover_reconciliation"] = turnover_recon
+        pbp_entry["turnover_game_reconciliation"] = turnover_game_recon
+        if turnover_recon and not turnover_recon.get("in_sync", True):
+            print(
+                f"[warn] Turnover reconciliation mismatch for {team_name}: "
+                f"{turnover_recon.get('delta')}",
+                file=sys.stderr,
+            )
+        mismatch_games = [g for g in turnover_game_recon if not g.get("in_sync")]
+        if mismatch_games:
+            sample = mismatch_games[:3]
+            sample_text = ", ".join(
+                f"G{g.get('game_number')} {g.get('opponent_abbr')} {g.get('delta')}" for g in sample
+            )
+            print(
+                f"[warn] Turnover game mismatches for {team_name}: {sample_text}",
+                file=sys.stderr,
+            )
     if games:
         offense_plays_pg = round(sum((g.get("total_plays") or 0) for g in games) / len(games), 1)
         defense_counts = []
@@ -1845,21 +2269,8 @@ def gather_team_data(
         pbp_stats["offense_plays_per_game"] = offense_plays_pg
         pbp_stats["defense_plays_allowed_per_game"] = round(sum(defense_counts) / len(defense_counts), 1) if defense_counts else "N/A"
     last_n_stats = compute_last_n_stats(games, last_n)
-    # Prefer XML bundle last-3 aggregates when available; per-game mirrors can be incomplete.
-    if isinstance(pbp_stats.get("last3_turnovers_gained"), (int, float)) and isinstance(
-        pbp_stats.get("last3_turnovers_lost"), (int, float)
-    ):
-        last_n_stats["turnovers_gained"] = int(pbp_stats["last3_turnovers_gained"])
-        last_n_stats["turnovers_lost"] = int(pbp_stats["last3_turnovers_lost"])
-        last_n_stats["turnover_margin"] = int(pbp_stats["last3_turnovers_gained"]) - int(
-            pbp_stats["last3_turnovers_lost"]
-        )
-    if isinstance(pbp_stats.get("last3_points_off_turnovers_for"), (int, float)):
-        last_n_stats["points_off_turnovers_for"] = int(pbp_stats["last3_points_off_turnovers_for"])
-    if isinstance(pbp_stats.get("last3_points_off_turnovers_against"), (int, float)):
-        last_n_stats["points_off_turnovers_against"] = int(
-            pbp_stats["last3_points_off_turnovers_against"]
-        )
+    # Keep turnover/points-off-turnover L3 metrics parser-derived from game-level rollups.
+    # XML alias rows can overstate last-3 aggregates when multiple abbreviations are present.
     if isinstance(pbp_stats.get("last3_middle8_points_for"), (int, float)):
         last_n_stats["middle8_points_for"] = int(pbp_stats["last3_middle8_points_for"])
     if isinstance(pbp_stats.get("last3_middle8_points_against"), (int, float)):
@@ -1916,6 +2327,8 @@ def gather_team_data(
         "full_staff": [],
         "stats": pbp_stats,
         "last_n": last_n_stats,
+        "turnover_reconciliation": turnover_recon,
+        "turnover_game_reconciliation": turnover_game_recon,
         "pbp_entry": pbp_entry,
         "parity_gaps": parity_gaps,
         "has_pbp": pbp_entry is not None,

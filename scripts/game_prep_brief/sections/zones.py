@@ -141,9 +141,10 @@ def _team_html(team: dict) -> str:
     l3_trz_td_pct = last_n.get("tight_rz_td_pct")
     l3_gz_trips = last_n.get("green_zone_trips")
     l3_gz_tds = last_n.get("green_zone_tds")
-    l3_gz_success = None
-    if l3_gz_trips is not None and l3_gz_tds is not None:
-        l3_gz_success = _rate(l3_gz_tds, l3_gz_trips)
+    l3_gz_fgs = last_n.get("green_zone_fgs")
+    l3_gz_success = last_n.get("green_zone_success")
+    if l3_gz_success is None and l3_gz_trips is not None and l3_gz_tds is not None:
+        l3_gz_success = _rate((l3_gz_tds or 0) + (l3_gz_fgs or 0), l3_gz_trips)
 
     def _last_n_compare(current, l3_value, suffix: str = "", higher_is_better: bool = True, show_arrow: bool = False) -> str:
         if not show_last_n or l3_value is None:
@@ -203,9 +204,10 @@ def _team_md(team: dict) -> str:
         l3_trz_td_pct = last_n.get("tight_rz_td_pct")
         l3_gz_trips = last_n.get("green_zone_trips")
         l3_gz_tds = last_n.get("green_zone_tds")
-        l3_gz_success = None
-        if l3_gz_trips is not None and l3_gz_tds is not None:
-            l3_gz_success = _rate(l3_gz_tds, l3_gz_trips)
+        l3_gz_fgs = last_n.get("green_zone_fgs")
+        l3_gz_success = last_n.get("green_zone_success")
+        if l3_gz_success is None and l3_gz_trips is not None and l3_gz_tds is not None:
+            l3_gz_success = _rate((l3_gz_tds or 0) + (l3_gz_fgs or 0), l3_gz_trips)
 
         rz_now = _to_float(stats.get("rz_td_pct"))
         trz_now = _to_float(stats.get("trz_td_pct"))
