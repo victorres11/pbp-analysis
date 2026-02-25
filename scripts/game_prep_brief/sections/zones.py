@@ -92,6 +92,7 @@ def _team_zone_stats(team: dict) -> dict:
             "gz_trips": gz_trips if gz_trips else "N/A",
             "gz_tds": gz_tds if gz_trips else "N/A",
             "gz_fgs": gz_fgs if gz_trips else "N/A",
+            "gz_td_pct": _rate(gz_tds, gz_trips) if gz_trips else "N/A",
             "gz_success": _rate(gz_tds + gz_fgs, gz_trips) if gz_trips else "N/A",
             "gz_failed": gz_failed if gz_trips else "N/A",
         }
@@ -121,6 +122,7 @@ def _team_zone_stats(team: dict) -> dict:
         "gz_trips": gz_trips,
         "gz_tds": gz_tds,
         "gz_fgs": gz_fgs,
+        "gz_td_pct": _rate(gz_tds, gz_trips),
         "gz_success": _rate(gz_tds + gz_fgs, gz_trips),
         "gz_failed": gz_failed,
     }
@@ -135,13 +137,16 @@ def _team_html(team: dict) -> str:
     show_last_n = _should_show_last_n(team)
     l3_rz_trips = last_n.get("rz_trips")
     l3_rz_tds = last_n.get("rz_tds")
+    l3_rz_fgs = last_n.get("rz_fgs")
     l3_rz_td_pct = last_n.get("rz_td_pct")
     l3_trz_trips = last_n.get("tight_rz_trips")
     l3_trz_tds = last_n.get("tight_rz_tds")
+    l3_trz_fgs = last_n.get("tight_rz_fgs")
     l3_trz_td_pct = last_n.get("tight_rz_td_pct")
     l3_gz_trips = last_n.get("green_zone_trips")
     l3_gz_tds = last_n.get("green_zone_tds")
     l3_gz_fgs = last_n.get("green_zone_fgs")
+    l3_gz_td_pct = _rate((l3_gz_tds or 0), (l3_gz_trips or 0)) if l3_gz_trips else None
     l3_gz_success = last_n.get("green_zone_success")
     if l3_gz_success is None and l3_gz_trips is not None and l3_gz_tds is not None:
         l3_gz_success = _rate((l3_gz_tds or 0) + (l3_gz_fgs or 0), l3_gz_trips)
@@ -162,7 +167,7 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Trips: {stats['rz_trips']}{_last_n_compare(stats['rz_trips'], l3_rz_trips)}</li>
           <li>TDs: {stats['rz_tds']}{_last_n_compare(stats['rz_tds'], l3_rz_tds)}</li>
-          <li>FGs: {stats['rz_fgs']}</li>
+          <li>FGs: {stats['rz_fgs']}{_last_n_compare(stats['rz_fgs'], l3_rz_fgs)}</li>
           <li>TD%: {stats['rz_td_pct']}%{_last_n_compare(stats['rz_td_pct'], l3_rz_td_pct, suffix="%", show_arrow=True)}</li>
           <li>Efficiency: {stats['rz_eff']}%</li>
           <li>CFBStats Rank: {rz_rank}</li>
@@ -173,7 +178,7 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Trips: {stats['trz_trips']}{_last_n_compare(stats['trz_trips'], l3_trz_trips)}</li>
           <li>TDs: {stats['trz_tds']}{_last_n_compare(stats['trz_tds'], l3_trz_tds)}</li>
-          <li>FGs: {stats['trz_fgs']}</li>
+          <li>FGs: {stats['trz_fgs']}{_last_n_compare(stats['trz_fgs'], l3_trz_fgs)}</li>
           <li>TD%: {stats['trz_td_pct']}%{_last_n_compare(stats['trz_td_pct'], l3_trz_td_pct, suffix="%", show_arrow=True)}</li>
         </ul>
       </div>
@@ -182,8 +187,9 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Trips: {stats['gz_trips']}{_last_n_compare(stats['gz_trips'], l3_gz_trips)}</li>
           <li>TDs: {stats['gz_tds']}{_last_n_compare(stats['gz_tds'], l3_gz_tds)}</li>
-          <li>FGs: {stats['gz_fgs']}</li>
-          <li>Success: {stats['gz_success']}%{_last_n_compare(stats['gz_success'], l3_gz_success, suffix="%", show_arrow=True)}</li>
+          <li>FGs: {stats['gz_fgs']}{_last_n_compare(stats['gz_fgs'], l3_gz_fgs)}</li>
+          <li>TD%: {stats['gz_td_pct']}%{_last_n_compare(stats['gz_td_pct'], l3_gz_td_pct, suffix="%", show_arrow=True)}</li>
+          <li>Success (TD+FG / Trips): {stats['gz_success']}%{_last_n_compare(stats['gz_success'], l3_gz_success, suffix="%", show_arrow=True)}</li>
         </ul>
       </div>
     </div>
@@ -205,6 +211,7 @@ def _team_md(team: dict) -> str:
         l3_gz_trips = last_n.get("green_zone_trips")
         l3_gz_tds = last_n.get("green_zone_tds")
         l3_gz_fgs = last_n.get("green_zone_fgs")
+        l3_gz_td_pct = _rate((l3_gz_tds or 0), (l3_gz_trips or 0)) if l3_gz_trips else None
         l3_gz_success = last_n.get("green_zone_success")
         if l3_gz_success is None and l3_gz_trips is not None and l3_gz_tds is not None:
             l3_gz_success = _rate((l3_gz_tds or 0) + (l3_gz_fgs or 0), l3_gz_trips)
@@ -215,6 +222,7 @@ def _team_md(team: dict) -> str:
         l3_rz_num = _to_float(l3_rz_td_pct)
         l3_trz_num = _to_float(l3_trz_td_pct)
         l3_gz_num = _to_float(l3_gz_success)
+        l3_gz_td_num = _to_float(l3_gz_td_pct)
 
         if l3_rz_num is not None and rz_now is not None and abs(l3_rz_num - rz_now) >= 8:
             rz_note = f" (L{actual_n}: {l3_rz_td_pct}%)"
@@ -222,14 +230,22 @@ def _team_md(team: dict) -> str:
             trz_note = f" (L{actual_n}: {l3_trz_td_pct}%)"
         if l3_gz_num is not None and gz_now is not None and abs(l3_gz_num - gz_now) >= 8:
             gz_note = f" (L{actual_n}: {l3_gz_success}%)"
+        gz_td_note = ""
+        gz_td_now = _to_float(stats.get("gz_td_pct"))
+        if l3_gz_td_num is not None and gz_td_now is not None and abs(l3_gz_td_num - gz_td_now) >= 8:
+            gz_td_note = f" (L{actual_n}: {l3_gz_td_pct}%)"
+    else:
+        gz_td_note = ""
     rz_td = f"{stats['rz_td_pct']}%" if isinstance(stats.get("rz_td_pct"), (int, float)) else "N/A"
     trz_td = f"{stats['trz_td_pct']}%" if isinstance(stats.get("trz_td_pct"), (int, float)) else "N/A"
     gz_success = f"{stats['gz_success']}%" if isinstance(stats.get("gz_success"), (int, float)) else "N/A"
+    gz_td = f"{stats['gz_td_pct']}%" if isinstance(stats.get("gz_td_pct"), (int, float)) else "N/A"
     return "\n".join([
         f"*{team['display_name']}*",
         f"- Red Zone TD%: {rz_td}{rz_note}",
         f"- Tight RZ TD%: {trz_td}{trz_note}",
-        f"- Green Zone Success: {gz_success}{gz_note}",
+        f"- Green Zone TD%: {gz_td}{gz_td_note}",
+        f"- Green Zone Success (TD+FG / Trips): {gz_success}{gz_note}",
     ])
 
 

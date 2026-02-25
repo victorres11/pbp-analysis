@@ -2140,8 +2140,10 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
 
     rz_trips = sum_stat("red_zone_trips")
     rz_tds = sum_stat("red_zone_tds")
+    rz_fgs = sum_stat("red_zone_fgs")
     tight_rz_trips = sum_stat("tight_red_zone_trips")
     tight_rz_tds = sum_stat("tight_red_zone_tds")
+    tight_rz_fgs = sum_stat("tight_red_zone_fgs")
 
     if actual_n == 0:
         return {
@@ -2158,9 +2160,11 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
             "explosive_rushes_per_game": "N/A",
             "rz_trips": "N/A",
             "rz_tds": "N/A",
+            "rz_fgs": "N/A",
             "rz_td_pct": "N/A",
             "tight_rz_trips": "N/A",
             "tight_rz_tds": "N/A",
+            "tight_rz_fgs": "N/A",
             "tight_rz_td_pct": "N/A",
             "green_zone_trips": "N/A",
             "green_zone_tds": "N/A",
@@ -2207,9 +2211,11 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         "explosive_rushes_per_game": round(explosive_rushes_per_game, 1),
         "rz_trips": rz_trips,
         "rz_tds": rz_tds,
+        "rz_fgs": rz_fgs,
         "rz_td_pct": round((rz_tds / rz_trips * 100), 1) if rz_trips else "N/A",
         "tight_rz_trips": tight_rz_trips,
         "tight_rz_tds": tight_rz_tds,
+        "tight_rz_fgs": tight_rz_fgs,
         "tight_rz_td_pct": round((tight_rz_tds / tight_rz_trips * 100), 1)
         if tight_rz_trips
         else "N/A",
