@@ -76,10 +76,14 @@ try:
     from pbp_parser.cfbstats.scraper_v2 import CfbstatsScraper
     from pbp_parser.rate_limit import RateLimitConfig
     from pbp_parser.reference.teams import get_team_conference
+    from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down_stats
+    from pbp_parser.models import Play as ParserPlay
 except Exception:
     CfbstatsScraper = None  # type: ignore[assignment]
     RateLimitConfig = None  # type: ignore[assignment]
     get_team_conference = None  # type: ignore[assignment]
+    _upstream_fourth_down_stats = None  # type: ignore[assignment]
+    ParserPlay = None  # type: ignore[assignment]
 
 _CONFERENCE_NAME_MAP = {
     "AAC": "American",
@@ -1253,6 +1257,50 @@ def _parse_int(pattern: str, text: str) -> int | None:
         return None
 
 
+def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: object) -> tuple[int, int] | None:
+    team_aliases = _abbr_set(team_abbr)
+    if not team_aliases or _upstream_fourth_down_stats is None or ParserPlay is None:
+        return None
+    team = sorted(team_aliases)[0]
+    parser_plays: list[ParserPlay] = []
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        quarter_num = quarter.get("quarter")
+        qnum = quarter_num if isinstance(quarter_num, int) and quarter_num > 0 else 1
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if not isinstance(play, dict):
+                    continue
+                desc = str(play.get("description") or "")
+                if not desc:
+                    continue
+                parser_plays.append(
+                    ParserPlay(
+                        quarter=qnum,
+                        offense=(str(play.get("offense") or "").upper() or None),
+                        clock=(str(play.get("clock") or "").strip() or None),
+                        down_distance=(str(play.get("down_distance") or "").strip() or None),
+                        spot=(str(play.get("spot") or "").strip() or None),
+                        description=desc,
+                        yards=play.get("yards") if isinstance(play.get("yards"), int) else None,
+                        is_no_play=bool(play.get("is_no_play")),
+                        is_scrimmage_play=bool(play.get("is_scrimmage_play")),
+                        is_turnover=bool(play.get("is_turnover")),
+                        is_scoring=bool(play.get("is_scoring")),
+                    )
+                )
+    if not parser_plays:
+        return None
+    try:
+        stats = _upstream_fourth_down_stats(parser_plays, team)
+        return int(stats.attempts or 0), int(stats.conversions or 0)
+    except Exception:
+        return None
+
+
 def _is_scrimmage_play(play: dict, down: int | None) -> bool:
     explicit = play.get("is_scrimmage_play")
     if isinstance(explicit, bool):
@@ -1414,6 +1462,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                     trz_tds += 1
                 elif drive_fg:
                     trz_fgs += 1
+
+    shared_fourth = _compute_fourth_down_stats_from_play_tree(play_tree, team_aliases)
+    if shared_fourth is not None:
+        fourth_att, fourth_conv = shared_fourth
 
     special_teams = {
         "punts": punts,
