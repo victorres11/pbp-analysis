@@ -67,9 +67,19 @@ def _team_stats(team: dict) -> dict:
 
     punts = _sum([st.get("punts") for st in st_list])
     punt_yards = _sum([st.get("punt_yards") for st in st_list])
-    punt_net = _sum([st.get("punt_net_yards") for st in st_list])
+    punt_net_values = [st.get("punt_net_yards") for st in st_list]
+    has_punt_net = any(v is not None for v in punt_net_values)
+    punt_net = _sum(punt_net_values) if has_punt_net else None
     punt_avg = round(punt_yards / punts, 2) if punts else _avg([st.get("punt_avg") for st in st_list])
-    punt_net_avg = round(punt_net / punts, 2) if punts else _avg([st.get("punt_net_avg") for st in st_list])
+    if punts and has_punt_net and isinstance(punt_net, (int, float)):
+        punt_net_avg = round(float(punt_net) / punts, 2)
+    else:
+        fallback_net_values = [st.get("punt_net_avg") for st in st_list]
+        punt_net_avg = _avg(fallback_net_values)
+        if punt_net_avg == 0 and not any(
+            isinstance(v, (int, float)) and v != 0 for v in fallback_net_values
+        ):
+            punt_net_avg = None
     punt_long = max([st.get("punt_long", 0) or 0 for st in st_list] or [0])
     punts_inside_20 = _sum([st.get("punts_inside_20") for st in st_list])
     punt_touchbacks = _sum([st.get("punt_touchbacks") for st in st_list])
