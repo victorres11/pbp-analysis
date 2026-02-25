@@ -77,12 +77,15 @@ try:
     from pbp_parser.rate_limit import RateLimitConfig
     from pbp_parser.reference.teams import get_team_conference
     from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down_stats
-    from pbp_parser.models import Play as ParserPlay
+    from pbp_parser.red_zone import compute_team_red_zone_splits as _upstream_red_zone_splits
+    from pbp_parser.models import ParsedGame as ParserParsedGame, Play as ParserPlay
 except Exception:
     CfbstatsScraper = None  # type: ignore[assignment]
     RateLimitConfig = None  # type: ignore[assignment]
     get_team_conference = None  # type: ignore[assignment]
     _upstream_fourth_down_stats = None  # type: ignore[assignment]
+    _upstream_red_zone_splits = None  # type: ignore[assignment]
+    ParserParsedGame = None  # type: ignore[assignment]
     ParserPlay = None  # type: ignore[assignment]
 
 _CONFERENCE_NAME_MAP = {
@@ -1301,6 +1304,84 @@ def _compute_fourth_down_stats_from_play_tree(play_tree: object, team_abbr: obje
         return None
 
 
+def _compute_red_zone_20_stats_from_play_tree(
+    play_tree: object, team_abbr: object, opp_abbr: object
+) -> tuple[int, int, int] | None:
+    """
+    Reuse upstream red-zone helper for canonical RZ (inside-20) totals only.
+
+    Note: upstream parser defines Green Zone/Tight Red Zone differently than this
+    brief, so we intentionally keep local derivation for those metrics.
+    """
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    if (
+        not team_aliases
+        or not opp_aliases
+        or _upstream_red_zone_splits is None
+        or ParserPlay is None
+        or ParserParsedGame is None
+    ):
+        return None
+
+    parser_plays: list[ParserPlay] = []
+    team_tokens: dict[str, int] = {}
+    opp_tokens: dict[str, int] = {}
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        quarter_num = quarter.get("quarter")
+        qnum = quarter_num if isinstance(quarter_num, int) and quarter_num > 0 else 1
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if not isinstance(play, dict):
+                    continue
+                desc = str(play.get("description") or "")
+                if not desc:
+                    continue
+                offense = str(play.get("offense") or "").upper().strip() or None
+                if offense is not None:
+                    if offense in team_aliases:
+                        team_tokens[offense] = team_tokens.get(offense, 0) + 1
+                    if offense in opp_aliases:
+                        opp_tokens[offense] = opp_tokens.get(offense, 0) + 1
+                parser_plays.append(
+                    ParserPlay(
+                        quarter=qnum,
+                        offense=offense,
+                        clock=(str(play.get("clock") or "").strip() or None),
+                        down_distance=(str(play.get("down_distance") or "").strip() or None),
+                        spot=(str(play.get("spot") or "").strip() or None),
+                        description=desc,
+                        yards=play.get("yards") if isinstance(play.get("yards"), int) else None,
+                        is_no_play=bool(play.get("is_no_play")),
+                        is_scrimmage_play=bool(play.get("is_scrimmage_play")),
+                        is_turnover=bool(play.get("is_turnover")),
+                        is_scoring=bool(play.get("is_scoring")),
+                    )
+                )
+    if not parser_plays:
+        return None
+
+    team = max(team_tokens, key=team_tokens.get) if team_tokens else sorted(team_aliases)[0]
+    opp = max(opp_tokens, key=opp_tokens.get) if opp_tokens else sorted(opp_aliases)[0]
+    if team == opp:
+        return None
+
+    try:
+        parsed_game = ParserParsedGame(pdf_path=Path("play_tree.json"), teams=[team, opp], plays=parser_plays)
+        splits = _upstream_red_zone_splits([parsed_game], last_n=3)
+        team_splits = splits.get(team)
+        if team_splits is None:
+            return None
+        season = team_splits.season
+        return int(season.rz_trips or 0), int(season.rz_tds or 0), int(season.rz_fgs or 0)
+    except Exception:
+        return None
+
+
 def _is_scrimmage_play(play: dict, down: int | None) -> bool:
     explicit = play.get("is_scrimmage_play")
     if isinstance(explicit, bool):
@@ -1466,6 +1547,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
     shared_fourth = _compute_fourth_down_stats_from_play_tree(play_tree, team_aliases)
     if shared_fourth is not None:
         fourth_att, fourth_conv = shared_fourth
+
+    shared_rz_20 = _compute_red_zone_20_stats_from_play_tree(play_tree, team_aliases, opp_aliases)
+    if shared_rz_20 is not None:
+        rz_trips, rz_tds, rz_fgs = shared_rz_20
 
     special_teams = {
         "punts": punts,
