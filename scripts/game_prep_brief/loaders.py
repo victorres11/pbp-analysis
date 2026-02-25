@@ -1338,13 +1338,23 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 if offense_is_team and down in (3, 4):
                     if down == 3:
                         third_att += 1
-                    else:
-                        fourth_att += 1
-                    if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
-                        if down == 3:
+                        if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
                             third_conv += 1
-                        else:
-                            fourth_conv += 1
+                    else:
+                        is_punt = "PUNT" in desc_up
+                        is_field_goal_try = (
+                            "FIELD GOAL" in desc_up
+                            or (
+                                "KICK ATTEMPT" in desc_up
+                                and "PAT" not in desc_up
+                                and "EXTRA POINT" not in desc_up
+                            )
+                        )
+                        # 4th-down attempts are go-for-it snaps only (exclude punts/FG tries).
+                        if not is_punt and not is_field_goal_try:
+                            fourth_att += 1
+                            if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
+                                fourth_conv += 1
 
                 if "PENALTY" in desc_up:
                     penalty_count += 1
