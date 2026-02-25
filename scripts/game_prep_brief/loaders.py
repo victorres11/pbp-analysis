@@ -72,25 +72,53 @@ _PBP_PARSER_SRC = ROOT_DIR.parent / "pbp-parser" / "src"
 if str(_PBP_PARSER_SRC) not in sys.path:
     sys.path.insert(0, str(_PBP_PARSER_SRC))
 
+_UPSTREAM_IMPORT_ERRORS: dict[str, str] = {}
+_UPSTREAM_IMPORT_WARNED = False
+
 try:
     from pbp_parser.cfbstats.scraper_v2 import CfbstatsScraper
+except Exception as exc:
+    CfbstatsScraper = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["cfbstats_scraper"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.rate_limit import RateLimitConfig
+except Exception as exc:
+    RateLimitConfig = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["rate_limit"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.reference.teams import get_team_conference
+except Exception as exc:
+    get_team_conference = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["reference_teams"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.fourth_down import compute_fourth_down_stats as _upstream_fourth_down_stats
+except Exception as exc:
+    _upstream_fourth_down_stats = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["fourth_down"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.points_off_turnovers import (
         compute_team_points_off_turnover_splits as _upstream_points_off_turnovers_splits,
     )
-    from pbp_parser.red_zone import compute_team_red_zone_splits as _upstream_red_zone_splits
-    from pbp_parser.models import ParsedGame as ParserParsedGame, Play as ParserPlay
-except Exception:
-    CfbstatsScraper = None  # type: ignore[assignment]
-    RateLimitConfig = None  # type: ignore[assignment]
-    get_team_conference = None  # type: ignore[assignment]
-    _upstream_fourth_down_stats = None  # type: ignore[assignment]
+except Exception as exc:
     _upstream_points_off_turnovers_splits = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["points_off_turnovers"] = f"{type(exc).__name__}: {exc}"
+
+try:
+    from pbp_parser.red_zone import compute_team_red_zone_splits as _upstream_red_zone_splits
+except Exception as exc:
     _upstream_red_zone_splits = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["red_zone"] = f"{type(exc).__name__}: {exc}"
+
+try:
+    from pbp_parser.models import ParsedGame as ParserParsedGame, Play as ParserPlay
+except Exception as exc:
     ParserParsedGame = None  # type: ignore[assignment]
     ParserPlay = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["models"] = f"{type(exc).__name__}: {exc}"
 
 _CONFERENCE_NAME_MAP = {
     "AAC": "American",
@@ -192,6 +220,23 @@ for _alias, _target in _FALLBACK_TEAM_ALIASES.items():
     )
 
 _LIVE_TURNOVER_SPLIT_CACHE: dict[tuple[int, str], dict] = {}
+
+
+def _warn_upstream_import_fallback_once() -> None:
+    global _UPSTREAM_IMPORT_WARNED
+    if _UPSTREAM_IMPORT_WARNED or not _UPSTREAM_IMPORT_ERRORS:
+        return
+    keys = ", ".join(sorted(_UPSTREAM_IMPORT_ERRORS.keys()))
+    print(
+        f"[warn] pbp_parser imports unavailable ({keys}); using local fallback logic in game brief loader.",
+        file=sys.stderr,
+    )
+    first_key = next(iter(_UPSTREAM_IMPORT_ERRORS))
+    print(
+        f"[warn] Example import error: {first_key} -> {_UPSTREAM_IMPORT_ERRORS[first_key]}",
+        file=sys.stderr,
+    )
+    _UPSTREAM_IMPORT_WARNED = True
 
 
 class _LeaderboardTableParser(HTMLParser):
@@ -2676,6 +2721,7 @@ def gather_team_data(
     enrichment_by_slug: dict | None = None,
     allow_live_enrichment: bool = False,
 ) -> dict:
+    _warn_upstream_import_fallback_once()
     school_slug = slugify(team_name)
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
     if pbp_entry:
