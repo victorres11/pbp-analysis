@@ -43,7 +43,7 @@ A production-ready static web app for analyzing play-by-play matchups between tw
 Run from this repo root:
 
 ```bash
-python3 -m scripts.game_prep_brief "Oregon" "USC" --season 2025 --format both --matchup-slug oregon-vs-usc-2025
+./scripts/run-game-prep-brief.sh "Oregon" "USC" --season 2025 --format both --matchup-slug oregon-vs-usc-2025
 ```
 
 Outputs default to:
@@ -57,6 +57,7 @@ Notes:
 - Set `GAME_PREP_DATA_SOURCE=local` to force legacy `data.json` source.
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
+- `run-game-prep-brief.sh` automatically prefers a Python 3.10+ venv so upstream parser helpers are available.
 
 ### Generate Data
 ```bash
@@ -81,7 +82,7 @@ python3 -m http.server 8000 --directory app
 ### Export/Print Status
 - Legacy in-app print/export menu flow is deprecated and no longer exposed in the UI.
 - Supported export workflow is the standalone Game Prep Brief renderer:
-  - `python3 -m scripts.game_prep_brief "<Team A>" "<Team B>" --season 2025 --format both`
+  - `./scripts/run-game-prep-brief.sh "<Team A>" "<Team B>" --season 2025 --format both`
 
 ## Data Structure
 
