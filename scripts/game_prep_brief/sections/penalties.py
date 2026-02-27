@@ -18,6 +18,36 @@ PROCEDURAL_TERMS = (
     "illegal substitution",
 )
 
+_PENALTY_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("False Start", re.compile(r"\bFALSE\s+START\b", re.IGNORECASE)),
+    ("Delay of Game", re.compile(r"\bDELAY\s+OF\s+GAME\b", re.IGNORECASE)),
+    ("Illegal Formation", re.compile(r"\bILLEGAL\s+FORMATION\b", re.IGNORECASE)),
+    ("Encroachment", re.compile(r"\bENCROACH(?:MENT)?\b", re.IGNORECASE)),
+    ("Offsides", re.compile(r"\bOFFSIDE(?:S)?\b", re.IGNORECASE)),
+    ("Neutral Zone Infraction", re.compile(r"\bNEUTRAL\s+ZONE\s+INFRACTION\b", re.IGNORECASE)),
+    ("Holding", re.compile(r"\bHOLDING\b", re.IGNORECASE)),
+    ("Face Mask", re.compile(r"\bFACE\s*MASK(?:ING)?\b|\bFACEMASK(?:ING)?\b", re.IGNORECASE)),
+    (
+        "Illegal Block in the Back",
+        re.compile(r"\bILLEGAL\s+BLOCK\s+IN\s+THE\s+BACK\b|\bBLOCK\s+IN\s+THE\s+BACK\b", re.IGNORECASE),
+    ),
+    ("Illegal Block", re.compile(r"\bILLEGAL\s+(?:BLOCK|BLOCKING)\b", re.IGNORECASE)),
+    (
+        "Ineligible Downfield",
+        re.compile(r"\bINELIGIBLE\s+(?:MAN\s+)?DOWNFIELD\b|\bINELIGIBLE\s+RECEIVER\s+DOWNFIELD\b", re.IGNORECASE),
+    ),
+    ("Pass Interference", re.compile(r"\b(?:DEFENSIVE\s+|OFFENSIVE\s+)?PASS\s+INTERFERENCE\b", re.IGNORECASE)),
+    (
+        "Roughing Passer",
+        re.compile(r"\bROUGHING\s+(?:THE\s+)?PASSER\b|\bROUGHING\s+(?:THE\s+)?QB\b", re.IGNORECASE),
+    ),
+    (
+        "Unsportsmanlike Conduct",
+        re.compile(r"\bUNSPORTSMANLIKE\s+CONDUCT\b|\bUNSPORTSMANLIKE\b|\bUNS\b", re.IGNORECASE),
+    ),
+    ("Personal Foul", re.compile(r"\bPERSONAL\s+FOUL\b", re.IGNORECASE)),
+]
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -38,17 +68,33 @@ def _penalty_stats_row(team: dict) -> dict | None:
 
 
 def _simplify_penalty(pen: dict) -> str:
-    desc = pen.get("description") or pen.get("type") or ""
+    desc = " ".join(
+        str(v or "")
+        for v in (
+            pen.get("penalty_type"),
+            pen.get("type"),
+            pen.get("description"),
+        )
+        if v
+    )
+    for canonical, pattern in _PENALTY_TYPE_PATTERNS:
+        if pattern.search(desc):
+            return canonical
+
     m = re.search(r"PENALTY\s+\w+\s+([^\d\.]+)", desc, re.IGNORECASE)
     if m:
         text = m.group(1)
     else:
-        text = pen.get("type") or desc
+        text = pen.get("penalty_type") or pen.get("type") or desc
     text = re.sub(r"Penalty\s+", "", text, flags=re.IGNORECASE)
     # Remove player annotations and trailing notes that pollute infraction labels,
     # e.g. "Pass Interference (Prysock,Ephesians): ..."
     text = re.sub(r"\([^)]*\)", "", text)
     text = re.sub(r"\[[^\]]*\]", "", text)
+    text = re.sub(r"\b(?:DECLINED|ACCEPTED|ENFORCED|NO PLAY)\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bAT THE DEADBALL SPOT\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bFOR\b\s*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^\s*UNS\s*:\s*", "Unsportsmanlike Conduct ", text, flags=re.IGNORECASE)
     text = text.split(":", 1)[0]
     text = re.split(r"\s+\d", text)[0]
     text = text.replace("yards", "").replace("yard", "").strip()
