@@ -1622,8 +1622,18 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                                 and "EXTRA POINT" not in desc_up
                             )
                         )
-                        # 4th-down attempts are go-for-it snaps only (exclude punts/FG tries).
-                        if not is_punt and not is_field_goal_try:
+                        has_go_for_it_action = any(
+                            token in desc_up
+                            for token in ("RUSH", " RUN ", "PASS", "COMPLETE", "INCOMPLETE", "SACK", "SCRAMBLE")
+                        )
+                        # Penalty-only 4th downs are not "go for it" attempts unless
+                        # an actual rush/pass action occurred in the same play text.
+                        if "PENALTY" in desc_up and not has_go_for_it_action:
+                            has_go_for_it_action = False
+
+                        # 4th-down attempts are go-for-it snaps only:
+                        # exclude punts/FG tries/special teams and non-action penalties.
+                        if not is_punt and not is_field_goal_try and has_go_for_it_action:
                             fourth_att += 1
                             if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
                                 fourth_conv += 1
@@ -1686,10 +1696,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                     trz_tds += 1
                 elif drive_fg:
                     trz_fgs += 1
-
-    shared_fourth = _compute_fourth_down_stats_from_play_tree(play_tree, team_aliases)
-    if shared_fourth is not None:
-        fourth_att, fourth_conv = shared_fourth
 
     shared_rz_20 = _compute_red_zone_20_stats_from_play_tree(play_tree, team_aliases, opp_aliases)
     if shared_rz_20 is not None:
