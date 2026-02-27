@@ -45,8 +45,18 @@ def _simplify_penalty(pen: dict) -> str:
     else:
         text = pen.get("type") or desc
     text = re.sub(r"Penalty\s+", "", text, flags=re.IGNORECASE)
+    # Remove player annotations and trailing notes that pollute infraction labels,
+    # e.g. "Pass Interference (Prysock,Ephesians): ..."
+    text = re.sub(r"\([^)]*\)", "", text)
+    text = re.sub(r"\[[^\]]*\]", "", text)
+    text = text.split(":", 1)[0]
     text = re.split(r"\s+\d", text)[0]
     text = text.replace("yards", "").replace("yard", "").strip()
+    text = re.sub(r"[-–]+$", "", text).strip(" -,:;.")
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    lower = text.lower()
+    if "pass interference" in lower:
+        return "Pass Interference"
     return text.title() if text else "Unknown"
 
 
