@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 
 CATEGORIES = [
     "scoring_offense",
@@ -118,14 +119,25 @@ def _metric_text(team1: dict, team2: dict) -> str:
         try:
             return float(v)
         except (TypeError, ValueError):
-            return None
+            m = re.search(r"[-+]?\d+(?:\.\d+)?", str(v or ""))
+            if not m:
+                return None
+            try:
+                return float(m.group(0))
+            except ValueError:
+                return None
+
+    def val_display(rankings: dict, key: str) -> str:
+        num = val(rankings, key)
+        if isinstance(num, (int, float)):
+            return f"{num:.1f}"
+        raw = rankings.get(key, {}).get("value")
+        return str(raw) if raw not in (None, "") else "N/A"
 
     lines = []
     for key in ["scoring_offense", "scoring_defense", "total_offense", "total_defense"]:
-        v1 = val(rankings1, key)
-        v2 = val(rankings2, key)
-        v1_txt = f"{v1:.1f}" if isinstance(v1, (int, float)) else "N/A"
-        v2_txt = f"{v2:.1f}" if isinstance(v2, (int, float)) else "N/A"
+        v1_txt = val_display(rankings1, key)
+        v2_txt = val_display(rankings2, key)
         lines.append(
             f"<p>{LABELS.get(key, key)}: {team1.get('display_name', 'Team 1')} {v1_txt} | {team2.get('display_name', 'Team 2')} {v2_txt}</p>"
         )

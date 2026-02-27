@@ -569,7 +569,9 @@ def _fetch_live_rankings(team_name: str, team_slug: str, season: int) -> tuple[s
 
     conference = _normalize_cfbstats_conference(get_team_conference(team_name))
     if not conference:
-        return "", {"all": {}, "conf": {}, "nonconf": {}}
+        # Input team names may be lowercase/hyphenated (e.g., "ohio-state"),
+        # which can miss in upstream conference lookup. Fall back instead of N/A.
+        return _fetch_live_rankings_fallback(team_name, team_slug, season)
 
     team_payload = {
         team_slug: {
