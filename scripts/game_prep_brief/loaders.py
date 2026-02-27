@@ -1568,7 +1568,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
     fourth_att = fourth_conv = 0
     penalty_count = penalty_yards = 0
     penalties_off = penalties_def = penalties_st = 0
-    punts = punt_yards = punts_inside_20 = punt_touchbacks = punt_long = 0
+    punts = punt_yards = punt_net_yards = punts_inside_20 = punt_touchbacks = punt_long = 0
     punt_returns = punt_return_yards = punt_return_long = punt_return_20_plus = 0
     kick_returns = kick_return_yards = kick_return_long = kick_return_30_plus = 0
     rz_trips = rz_tds = rz_fgs = 0
@@ -1660,8 +1660,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                     punts += 1
                     punt_yards += py
                     punt_long = max(punt_long, py)
+                    punt_net = py
                     if "TOUCHBACK" in desc_up:
                         punt_touchbacks += 1
+                        punt_net -= 20
                     dest = _parse_int(r"to the [A-Z]{2,4}(\d{1,2})", desc)
                     if dest is not None and 0 <= dest <= 20:
                         punts_inside_20 += 1
@@ -1672,6 +1674,8 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         punt_return_long = max(punt_return_long, ret)
                         if ret >= 20:
                             punt_return_20_plus += 1
+                    punt_net -= ret
+                    punt_net_yards += max(0, punt_net)
 
                 if offense_is_opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
                     kret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
@@ -1731,6 +1735,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
     special_teams = {
         "punts": punts,
         "punt_yards": punt_yards,
+        "punt_net_yards": punt_net_yards,
         "punt_long": punt_long,
         "punts_inside_20": punts_inside_20,
         "punt_touchbacks": punt_touchbacks,

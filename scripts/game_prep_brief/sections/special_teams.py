@@ -35,6 +35,20 @@ def _fmt_two_pt(conv: object, att: object) -> str:
     return f"{c}/{a}"
 
 
+def _fmt_int(v: object) -> str:
+    try:
+        return str(int(v))
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _sum_optional_metric(st_list: list[dict], key: str) -> int | None:
+    values = [st.get(key) for st in st_list if isinstance(st, dict) and st.get(key) is not None]
+    if not values:
+        return None
+    return int(sum(values))
+
+
 def _team_stats(team: dict) -> dict:
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
@@ -124,11 +138,11 @@ def _team_stats(team: dict) -> dict:
         "kick_return_avg": kick_return_avg,
         "kick_return_long": kick_return_long if has_any_data else "N/A",
         "kick_30_plus": int(kick_30_plus),
-        "special_teams_tds": int(_sum([st.get("special_teams_tds") for st in st_list])),
-        "fg_blocks": int(_sum([st.get("fg_blocks") for st in st_list])),
-        "punt_blocks": int(_sum([st.get("punt_blocks") for st in st_list])),
-        "onside_attempts": int(_sum([st.get("onside_kicks_attempted") for st in st_list])),
-        "onside_recovered": int(_sum([st.get("onside_kicks_recovered") for st in st_list])),
+        "special_teams_tds": _sum_optional_metric(st_list, "special_teams_tds"),
+        "fg_blocks": _sum_optional_metric(st_list, "fg_blocks"),
+        "punt_blocks": _sum_optional_metric(st_list, "punt_blocks"),
+        "onside_attempts": _sum_optional_metric(st_list, "onside_kicks_attempted"),
+        "onside_recovered": _sum_optional_metric(st_list, "onside_kicks_recovered"),
         "two_pt_att": two_pt_att,
         "two_pt_conv": two_pt_conv,
         "two_pt_allowed_att": two_pt_allowed_att,
@@ -219,9 +233,9 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Impact Plays</h4>
         <ul>
-          <li>ST TDs: {stats['special_teams_tds']}</li>
-          <li>FG Blocks: {stats['fg_blocks']} · Punt Blocks: {stats['punt_blocks']}</li>
-          <li>Onside: {stats['onside_recovered']} / {stats['onside_attempts']}</li>
+          <li>ST TDs: {_fmt_int(stats['special_teams_tds'])}</li>
+          <li>FG Blocks: {_fmt_int(stats['fg_blocks'])} · Punt Blocks: {_fmt_int(stats['punt_blocks'])}</li>
+          <li>Onside: {_fmt_int(stats['onside_recovered'])} / {_fmt_int(stats['onside_attempts'])}</li>
         </ul>
       </div>
       <div class="block">
@@ -245,7 +259,7 @@ def _team_md(team: dict) -> str:
         f"- FG%: {_fmt_num(stats['fg_pct'], '%')} (Long {stats['fg_long']})",
         f"- Punt Avg: {_fmt_num(stats['punt_avg'])} (Net {_fmt_num(stats['punt_net_avg'])})",
         f"- 2PT O/D: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])} · {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}",
-        f"- Return TDs: {stats['special_teams_tds']}",
+        f"- Return TDs: {_fmt_int(stats['special_teams_tds'])}",
     ])
 
 
