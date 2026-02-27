@@ -54,6 +54,33 @@ def _games(team: dict) -> list[dict]:
     return pbp.get("games", [])
 
 
+def _abbr_set(value: object) -> set[str]:
+    if not value:
+        return set()
+    if isinstance(value, str):
+        cleaned = re.sub(r"[^A-Z0-9]", "", value.upper())
+        return {cleaned} if cleaned else set()
+    if isinstance(value, (list, tuple, set)):
+        out: set[str] = set()
+        for item in value:
+            out.update(_abbr_set(item))
+        return out
+    return set()
+
+
+def _extract_penalized_team_token(desc: str) -> str:
+    upper = desc.upper()
+    patterns = [
+        r"\bPENALTY\s+ON\s+([A-Z0-9]{2,6})\b",
+        r"\bPENALTY\s+([A-Z0-9]{2,6})\b",
+    ]
+    for pat in patterns:
+        m = re.search(pat, upper)
+        if m:
+            return re.sub(r"[^A-Z0-9]", "", m.group(1))
+    return ""
+
+
 def _penalty_stats_row(team: dict) -> dict | None:
     """Best available team penalty row from bundled stats payload."""
     pbp = team.get("pbp_entry") or {}
@@ -122,7 +149,8 @@ def _penalty_group(pen: dict) -> str:
 def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
-    team_abbr = str((team.get("pbp_entry") or {}).get("abbr") or "").upper()
+    pbp = team.get("pbp_entry") or {}
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -135,6 +163,7 @@ def _aggregate(team: dict) -> dict:
     pi_allowed = 0
 
     for g in games:
+        opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
         game_row = {
             "game_number": g.get("game_number") or 0,
             "opponent": g.get("opponent") or "?",
@@ -205,12 +234,23 @@ def _aggregate(team: dict) -> dict:
                             game_row["live_ball_count"] += 1
                             game_row["live_ball_yards"] += y_val
                         if "PASS INTERFERENCE" in desc.upper():
-                            m = re.search(r"PENALTY\s+([A-Z0-9]+)\s+", desc.upper())
-                            penalized = m.group(1) if m else ""
-                            if team_abbr and penalized == team_abbr:
+                            desc_up = desc.upper()
+                            penalized = _extract_penalized_team_token(desc_up)
+                            offense = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                            if penalized and penalized in team_aliases:
                                 pi_allowed += 1
-                            elif team_abbr and penalized and penalized != team_abbr:
+                            elif penalized and penalized in opp_aliases:
                                 pi_drawn += 1
+                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
+                                if offense and offense in team_aliases:
+                                    pi_drawn += 1
+                                elif offense and offense in opp_aliases:
+                                    pi_allowed += 1
+                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
+                                if offense and offense in team_aliases:
+                                    pi_allowed += 1
+                                elif offense and offense in opp_aliases:
+                                    pi_drawn += 1
 
         per_game.append(game_row)
 
