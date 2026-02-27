@@ -69,6 +69,15 @@ def _missing_warning(team1: dict, team2: dict) -> str:
     )
 
 
+def _parity_warning(team1: dict, team2: dict) -> str:
+    gaps = list(team1.get("parity_gaps") or []) + list(team2.get("parity_gaps") or [])
+    if not gaps:
+        return ""
+    preview = "; ".join(gaps[:6])
+    more = f" (+{len(gaps) - 6} more)" if len(gaps) > 6 else ""
+    return f"XML parity gaps detected: {preview}{more}"
+
+
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
     """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
@@ -76,6 +85,8 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     t1_color = team1.get("stats", {}).get("color", "#2563eb")
     t2_color = team2.get("stats", {}).get("color", "#dc2626")
     warning = _missing_warning(team1, team2)
+    parity_warning = _parity_warning(team1, team2)
+    warning_text = " ".join(part for part in (warning, parity_warning) if part).strip()
 
     section_html = []
     for s in _order_sections(sections):
@@ -199,7 +210,7 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     <div class="header-content">
       <h1>Game Prep Brief v2</h1>
       <div class="subtitle">{week_str}{season} Season · {team1['display_name']} vs {team2['display_name']} · Generated {now}</div>
-      {"<div class='warning'><strong>Data Notice:</strong> " + warning + "</div>" if warning else ""}
+      {"<div class='warning'><strong>Data Notice:</strong> " + warning_text + "</div>" if warning_text else ""}
     </div>
   </header>
 

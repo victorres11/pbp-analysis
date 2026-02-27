@@ -2017,6 +2017,44 @@ def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
     return gaps
 
 
+def _to_float_number(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        match = re.search(r"-?\d+(?:\.\d+)?", value.replace(",", ""))
+        if match:
+            try:
+                return float(match.group(0))
+            except Exception:
+                return None
+    return None
+
+
+def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 1.0) -> str | None:
+    if not isinstance(pbp_entry, dict):
+        return None
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    attempts = sum(int(g.get("4th_down_attempts") or 0) for g in games)
+    conversions = sum(int(g.get("4th_down_conversions") or 0) for g in games)
+    if attempts <= 0:
+        return None
+    pbp_pct = round((conversions / attempts) * 100.0, 1)
+
+    rankings = ((pbp_entry.get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
+    cfb_row = rankings.get("fourth_down") if isinstance(rankings, dict) else {}
+    cfb_value = _to_float_number((cfb_row or {}).get("value"))
+    if cfb_value is None:
+        return None
+    cfb_pct = round(float(cfb_value), 1)
+    delta = round(pbp_pct - cfb_pct, 1)
+    if abs(delta) < threshold:
+        return None
+    return (
+        f"{team_name}: 4th-down parity delta {delta:+.1f} pts "
+        f"(PBP {conversions}/{attempts}={pbp_pct}% vs CFBStats {cfb_pct}%)"
+    )
+
+
 def get_team_pbp(pbp_teams: dict, team_name: str, school_slug: str) -> dict | None:
     if school_slug in pbp_teams:
         return pbp_teams[school_slug]
@@ -2802,6 +2840,9 @@ def gather_team_data(
                 "margin", pbp_entry["aggregates"].get("turnover_margin")
             )
     parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
+    fourth_down_gap = _fourth_down_parity_gap(team_name, pbp_entry)
+    if fourth_down_gap:
+        parity_gaps.append(fourth_down_gap)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
     seeded = (enrichment_by_slug or {}).get(school_slug) or {}
     if isinstance(seeded, dict):
@@ -2840,6 +2881,8 @@ def gather_team_data(
             debug_flag = str(os.getenv("GAME_PREP_TURNOVER_DEBUG") or "").strip().lower()
             if debug_flag in {"1", "true", "yes", "on"}:
                 _print_turnover_debug(team_name, pbp_entry, mismatch_games, limit=3)
+        if fourth_down_gap:
+            print(f"[warn] {fourth_down_gap}", file=sys.stderr)
     if games:
         offense_plays_pg = round(sum((g.get("total_plays") or 0) for g in games) / len(games), 1)
         defense_counts = []
