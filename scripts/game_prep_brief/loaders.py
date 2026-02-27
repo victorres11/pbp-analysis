@@ -1004,6 +1004,14 @@ def _turnover_possessing_side(desc_up: str, offense_side: str | None, turnover_t
     return offense_side
 
 
+def _is_overturned_turnover_text(desc_up: str) -> bool:
+    return "PLAY OVERTURNED" in desc_up or "CALL OVERTURNED" in desc_up
+
+
+def _is_turnover_on_downs_text(desc_up: str) -> bool:
+    return "TURNOVER ON DOWNS" in desc_up or ("ON DOWNS" in desc_up and "4TH" in desc_up)
+
+
 def _drive_takeaway_event(
     plays: list[dict], team_aliases: set[str], opp_aliases: set[str]
 ) -> tuple[str, str, dict] | None:
@@ -1015,7 +1023,9 @@ def _drive_takeaway_event(
             continue
         offense = str(play.get("offense") or "").upper()
         desc_up = str(play.get("description") or "").upper()
-        if "PLAY OVERTURNED" in desc_up:
+        if _is_overturned_turnover_text(desc_up):
+            continue
+        if _is_turnover_on_downs_text(desc_up):
             continue
         if "INTERCEPT" in desc_up:
             turnover_type = "INT"
@@ -1081,7 +1091,11 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
             continue
         offense = str(play.get("offense") or "").upper()
         desc_up = str(play.get("description") or "").upper()
-        if "PLAY OVERTURNED" in desc_up:
+        if _is_overturned_turnover_text(desc_up):
+            continue
+        # Turnover-on-downs should not be counted as a takeaway, even when play text
+        # also contains a fumble phrase (e.g., out-of-bounds + turnover on downs).
+        if _is_turnover_on_downs_text(desc_up):
             continue
         if "INTERCEPT" in desc_up:
             turnover_type = "INT"
@@ -1379,6 +1393,12 @@ def _parser_plays_from_play_tree(play_tree: object) -> list[ParserPlay]:
                 desc = str(play.get("description") or "")
                 if not desc:
                     continue
+                desc_up = desc.upper()
+                raw_is_turnover = bool(play.get("is_turnover"))
+                # Normalize the known false-positive pattern where a fumble goes out
+                # of bounds and the play is ultimately turnover on downs.
+                is_tod_out_of_bounds = _is_turnover_on_downs_text(desc_up) and "OUT OF BOUNDS" in desc_up
+                is_turnover = raw_is_turnover and not is_tod_out_of_bounds
                 parser_plays.append(
                     ParserPlay(
                         quarter=qnum,
@@ -1390,7 +1410,7 @@ def _parser_plays_from_play_tree(play_tree: object) -> list[ParserPlay]:
                         yards=play.get("yards") if isinstance(play.get("yards"), int) else None,
                         is_no_play=bool(play.get("is_no_play")),
                         is_scrimmage_play=bool(play.get("is_scrimmage_play")),
-                        is_turnover=bool(play.get("is_turnover")),
+                        is_turnover=is_turnover,
                         is_scoring=bool(play.get("is_scoring")),
                     )
                 )
@@ -2517,7 +2537,7 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     }
 
 
-def _turnover_reconciliation(pbp_entry: dict) -> dict:
+def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = None) -> dict:
     games = pbp_entry.get("games") or []
     xml_rollups = pbp_entry.get("xml_rollups") or {}
     cfb_live = (pbp_entry.get("cfbstats") or {}).get("turnover_split")
@@ -2540,30 +2560,56 @@ def _turnover_reconciliation(pbp_entry: dict) -> dict:
         "post_to_drives": sum(len(g.get("post_turnover_drives") or []) for g in games if isinstance(g, dict)),
     }
 
+    def _pick_int(primary: object, fallback: object) -> int:
+        if isinstance(primary, (int, float)):
+            return int(primary)
+        if isinstance(fallback, (int, float)):
+            return int(fallback)
+        return 0
+
+    # Use XML bundle totals as canonical reconciliation baseline; they are sourced
+    # from per-game CFBStats rows and avoid live split drift.
     cfb_totals = {
-        "gained": int(
-            (cfb_live.get("turnovers_gained") if isinstance(cfb_live, dict) else None)
-            or xml_tov.get("turnovers_forced")
-            or 0
+        "gained": _pick_int(
+            xml_tov.get("turnovers_forced"),
+            cfb_live.get("turnovers_gained") if isinstance(cfb_live, dict) else None,
         ),
-        "lost": int(
-            (cfb_live.get("turnovers_lost") if isinstance(cfb_live, dict) else None)
-            or xml_tov.get("turnovers")
-            or 0
+        "lost": _pick_int(
+            xml_tov.get("turnovers"),
+            cfb_live.get("turnovers_lost") if isinstance(cfb_live, dict) else None,
         ),
-        "int_lost": int(
-            (cfb_live.get("interceptions_lost") if isinstance(cfb_live, dict) else None)
-            or xml_tov.get("interceptions")
-            or 0
+        "int_lost": _pick_int(
+            xml_tov.get("interceptions"),
+            cfb_live.get("interceptions_lost") if isinstance(cfb_live, dict) else None,
         ),
-        "fum_lost": int(
-            (cfb_live.get("fumbles_lost") if isinstance(cfb_live, dict) else None)
-            or xml_tov.get("fumbles_lost")
-            or 0
+        "fum_lost": _pick_int(
+            xml_tov.get("fumbles_lost"),
+            cfb_live.get("fumbles_lost") if isinstance(cfb_live, dict) else None,
         ),
-        "pot_for": int(xml_pot.get("points_off_turnovers") or 0),
-        "pot_against": int(xml_pot.get("points_off_turnovers_allowed") or 0),
+        "pot_for": _pick_int(xml_pot.get("points_off_turnovers"), None),
+        "pot_against": _pick_int(xml_pot.get("points_off_turnovers_allowed"), None),
     }
+    if isinstance(game_recon, list) and game_recon:
+        cfb_from_games = {
+            "gained": 0,
+            "lost": 0,
+            "int_gained": 0,
+            "fum_gained": 0,
+            "pot_for": 0,
+            "pot_against": 0,
+        }
+        for row in game_recon:
+            if not isinstance(row, dict):
+                continue
+            cfb = row.get("cfbstats")
+            if not isinstance(cfb, dict):
+                continue
+            for key in cfb_from_games.keys():
+                cfb_from_games[key] += int(cfb.get(key) or 0)
+        cfb_totals["gained"] = int(cfb_from_games["gained"])
+        cfb_totals["lost"] = int(cfb_from_games["lost"])
+        cfb_totals["pot_for"] = int(cfb_from_games["pot_for"])
+        cfb_totals["pot_against"] = int(cfb_from_games["pot_against"])
 
     deltas = {
         "gained": pbp_totals["gained"] - cfb_totals["gained"],
@@ -2764,8 +2810,8 @@ def gather_team_data(
             if value not in (None, ""):
                 pbp_stats[key] = value
     games = pbp_entry.get("games", []) if pbp_entry else []
-    turnover_recon = _turnover_reconciliation(pbp_entry) if pbp_entry else {}
     turnover_game_recon = _turnover_game_reconciliation(pbp_entry) if pbp_entry else []
+    turnover_recon = _turnover_reconciliation(pbp_entry, turnover_game_recon) if pbp_entry else {}
     if pbp_entry:
         pbp_entry["turnover_reconciliation"] = turnover_recon
         pbp_entry["turnover_game_reconciliation"] = turnover_game_recon
