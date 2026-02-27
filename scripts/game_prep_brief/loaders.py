@@ -1596,7 +1596,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 if offense_is_team and is_scrimmage:
                     ytg = _yards_to_goal_from_spot(play.get("spot"), offense, opp_aliases)
                     if isinstance(ytg, int):
-                        if ytg <= 40:
+                        if ytg <= 30:
                             drive_gz = True
                         if ytg <= 20:
                             drive_rz = True
@@ -1702,6 +1702,27 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                     trz_tds += 1
                 elif drive_fg:
                     trz_fgs += 1
+
+    if rz_trips > gz_trips:
+        print(
+            f"[warn] Zone invariant violated for {team} vs {opp}: rz_trips ({rz_trips}) > gz_trips ({gz_trips})",
+            file=sys.stderr,
+        )
+    if trz_trips > rz_trips:
+        print(
+            f"[warn] Zone invariant violated for {team} vs {opp}: trz_trips ({trz_trips}) > rz_trips ({rz_trips})",
+            file=sys.stderr,
+        )
+    if rz_tds > rz_trips:
+        print(
+            f"[warn] Zone invariant violated for {team} vs {opp}: rz_tds ({rz_tds}) > rz_trips ({rz_trips})",
+            file=sys.stderr,
+        )
+    if trz_tds > trz_trips:
+        print(
+            f"[warn] Zone invariant violated for {team} vs {opp}: trz_tds ({trz_tds}) > trz_trips ({trz_trips})",
+            file=sys.stderr,
+        )
 
     shared_rz_20 = _compute_red_zone_20_stats_from_play_tree(play_tree, team_aliases, opp_aliases)
     if shared_rz_20 is not None:
@@ -2489,6 +2510,9 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
     tight_rz_trips = sum_stat("tight_red_zone_trips")
     tight_rz_tds = sum_stat("tight_red_zone_tds")
     tight_rz_fgs = sum_stat("tight_red_zone_fgs")
+    green_zone_trips = sum_stat("green_zone_trips")
+    green_zone_tds = sum_stat("green_zone_tds")
+    green_zone_fgs = sum_stat("green_zone_fgs")
 
     if actual_n == 0:
         return {

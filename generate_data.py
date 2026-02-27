@@ -1216,17 +1216,64 @@ def parse_negative_plays(plays, our_abbr):
 
 def compute_turnover_totals(plays, our_abbr, opp_abbr):
     """Compute total turnovers gained/lost from play data."""
+    side_map, _ = build_offense_side_map(plays, our_abbr, opp_abbr)
     lost = 0
     gained = 0
     for p in plays:
+        if p.is_no_play:
+            continue
         if not p.is_turnover:
             continue
-        lost_by = p.offense or '?'
-        if lost_by == our_abbr:
+        desc_upper = (p.description or "").upper()
+        if "TURNOVER ON DOWNS" in desc_upper:
+            continue
+        side = resolve_offense_side(p.offense, our_abbr, opp_abbr, side_map)
+        if side == "our":
             lost += 1
-        elif lost_by == opp_abbr:
+        elif side == "opp":
             gained += 1
     return lost, gained
+
+
+def build_offense_side_map(plays, our_abbr, opp_abbr):
+    """Build a per-game offense token map: token -> our|opp."""
+    our = (our_abbr or "").upper()
+    opp = (opp_abbr or "").upper()
+    tokens = sorted(
+        {
+            (p.offense or "").upper().strip()
+            for p in plays
+            if getattr(p, "offense", None)
+        }
+    )
+    token_set = set(tokens)
+    mapping = {}
+    if our and our in token_set:
+        mapping[our] = "our"
+    if opp and opp in token_set:
+        mapping[opp] = "opp"
+    # If exactly two offense tokens appear, assign any unresolved token by elimination.
+    if len(token_set) == 2 and len(mapping) == 1:
+        unresolved = [tok for tok in token_set if tok not in mapping]
+        if unresolved:
+            missing_side = "our" if "our" not in mapping.values() else "opp"
+            mapping[unresolved[0]] = missing_side
+    return mapping, tokens
+
+
+def resolve_offense_side(offense, our_abbr, opp_abbr, mapping):
+    token = (offense or "").upper().strip()
+    if not token:
+        return None
+    if token in mapping:
+        return mapping[token]
+    our = (our_abbr or "").upper()
+    opp = (opp_abbr or "").upper()
+    if token == our:
+        return "our"
+    if token == opp:
+        return "opp"
+    return None
 
 
 def parse_penalty_details(plays, our_abbr, opp_abbr):
@@ -1868,22 +1915,40 @@ def process_team_games(pdf_dir, team_identifier):
         post_turnover_drives = []
         points_off_turnovers_for = 0
         points_off_turnovers_against = 0
+        side_map, offense_tokens = build_offense_side_map(g.plays, our_abbr, opp_abbr)
+        if len(offense_tokens) > 2:
+            print(
+                f"[warn] POT side mapping ambiguous for {team_identifier} vs {opp_abbr}: "
+                f"offense tokens={offense_tokens}",
+                file=sys.stderr,
+            )
         
         for i, p in enumerate(g.plays):
+            if p.is_no_play:
+                continue
             if not p.is_turnover:
+                continue
+            desc = (p.description or '').upper()
+            if 'TURNOVER ON DOWNS' in desc:
                 continue
             
             # Identify turnover details
-            desc = (p.description or '').upper()
             turnover_type = 'INT' if 'INTERC' in desc else 'FUM' if 'FUMBLE' in desc else 'TO'
-            lost_by = p.offense or '?'
-            recovered_by = opp_abbr if lost_by == our_abbr else our_abbr
+            lost_by = (p.offense or '?').upper()
+            lost_side = resolve_offense_side(p.offense, our_abbr, opp_abbr, side_map)
+            if lost_side is None:
+                continue
+            recovered_side = 'opp' if lost_side == 'our' else 'our'
+            recovered_by = opp_abbr if recovered_side == 'opp' else our_abbr
             
             # Find the next play by the recovering team (start of their drive)
             drive_start_idx = None
             for j in range(i + 1, len(g.plays)):
                 next_play = g.plays[j]
-                if next_play.offense == recovered_by:
+                if next_play.is_no_play:
+                    continue
+                next_side = resolve_offense_side(next_play.offense, our_abbr, opp_abbr, side_map)
+                if next_side == recovered_side:
                     drive_start_idx = j
                     break
             
@@ -1897,26 +1962,33 @@ def process_team_games(pdf_dir, team_identifier):
             
             for k in range(drive_start_idx, len(g.plays)):
                 dp = g.plays[k]
+                if dp.is_no_play:
+                    continue
+                drive_side = resolve_offense_side(dp.offense, our_abbr, opp_abbr, side_map)
                 
                 # Stop if possession changes
-                if dp.offense != recovered_by:
+                if drive_side is not None and drive_side != recovered_side:
                     break
                 
                 drive_plays.append(dp)
                 
                 # Check for scoring
                 if dp.is_scoring:
+                    # Defensive return scores on turnover plays are not
+                    # "ensuing possession" points for the recovering offense.
+                    if dp.is_turnover:
+                        continue
                     dp_desc = (dp.description or '').upper()
                     if 'TOUCHDOWN' in dp_desc or 'TD' in dp_desc:
                         drive_result = 'TD'
-                        points_scored = 6  # simplified, not counting PAT
+                        points_scored = 7  # keep parity with source POT totals
                     elif 'FIELD GOAL' in dp_desc or re.search(r'\bFG\b', dp_desc):
                         drive_result = 'FG'
                         points_scored = 3
                     break
             
             # Accumulate points
-            if recovered_by == our_abbr:
+            if recovered_side == 'our':
                 points_off_turnovers_for += points_scored
             else:
                 points_off_turnovers_against += points_scored
