@@ -49,6 +49,13 @@ def _sum_optional_metric(st_list: list[dict], key: str) -> int | None:
     return int(sum(values))
 
 
+def _sum_optional_game_metric(games: list[dict], key: str) -> int | None:
+    values = [g.get(key) for g in games if isinstance(g, dict) and g.get(key) is not None]
+    if not values:
+        return None
+    return int(sum(values))
+
+
 def _team_stats(team: dict) -> dict:
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
@@ -103,6 +110,15 @@ def _team_stats(team: dict) -> dict:
     punt_return_avg = round(punt_return_yards / punt_returns, 2) if punt_returns else _avg([st.get("punt_return_avg") for st in st_list])
     punt_return_long = max([st.get("punt_return_long", 0) or 0 for st in st_list] or [0])
     punt_20_plus = _sum([st.get("punt_return_20_plus") for st in st_list])
+    punt_returns_allowed = _sum([st.get("punt_returns_allowed") for st in st_list])
+    punt_return_yards_allowed = _sum([st.get("punt_return_yards_allowed") for st in st_list])
+    punt_return_allowed_avg = (
+        round(punt_return_yards_allowed / punt_returns_allowed, 2)
+        if punt_returns_allowed
+        else _avg([st.get("punt_return_allowed_avg") for st in st_list])
+    )
+    punt_return_long_allowed = max([st.get("punt_return_long_allowed", 0) or 0 for st in st_list] or [0])
+    punt_20_plus_allowed = _sum([st.get("punt_return_20_plus_allowed") for st in st_list])
 
     kick_returns = _sum([st.get("kickoff_returns") for st in st_list])
     kick_return_yards = _sum([st.get("kickoff_return_yards") for st in st_list])
@@ -110,16 +126,16 @@ def _team_stats(team: dict) -> dict:
     kick_return_long = max([st.get("kickoff_return_long", 0) or 0 for st in st_list] or [0])
     kick_30_plus = _sum([st.get("kick_return_30_plus") for st in st_list])
 
-    two_pt_att = int(_sum([g.get("two_pt_attempts") for g in games]))
-    two_pt_conv = int(_sum([g.get("two_pt_conversions") for g in games]))
-    two_pt_allowed_att = int(_sum([g.get("opp_two_pt_attempts") for g in games]))
-    two_pt_allowed_conv = int(_sum([g.get("opp_two_pt_conversions") for g in games]))
+    two_pt_att = _sum_optional_game_metric(games, "two_pt_attempts")
+    two_pt_conv = _sum_optional_game_metric(games, "two_pt_conversions")
+    two_pt_allowed_att = _sum_optional_game_metric(games, "opp_two_pt_attempts")
+    two_pt_allowed_conv = _sum_optional_game_metric(games, "opp_two_pt_conversions")
 
     last3_games = sorted(games, key=lambda g: g.get("game_number", 0))[-3:]
-    l3_two_pt_att = int(_sum([g.get("two_pt_attempts") for g in last3_games]))
-    l3_two_pt_conv = int(_sum([g.get("two_pt_conversions") for g in last3_games]))
-    l3_two_pt_allowed_att = int(_sum([g.get("opp_two_pt_attempts") for g in last3_games]))
-    l3_two_pt_allowed_conv = int(_sum([g.get("opp_two_pt_conversions") for g in last3_games]))
+    l3_two_pt_att = _sum_optional_game_metric(last3_games, "two_pt_attempts")
+    l3_two_pt_conv = _sum_optional_game_metric(last3_games, "two_pt_conversions")
+    l3_two_pt_allowed_att = _sum_optional_game_metric(last3_games, "opp_two_pt_attempts")
+    l3_two_pt_allowed_conv = _sum_optional_game_metric(last3_games, "opp_two_pt_conversions")
 
     out = {
         "fg_made": int(fg_made),
@@ -135,6 +151,9 @@ def _team_stats(team: dict) -> dict:
         "punt_return_avg": punt_return_avg,
         "punt_return_long": punt_return_long if has_any_data else "N/A",
         "punt_20_plus": int(punt_20_plus),
+        "punt_return_allowed_avg": punt_return_allowed_avg,
+        "punt_return_long_allowed": punt_return_long_allowed if has_any_data else "N/A",
+        "punt_20_plus_allowed": int(punt_20_plus_allowed),
         "kick_return_avg": kick_return_avg,
         "kick_return_long": kick_return_long if has_any_data else "N/A",
         "kick_30_plus": int(kick_30_plus),
@@ -160,8 +179,24 @@ def _team_stats(team: dict) -> dict:
     if xml_tp_row:
         out["two_pt_att"] = int(xml_tp_row.get("two_point_attempts", out["two_pt_att"]) or 0)
         out["two_pt_conv"] = int(xml_tp_row.get("two_point_conversions", out["two_pt_conv"]) or 0)
-        out["two_pt_allowed_att"] = int(xml_tp_row.get("two_point_allowed_attempts", out["two_pt_allowed_att"]) or 0)
-        out["two_pt_allowed_conv"] = int(xml_tp_row.get("two_point_allowed_conversions", out["two_pt_allowed_conv"]) or 0)
+        out["two_pt_allowed_att"] = int(
+            xml_tp_row.get("two_point_allowed_attempts", out["two_pt_allowed_att"]) or 0
+        )
+        out["two_pt_allowed_conv"] = int(
+            xml_tp_row.get("two_point_allowed_conversions", out["two_pt_allowed_conv"]) or 0
+        )
+        if xml_tp_row.get("last_3_two_point_attempts") is not None:
+            out["l3_two_pt_att"] = int(xml_tp_row.get("last_3_two_point_attempts") or 0)
+        if xml_tp_row.get("last_3_two_point_conversions") is not None:
+            out["l3_two_pt_conv"] = int(xml_tp_row.get("last_3_two_point_conversions") or 0)
+        if xml_tp_row.get("last_3_two_point_allowed_attempts") is not None:
+            out["l3_two_pt_allowed_att"] = int(
+                xml_tp_row.get("last_3_two_point_allowed_attempts") or 0
+            )
+        if xml_tp_row.get("last_3_two_point_allowed_conversions") is not None:
+            out["l3_two_pt_allowed_conv"] = int(
+                xml_tp_row.get("last_3_two_point_allowed_conversions") or 0
+            )
     elif not games:
         out["two_pt_att"] = "N/A"
         out["two_pt_conv"] = "N/A"
@@ -227,6 +262,7 @@ def _team_html(team: dict) -> str:
         <h4>Returns</h4>
         <ul>
           <li>Punt Return Avg/Long: {_fmt_num(stats['punt_return_avg'])} / {stats['punt_return_long']} (20+ {stats['punt_20_plus']})</li>
+          <li>Punt Return Allowed Avg/Long: {_fmt_num(stats['punt_return_allowed_avg'])} / {stats['punt_return_long_allowed']} (20+ {stats['punt_20_plus_allowed']})</li>
           <li>KO Return Avg/Long: {_fmt_num(stats['kick_return_avg'])} / {stats['kick_return_long']} (30+ {stats['kick_30_plus']})</li>
         </ul>
       </div>

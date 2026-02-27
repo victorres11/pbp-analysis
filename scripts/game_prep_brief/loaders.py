@@ -1569,7 +1569,8 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
     penalty_count = penalty_yards = 0
     penalties_off = penalties_def = penalties_st = 0
     punts = punt_yards = punt_net_yards = punts_inside_20 = punt_touchbacks = punt_long = 0
-    punt_returns = punt_return_yards = punt_return_long = punt_return_20_plus = 0
+    punt_returns_for = punt_return_yards_for = punt_return_long_for = punt_return_20_plus_for = 0
+    punt_returns_allowed = punt_return_yards_allowed = punt_return_long_allowed = punt_return_20_plus_allowed = 0
     kick_returns = kick_return_yards = kick_return_long = kick_return_30_plus = 0
     rz_trips = rz_tds = rz_fgs = 0
     trz_trips = trz_tds = trz_fgs = 0
@@ -1669,13 +1670,22 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         punts_inside_20 += 1
                     ret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
                     if ret > 0:
-                        punt_returns += 1
-                        punt_return_yards += ret
-                        punt_return_long = max(punt_return_long, ret)
+                        punt_returns_allowed += 1
+                        punt_return_yards_allowed += ret
+                        punt_return_long_allowed = max(punt_return_long_allowed, ret)
                         if ret >= 20:
-                            punt_return_20_plus += 1
+                            punt_return_20_plus_allowed += 1
                     punt_net -= ret
                     punt_net_yards += max(0, punt_net)
+
+                if offense_is_opp and " PUNT " in f" {desc_up} " and "RETURN" in desc_up:
+                    pret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
+                    if pret > 0:
+                        punt_returns_for += 1
+                        punt_return_yards_for += pret
+                        punt_return_long_for = max(punt_return_long_for, pret)
+                        if pret >= 20:
+                            punt_return_20_plus_for += 1
 
                 if offense_is_opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
                     kret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
@@ -1739,10 +1749,14 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
         "punt_long": punt_long,
         "punts_inside_20": punts_inside_20,
         "punt_touchbacks": punt_touchbacks,
-        "punt_returns": punt_returns,
-        "punt_return_yards": punt_return_yards,
-        "punt_return_long": punt_return_long,
-        "punt_return_20_plus": punt_return_20_plus,
+        "punt_returns": punt_returns_for,
+        "punt_return_yards": punt_return_yards_for,
+        "punt_return_long": punt_return_long_for,
+        "punt_return_20_plus": punt_return_20_plus_for,
+        "punt_returns_allowed": punt_returns_allowed,
+        "punt_return_yards_allowed": punt_return_yards_allowed,
+        "punt_return_long_allowed": punt_return_long_allowed,
+        "punt_return_20_plus_allowed": punt_return_20_plus_allowed,
         "kickoff_returns": kick_returns,
         "kickoff_return_yards": kick_return_yards,
         "kickoff_return_long": kick_return_long,
