@@ -1809,41 +1809,67 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     else:
         rz_pct = "N/A"
 
-    week_to_is_home: dict[int, bool | None] = {}
-    for g in payload.get("games") or []:
+    normalized_games: list[tuple[int, int, dict]] = []
+    last_week = 0
+    for idx, g in enumerate(payload.get("games") or [], start=1):
         if not isinstance(g, dict):
             continue
-        week = g.get("week")
-        if isinstance(week, int):
-            raw_home = g.get("is_home")
-            week_to_is_home[week] = raw_home if isinstance(raw_home, bool) else None
+        game_number = g.get("game_number") if isinstance(g.get("game_number"), int) else idx
+        raw_week = g.get("week")
+        if isinstance(raw_week, int) and raw_week > 0:
+            week = raw_week
+        else:
+            week = last_week + 1 if last_week > 0 else game_number
+        # Ensure monotonic ordering even when source week labels are sparse/missing.
+        if week <= last_week:
+            week = last_week + 1
+        last_week = week
+        normalized_games.append((game_number, week, g))
+
+    week_to_is_home: dict[int, bool | None] = {}
+    for _, week, g in normalized_games:
+        raw_home = g.get("is_home")
+        week_to_is_home[week] = raw_home if isinstance(raw_home, bool) else None
 
     schedule_games_out: list[dict] = []
-    for g in sched.get("games") or []:
-        if not isinstance(g, dict):
-            continue
-        is_bye = bool(g.get("is_bye_week"))
-        opp = g.get("opponent")
-        week = g.get("week_number")
-        game_date = g.get("game_date")
-        inferred_is_home = week_to_is_home.get(week) if isinstance(week, int) else None
+    # Build schedule from played games first. Alias-split XML schedule rows can contain
+    # synthetic BYE placeholders when one alias only covers part of a season.
+    for _, week, g in normalized_games:
         schedule_games_out.append(
             {
                 "week": week,
-                "game_date": game_date,
-                "is_home": inferred_is_home,
-                "is_bye": is_bye,
-                "opponent": None if is_bye else (opp or "OPP"),
+                "game_date": g.get("date") or g.get("game_date"),
+                "is_home": g.get("is_home") if isinstance(g.get("is_home"), bool) else None,
+                "is_bye": False,
+                "opponent": g.get("opponent_abbr") or g.get("opponent") or "OPP",
             }
         )
+
+    # Fallback to XML schedule row only when no played games were present.
+    if not schedule_games_out:
+        for g in sched.get("games") or []:
+            if not isinstance(g, dict):
+                continue
+            is_bye = bool(g.get("is_bye_week"))
+            opp = g.get("opponent")
+            week = g.get("week_number")
+            game_date = g.get("game_date")
+            inferred_is_home = week_to_is_home.get(week) if isinstance(week, int) else None
+            schedule_games_out.append(
+                {
+                    "week": week,
+                    "game_date": game_date,
+                    "is_home": inferred_is_home,
+                    "is_bye": is_bye,
+                    "opponent": None if is_bye else (opp or "OPP"),
+                }
+            )
 
     games_parsed = payload.get("games_parsed")
     turnovers = tov_rollup.get("turnovers", tov.get("turnovers"))
     turnovers_forced = tov_rollup.get("turnovers_forced", tov.get("turnovers_forced"))
     games_out: list[dict] = []
-    for idx, g in enumerate(payload.get("games") or [], start=1):
-        if not isinstance(g, dict):
-            continue
+    for game_number, normalized_week, g in normalized_games:
         opp_abbr = g.get("opponent_abbr") or g.get("opponent")
         play_tree = g.get("play_tree") if isinstance(g.get("play_tree"), list) else []
         inferred_aliases = _infer_team_alias_from_play_tree(
@@ -1869,8 +1895,8 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         total_yards = _estimate_total_yards_from_play_tree(play_tree, team_aliases)
 
         game = {
-            "game_number": g.get("game_number") if isinstance(g.get("game_number"), int) else idx,
-            "week": g.get("week"),
+            "game_number": game_number,
+            "week": normalized_week,
             "date": g.get("date") or g.get("game_date"),
             "is_home": g.get("is_home"),
             "opponent_abbr": opp_abbr,
