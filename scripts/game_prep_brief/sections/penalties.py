@@ -472,15 +472,15 @@ def _team_html(team: dict) -> str:
       </div>
       <div class=\"block\">
         <h4>Per-Game Breakdown</h4>
-        <table style=\"width:100%; border-collapse:collapse; font-size:0.9em;\">
+        <table class=\"rankings-table penalties-breakdown\">
           <thead>
             <tr>
-              <th style=\"text-align:left;\">G#</th>
-              <th style=\"text-align:left;\">Opp</th>
-              <th style=\"text-align:right;\">Pen</th>
-              <th style=\"text-align:right;\">Yds</th>
-              <th style=\"text-align:right;\">Procedural</th>
-              <th style=\"text-align:right;\">Live-ball</th>
+              <th>G#</th>
+              <th>Opp</th>
+              <th>Pen</th>
+              <th>Yds</th>
+              <th>Procedural</th>
+              <th>Live-ball</th>
             </tr>
           </thead>
           <tbody>{per_game_table}</tbody>

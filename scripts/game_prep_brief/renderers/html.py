@@ -178,6 +178,17 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     .rankings-table {{ width: 100%; border-collapse: collapse; margin-bottom: 12px; }}
     .rankings-table th, .rankings-table td {{ border-bottom: 1px solid var(--border); padding: 6px 8px; font-size: 12px; }}
     .rankings-table th {{ text-transform: uppercase; font-size: 11px; color: #64748b; text-align: left; }}
+    .penalties-breakdown {{ table-layout: fixed; }}
+    .penalties-breakdown th:nth-child(n+3),
+    .penalties-breakdown td:nth-child(n+3) {{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }}
+    .penalties-breakdown th:nth-child(1),
+    .penalties-breakdown td:nth-child(1) {{ width: 44px; }}
+    .penalties-breakdown th:nth-child(2),
+    .penalties-breakdown td:nth-child(2) {{ width: 54px; }}
     .warning {{
       margin-top: 10px;
       border: 1px solid #fbbf24;
