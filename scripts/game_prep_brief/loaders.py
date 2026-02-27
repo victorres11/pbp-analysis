@@ -1635,7 +1635,13 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         # exclude punts/FG tries/special teams and non-action penalties.
                         if not is_punt and not is_field_goal_try and has_go_for_it_action:
                             fourth_att += 1
-                            if "1ST DOWN" in desc_up or "TOUCHDOWN" in desc_up:
+                            is_td = "TOUCHDOWN" in desc_up
+                            is_first_down = "1ST DOWN" in desc_up
+                            # CFBStats conversion behavior aligns with:
+                            # - TD on 4th down counts as conversion even if the text also
+                            #   references a turnover-on-downs original ruling.
+                            # - First-down text paired with turnover-on-downs does not.
+                            if is_td or (is_first_down and "TURNOVER ON DOWNS" not in desc_up):
                                 fourth_conv += 1
 
                 if "PENALTY" in desc_up:
