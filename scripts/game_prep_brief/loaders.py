@@ -415,10 +415,10 @@ def _fetch_live_rankings_fallback(team_name: str, team_slug: str, season: int) -
         ("fourth_down", "4th down conversion %", 26, "offense", ["Conversion %", "Conv %", "Conv%", "Pct"]),
         ("penalties", "penalty yards/game", 14, "offense", ["Yards/G", "Yds/G", "Yards/Gm", "Yds/Gm"]),
         ("time_of_possession", "time of possession", 15, "offense", ["TOP", "Time", "Time of Possession"]),
-        ("sacks_offense", "sacks allowed", 20, "offense", ["Sacks", "Sack", "Sk"]),
-        ("sacks_defense", "sacks", 20, "defense", ["Sacks", "Sack", "Sk"]),
-        ("tfl_offense", "TFL allowed", 21, "offense", ["TFL", "TFL/G", "TFLA"]),
-        ("tfl_defense", "TFL", 21, "defense", ["TFL", "TFL/G"]),
+        ("sacks_defense", "sacks", 20, "offense", ["Sacks", "Sack", "Sk"]),
+        ("sacks_offense", "sacks allowed", 20, "defense", ["Sacks", "Sack", "Sk"]),
+        ("tfl_defense", "TFL", 21, "offense", ["TFL", "TFL/G", "TFLA"]),
+        ("tfl_offense", "TFL allowed", 21, "defense", ["TFL", "TFL/G"]),
         ("total_offense", "total offense", 10, "offense", ["Yards/G", "Yds/G", "Total", "Yds"]),
         ("total_defense", "total defense", 10, "defense", ["Yards/G", "Yds/G", "Total", "Yds"]),
         ("rushing_offense", "rushing offense", 1, "offense", ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G"]),
@@ -1287,6 +1287,8 @@ def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: object) -
             continue
         if str(play.get("offense") or "").upper() not in team_aliases:
             continue
+        if not _counts_toward_total_offense(play):
+            continue
         yards = play.get("yards")
         if isinstance(yards, (int, float)):
             total += int(yards)
@@ -1537,6 +1539,20 @@ def _is_scrimmage_play(play: dict, down: int | None) -> bool:
     if " PASS " in f" {desc} " or " RUSH " in f" {desc} " or " SACK " in f" {desc} ":
         return True
     return False
+
+
+def _counts_toward_total_offense(play: dict) -> bool:
+    down = _parse_down(play.get("down_distance"))
+    if not _is_scrimmage_play(play, down):
+        return False
+    desc = str(play.get("description") or "").upper()
+    if " PUNT " in f" {desc} ":
+        return False
+    if "FIELD GOAL" in desc or "KICK ATTEMPT" in desc:
+        return False
+    if "PAT" in desc or "EXTRA POINT" in desc:
+        return False
+    return any(token in desc for token in (" PASS ", " RUSH ", "SACK", "SCRAMBLE", "KNEEL"))
 
 
 def _yards_to_goal_from_spot(spot: object, offense_abbr: object, opp_abbr: object) -> int | None:
@@ -1957,11 +1973,11 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         game_rollup = _rollup_game_from_play_tree(play_tree, team_aliases, opp_abbr)
         game_detail = _derive_game_detail_stats(play_tree, team_aliases, opp_abbr)
         game_turnover_detail = _derive_turnover_drive_stats(play_tree, team_aliases, opp_abbr)
-        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
         raw_pf = g.get("points_for")
         raw_pa = g.get("points_against")
-        points_for = estimated_pf if isinstance(estimated_pf, int) else raw_pf
-        points_against = estimated_pa if isinstance(estimated_pa, int) else raw_pa
+        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
+        points_for = raw_pf if isinstance(raw_pf, (int, float)) else estimated_pf
+        points_against = raw_pa if isinstance(raw_pa, (int, float)) else estimated_pa
         total_plays = g.get("total_plays")
         if not isinstance(total_plays, int):
             total_plays = sum(
@@ -2250,6 +2266,8 @@ def _derive_yard_splits_from_play_tree(play_tree: object, offense_abbr: object) 
             continue
         if str(play.get("offense") or "").upper() not in offense_aliases:
             continue
+        if not _counts_toward_total_offense(play):
+            continue
         yards = play.get("yards")
         if not isinstance(yards, (int, float)):
             continue
@@ -2257,7 +2275,10 @@ def _derive_yard_splits_from_play_tree(play_tree: object, offense_abbr: object) 
         yards_i = int(yards)
         total += yards_i
         seen_total = True
-        if "SACK" in desc_up or " PASS " in f" {desc_up} ":
+        if "SACK" in desc_up:
+            rush += yards_i
+            seen_rush = True
+        elif " PASS " in f" {desc_up} ":
             pas += yards_i
             seen_pass = True
         elif any(token in desc_up for token in (" RUSH ", "SCRAMBLE", "KNEEL")):
