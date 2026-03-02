@@ -12,6 +12,10 @@ def _sum(games: list[dict], key: str) -> int:
 
 def _xml_row(team: dict, category: str) -> dict:
     pbp = team.get("pbp_entry") or {}
+    rollups = pbp.get("xml_rollups") or {}
+    rolled = rollups.get(category)
+    if isinstance(rolled, dict) and rolled:
+        return rolled
     if not pbp.get("xml_source"):
         return {}
     stats = pbp.get("xml_stats") or {}
@@ -30,6 +34,13 @@ def _should_show_last_n(team: dict) -> bool:
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
 
 
+def _live_turnover_split(team: dict) -> dict:
+    pbp = team.get("pbp_entry") or {}
+    cfb = pbp.get("cfbstats") or {}
+    split = cfb.get("turnover_split")
+    return split if isinstance(split, dict) else {}
+
+
 def _post_turnover_drives(games: list[dict]) -> list[str]:
     items = []
     for g in sorted(games, key=lambda x: x.get("game_number", 0))[-3:]:
@@ -41,13 +52,13 @@ def _post_turnover_drives(games: list[dict]) -> list[str]:
     return items
 
 
-def _avg_pts_after_turnover(games: list[dict]) -> float:
+def _avg_pts_after_turnover(games: list[dict]) -> float | None:
     total_pts = _sum(games, "points_off_turnovers_for")
     total_drives = 0
     for g in games:
         total_drives += len(g.get("post_turnover_drives", []) or [])
     if not total_drives:
-        return 0.0
+        return None
     return round(total_pts / total_drives, 2)
 
 
@@ -73,11 +84,19 @@ def _team_html(team: dict) -> str:
     }
     xml_tov = _xml_row(team, "turnovers")
     xml_pot = _xml_row(team, "points_off_turnovers")
+    live_tov = _live_turnover_split(team)
     if xml_tov:
         totals["lost"] = xml_tov.get("turnovers", totals["lost"])
         totals["gained"] = xml_tov.get("turnovers_forced", totals["gained"])
         totals["int_lost"] = xml_tov.get("interceptions", totals["int_lost"])
         totals["fum_lost"] = xml_tov.get("fumbles_lost", totals["fum_lost"])
+    if live_tov:
+        totals["lost"] = live_tov.get("turnovers_lost", totals["lost"])
+        totals["gained"] = live_tov.get("turnovers_gained", totals["gained"])
+        totals["int_lost"] = live_tov.get("interceptions_lost", totals["int_lost"])
+        totals["int_gained"] = live_tov.get("interceptions_gained", totals["int_gained"])
+        totals["fum_lost"] = live_tov.get("fumbles_lost", totals["fum_lost"])
+        totals["fum_gained"] = live_tov.get("fumbles_gained", totals["fum_gained"])
     if xml_pot:
         totals["pts_for"] = xml_pot.get("points_off_turnovers", totals["pts_for"])
         totals["pts_against"] = xml_pot.get("points_off_turnovers_allowed", totals["pts_against"])
@@ -86,6 +105,8 @@ def _team_html(team: dict) -> str:
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
     drives_list = _post_turnover_drives(games)
     drives_html = "".join(f"<li>{d}</li>" for d in drives_list) or "<li>N/A</li>"
+    avg_pts_post_to = _avg_pts_after_turnover(games)
+    avg_pts_text = f"{avg_pts_post_to}" if isinstance(avg_pts_post_to, (int, float)) else "N/A"
 
     last_n_html = ""
     if _should_show_last_n(team):
@@ -154,7 +175,7 @@ def _team_html(team: dict) -> str:
         <ul>
           <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm)</li>
           <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm)</li>
-          <li>Avg Points per Post-TO Drive: {_avg_pts_after_turnover(games)}</li>
+          <li>Avg Points per Post-TO Drive: {avg_pts_text}</li>
         </ul>
       </div>
       <div class="block">
@@ -176,9 +197,13 @@ def _team_md(team: dict) -> str:
     pts_against = _sum(games, "points_off_turnovers_against")
     xml_tov = _xml_row(team, "turnovers")
     xml_pot = _xml_row(team, "points_off_turnovers")
+    live_tov = _live_turnover_split(team)
     if xml_tov:
         lost = xml_tov.get("turnovers", lost)
         gained = xml_tov.get("turnovers_forced", gained)
+    if live_tov:
+        lost = live_tov.get("turnovers_lost", lost)
+        gained = live_tov.get("turnovers_gained", gained)
     if xml_pot:
         pts_for = xml_pot.get("points_off_turnovers", pts_for)
         pts_against = xml_pot.get("points_off_turnovers_allowed", pts_against)

@@ -18,10 +18,67 @@ PROCEDURAL_TERMS = (
     "illegal substitution",
 )
 
+_PENALTY_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("False Start", re.compile(r"\bFALSE\s+START\b", re.IGNORECASE)),
+    ("Delay of Game", re.compile(r"\bDELAY\s+OF\s+GAME\b", re.IGNORECASE)),
+    ("Illegal Formation", re.compile(r"\bILLEGAL\s+FORMATION\b", re.IGNORECASE)),
+    ("Encroachment", re.compile(r"\bENCROACH(?:MENT)?\b", re.IGNORECASE)),
+    ("Offsides", re.compile(r"\bOFFSIDE(?:S)?\b", re.IGNORECASE)),
+    ("Neutral Zone Infraction", re.compile(r"\bNEUTRAL\s+ZONE\s+INFRACTION\b", re.IGNORECASE)),
+    ("Holding", re.compile(r"\bHOLDING\b", re.IGNORECASE)),
+    ("Face Mask", re.compile(r"\bFACE\s*MASK(?:ING)?\b|\bFACEMASK(?:ING)?\b", re.IGNORECASE)),
+    (
+        "Illegal Block in the Back",
+        re.compile(r"\bILLEGAL\s+BLOCK\s+IN\s+THE\s+BACK\b|\bBLOCK\s+IN\s+THE\s+BACK\b", re.IGNORECASE),
+    ),
+    ("Illegal Block", re.compile(r"\bILLEGAL\s+(?:BLOCK|BLOCKING)\b", re.IGNORECASE)),
+    (
+        "Ineligible Downfield",
+        re.compile(r"\bINELIGIBLE\s+(?:MAN\s+)?DOWNFIELD\b|\bINELIGIBLE\s+RECEIVER\s+DOWNFIELD\b", re.IGNORECASE),
+    ),
+    ("Pass Interference", re.compile(r"\b(?:DEFENSIVE\s+|OFFENSIVE\s+)?PASS\s+INTERFERENCE\b", re.IGNORECASE)),
+    (
+        "Roughing Passer",
+        re.compile(r"\bROUGHING\s+(?:THE\s+)?PASSER\b|\bROUGHING\s+(?:THE\s+)?QB\b", re.IGNORECASE),
+    ),
+    (
+        "Unsportsmanlike Conduct",
+        re.compile(r"\bUNSPORTSMANLIKE\s+CONDUCT\b|\bUNSPORTSMANLIKE\b|\bUNS\b", re.IGNORECASE),
+    ),
+    ("Personal Foul", re.compile(r"\bPERSONAL\s+FOUL\b", re.IGNORECASE)),
+]
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
     return pbp.get("games", [])
+
+
+def _abbr_set(value: object) -> set[str]:
+    if not value:
+        return set()
+    if isinstance(value, str):
+        cleaned = re.sub(r"[^A-Z0-9]", "", value.upper())
+        return {cleaned} if cleaned else set()
+    if isinstance(value, (list, tuple, set)):
+        out: set[str] = set()
+        for item in value:
+            out.update(_abbr_set(item))
+        return out
+    return set()
+
+
+def _extract_penalized_team_token(desc: str) -> str:
+    upper = desc.upper()
+    patterns = [
+        r"\bPENALTY\s+ON\s+([A-Z0-9]{2,6})\b",
+        r"\bPENALTY\s+([A-Z0-9]{2,6})\b",
+    ]
+    for pat in patterns:
+        m = re.search(pat, upper)
+        if m:
+            return re.sub(r"[^A-Z0-9]", "", m.group(1))
+    return ""
 
 
 def _penalty_stats_row(team: dict) -> dict | None:
@@ -38,15 +95,41 @@ def _penalty_stats_row(team: dict) -> dict | None:
 
 
 def _simplify_penalty(pen: dict) -> str:
-    desc = pen.get("description") or pen.get("type") or ""
+    desc = " ".join(
+        str(v or "")
+        for v in (
+            pen.get("penalty_type"),
+            pen.get("type"),
+            pen.get("description"),
+        )
+        if v
+    )
+    for canonical, pattern in _PENALTY_TYPE_PATTERNS:
+        if pattern.search(desc):
+            return canonical
+
     m = re.search(r"PENALTY\s+\w+\s+([^\d\.]+)", desc, re.IGNORECASE)
     if m:
         text = m.group(1)
     else:
-        text = pen.get("type") or desc
+        text = pen.get("penalty_type") or pen.get("type") or desc
     text = re.sub(r"Penalty\s+", "", text, flags=re.IGNORECASE)
+    # Remove player annotations and trailing notes that pollute infraction labels,
+    # e.g. "Pass Interference (Prysock,Ephesians): ..."
+    text = re.sub(r"\([^)]*\)", "", text)
+    text = re.sub(r"\[[^\]]*\]", "", text)
+    text = re.sub(r"\b(?:DECLINED|ACCEPTED|ENFORCED|NO PLAY)\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bAT THE DEADBALL SPOT\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bFOR\b\s*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^\s*UNS\s*:\s*", "Unsportsmanlike Conduct ", text, flags=re.IGNORECASE)
+    text = text.split(":", 1)[0]
     text = re.split(r"\s+\d", text)[0]
     text = text.replace("yards", "").replace("yard", "").strip()
+    text = re.sub(r"[-–]+$", "", text).strip(" -,:;.")
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    lower = text.lower()
+    if "pass interference" in lower:
+        return "Pass Interference"
     return text.title() if text else "Unknown"
 
 
@@ -66,6 +149,8 @@ def _penalty_group(pen: dict) -> str:
 def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
+    pbp = team.get("pbp_entry") or {}
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -78,6 +163,7 @@ def _aggregate(team: dict) -> dict:
     pi_allowed = 0
 
     for g in games:
+        opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
         game_row = {
             "game_number": g.get("game_number") or 0,
             "opponent": g.get("opponent") or "?",
@@ -128,17 +214,53 @@ def _aggregate(team: dict) -> dict:
                         desc = str(play.get("description") or "")
                         if "PENALTY" not in desc.upper():
                             continue
-                        ptype = _simplify_penalty({"description": desc})
+                        pen_obj = {"description": desc}
+                        ptype = _simplify_penalty(pen_obj)
                         by_type_count[ptype] += 1
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
                         by_type_yards[ptype] += y_val
+                        group = _penalty_group(pen_obj)
+                        by_group[group]["count"] += 1
+                        by_group[group]["yards"] += y_val
+                        total += 1
+                        yards += y_val
+                        game_row["count"] += 1
+                        game_row["yards"] += y_val
+                        if group == "procedural":
+                            game_row["procedural_count"] += 1
+                            game_row["procedural_yards"] += y_val
+                        else:
+                            game_row["live_ball_count"] += 1
+                            game_row["live_ball_yards"] += y_val
+                        if "PASS INTERFERENCE" in desc.upper():
+                            desc_up = desc.upper()
+                            penalized = _extract_penalized_team_token(desc_up)
+                            offense = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                            if penalized and penalized in team_aliases:
+                                pi_allowed += 1
+                            elif penalized and penalized in opp_aliases:
+                                pi_drawn += 1
+                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
+                                if offense and offense in team_aliases:
+                                    pi_drawn += 1
+                                elif offense and offense in opp_aliases:
+                                    pi_allowed += 1
+                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
+                                if offense and offense in team_aliases:
+                                    pi_allowed += 1
+                                elif offense and offense in opp_aliases:
+                                    pi_drawn += 1
 
         per_game.append(game_row)
 
     # Prefer bundle-level penalty rollups when available (source of truth).
     has_group_breakdown = False
     has_pi_breakdown = False
+    derived_procedural = dict(by_group["procedural"])
+    derived_live_ball = dict(by_group["live_ball"])
+    derived_pi_drawn = pi_drawn
+    derived_pi_allowed = pi_allowed
     if stats_row:
         total = int(stats_row.get("total_penalties", total) or total)
         yards = int(stats_row.get("total_penalty_yards", yards) or yards)
@@ -182,6 +304,28 @@ def _aggregate(team: dict) -> dict:
                 "pass_interference_allowed_yards",
             )
         ) and not (total > 0 and pi_drawn == 0 and pi_allowed == 0)
+        # XML feeds can publish zeroed advanced splits while per-play details are present.
+        if (
+            total > 0
+            and by_group["procedural"]["count"] == 0
+            and by_group["live_ball"]["count"] == 0
+            and (derived_procedural["count"] > 0 or derived_live_ball["count"] > 0)
+        ):
+            by_group["procedural"] = derived_procedural
+            by_group["live_ball"] = derived_live_ball
+            has_group_breakdown = True
+        if total > 0 and pi_drawn == 0 and pi_allowed == 0 and (
+            derived_pi_drawn > 0 or derived_pi_allowed > 0
+        ):
+            pi_drawn = derived_pi_drawn
+            pi_allowed = derived_pi_allowed
+            has_pi_breakdown = True
+        if not has_group_breakdown and (
+            by_group["procedural"]["count"] > 0 or by_group["live_ball"]["count"] > 0
+        ):
+            has_group_breakdown = True
+        if not has_pi_breakdown and (pi_drawn > 0 or pi_allowed > 0):
+            has_pi_breakdown = True
     else:
         has_group_breakdown = bool(by_group["procedural"]["count"] or by_group["live_ball"]["count"])
         has_pi_breakdown = bool(pi_drawn or pi_allowed)
@@ -328,15 +472,15 @@ def _team_html(team: dict) -> str:
       </div>
       <div class=\"block\">
         <h4>Per-Game Breakdown</h4>
-        <table style=\"width:100%; border-collapse:collapse; font-size:0.9em;\">
+        <table class=\"rankings-table penalties-breakdown\">
           <thead>
             <tr>
-              <th style=\"text-align:left;\">G#</th>
-              <th style=\"text-align:left;\">Opp</th>
-              <th style=\"text-align:right;\">Pen</th>
-              <th style=\"text-align:right;\">Yds</th>
-              <th style=\"text-align:right;\">Procedural</th>
-              <th style=\"text-align:right;\">Live-ball</th>
+              <th>G#</th>
+              <th>Opp</th>
+              <th>Pen</th>
+              <th>Yds</th>
+              <th>Procedural</th>
+              <th>Live-ball</th>
             </tr>
           </thead>
           <tbody>{per_game_table}</tbody>
