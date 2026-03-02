@@ -144,11 +144,81 @@ def _metric_text(team1: dict, team2: dict) -> str:
     return "".join(f"<div class=\"metric-compare\">{l}</div>" for l in lines)
 
 
+def _verification_html(team: dict) -> str:
+    verification = team.get("cfbstats_verification") or {}
+    summary = verification.get("summary") or {}
+    metrics = verification.get("metrics") or []
+    if not metrics:
+        return ""
+
+    mismatch_rows = [
+        m for m in metrics
+        if m.get("status") in {"mismatch", "missing_source", "missing_derived", "special_case"}
+    ]
+
+    rows_html = "".join(
+        "<tr>"
+        f"<td>{m.get('label')}</td>"
+        f"<td>{m.get('derived') if m.get('derived') is not None else 'N/A'}</td>"
+        f"<td>{m.get('source') if m.get('source') is not None else 'N/A'}</td>"
+        f"<td>{m.get('delta') if m.get('delta') is not None else 'N/A'}</td>"
+        f"<td>{m.get('status')}</td>"
+        "</tr>"
+        for m in mismatch_rows[:10]
+    ) or "<tr><td colspan='5'>No mismatches or special-case metrics.</td></tr>"
+
+    return f"""
+    <div class="team-card">
+      <h3>{team['display_name']}</h3>
+      <div class="block">
+        <h4>CFBStats Verification</h4>
+        <ul>
+          <li>Matched: {summary.get('match', 0)}</li>
+          <li>Mismatched: {summary.get('mismatch', 0)}</li>
+          <li>Missing Source: {summary.get('missing_source', 0)}</li>
+          <li>Missing Derived: {summary.get('missing_derived', 0)}</li>
+          <li>Special Cases: {summary.get('special_case', 0)}</li>
+        </ul>
+      </div>
+      <table class="rankings-table">
+        <tr><th>Metric</th><th>Derived</th><th>CFBStats</th><th>Delta</th><th>Status</th></tr>
+        {rows_html}
+      </table>
+    </div>
+    """
+
+
+def _verification_md(team: dict) -> str:
+    verification = team.get("cfbstats_verification") or {}
+    summary = verification.get("summary") or {}
+    metrics = verification.get("metrics") or []
+    lines = [
+        f"*{team['display_name']} Verification*",
+        f"- Matched: {summary.get('match', 0)}",
+        f"- Mismatched: {summary.get('mismatch', 0)}",
+        f"- Missing Source: {summary.get('missing_source', 0)}",
+        f"- Missing Derived: {summary.get('missing_derived', 0)}",
+        f"- Special Cases: {summary.get('special_case', 0)}",
+    ]
+    flagged = [
+        m for m in metrics
+        if m.get("status") in {"mismatch", "missing_source", "missing_derived", "special_case"}
+    ]
+    for m in flagged[:8]:
+        derived = m.get("derived") if m.get("derived") is not None else "N/A"
+        source = m.get("source") if m.get("source") is not None else "N/A"
+        delta = m.get("delta") if m.get("delta") is not None else "N/A"
+        suffix = f" ({m.get('note')})" if m.get("note") else ""
+        lines.append(f"- {m.get('label')}: derived {derived} vs CFBStats {source} (delta {delta}) [{m.get('status')}]{suffix}")
+    return "\n".join(lines)
+
+
 def build(team1: dict, team2: dict) -> dict:
     """Full rankings section with all/conf/nonconf splits."""
     html_content = (
         f"{_metric_text(team1, team2)}"
         f"{_table_html(team1, team2, 'all')}"
+        f"<div class='section-grid'>{_verification_html(team1)}{_verification_html(team2)}</div>"
         f"{_table_html(team1, team2, 'conf')}"
         f"{_table_html(team1, team2, 'nonconf')}"
     )
@@ -157,6 +227,8 @@ def build(team1: dict, team2: dict) -> dict:
         "*Rankings Highlights*",
         _top_bottom_md(team1),
         _top_bottom_md(team2),
+        _verification_md(team1),
+        _verification_md(team2),
     ])
 
     return {

@@ -78,6 +78,22 @@ def _parity_warning(team1: dict, team2: dict) -> str:
     return f"XML parity gaps detected: {preview}{more}"
 
 
+def _verification_warning(team1: dict, team2: dict) -> str:
+    notices: list[str] = []
+    for team in (team1, team2):
+        verification = team.get("cfbstats_verification") or {}
+        summary = verification.get("summary") or {}
+        mismatches = int(summary.get("mismatch") or 0)
+        if mismatches <= 0:
+            continue
+        metrics = verification.get("metrics") or []
+        preview_metrics = [m["label"] for m in metrics if m.get("status") == "mismatch"][:3]
+        preview = ", ".join(preview_metrics)
+        suffix = " ..." if mismatches > len(preview_metrics) else ""
+        notices.append(f"{team.get('display_name', 'Team')}: {mismatches} CFBStats mismatch(es) ({preview}{suffix})")
+    return " ".join(notices)
+
+
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
     """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
@@ -86,7 +102,8 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     t2_color = team2.get("stats", {}).get("color", "#dc2626")
     warning = _missing_warning(team1, team2)
     parity_warning = _parity_warning(team1, team2)
-    warning_text = " ".join(part for part in (warning, parity_warning) if part).strip()
+    verification_warning = _verification_warning(team1, team2)
+    warning_text = " ".join(part for part in (warning, parity_warning, verification_warning) if part).strip()
 
     section_html = []
     for s in _order_sections(sections):
