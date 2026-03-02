@@ -2585,13 +2585,19 @@ def _derive_cfbstats_reference_metrics(pbp_entry: dict | None) -> dict[str, floa
 def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
     rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
     turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
+    xml_rollups = ((pbp_entry or {}).get("xml_rollups") or {})
+    xml_tov = xml_rollups.get("turnovers") if isinstance(xml_rollups.get("turnovers"), dict) else {}
     derived = _derive_cfbstats_reference_metrics(pbp_entry)
     metrics = []
     summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
 
     for key, rule in _CFBSTATS_VERIFY_RULES.items():
         label = rule["label"]
-        if key == "turnover_margin" and isinstance(turnover_split, dict):
+        if key == "turnover_margin" and isinstance(xml_tov, dict) and xml_tov:
+            gained = _to_float_number(xml_tov.get("turnovers_forced"))
+            lost = _to_float_number(xml_tov.get("turnovers"))
+            source_value = None if gained is None or lost is None else round(gained - lost, 1)
+        elif key == "turnover_margin" and isinstance(turnover_split, dict):
             source_value = _to_float_number(turnover_split.get("margin"))
         else:
             source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
