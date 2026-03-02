@@ -1007,7 +1007,11 @@ def _turnover_possessing_side(desc_up: str, offense_side: str | None, turnover_t
 
 
 def _is_overturned_turnover_text(desc_up: str) -> bool:
-    return "PLAY OVERTURNED" in desc_up or "CALL OVERTURNED" in desc_up
+    return (
+        "PLAY OVERTURNED" in desc_up
+        or "CALL OVERTURNED" in desc_up
+        or "RULING ON THE FIELD WAS OVERTURNED" in desc_up
+    )
 
 
 def _is_turnover_on_downs_text(desc_up: str) -> bool:
@@ -1021,10 +1025,11 @@ def _drive_takeaway_event(
     for play in plays:
         if play.get("is_no_play"):
             continue
-        if not play.get("is_turnover"):
-            continue
         offense = str(play.get("offense") or "").upper()
         desc_up = str(play.get("description") or "").upper()
+        turnover_looking = play.get("is_turnover") or "INTERCEPT" in desc_up or "FUMBLE" in desc_up
+        if not turnover_looking:
+            continue
         if _is_overturned_turnover_text(desc_up):
             continue
         if _is_turnover_on_downs_text(desc_up):
@@ -1607,6 +1612,192 @@ def _yards_to_goal_reached_on_play(play: dict, offense_abbr: object, opp_abbr: o
     return best
 
 
+def _iter_flat_play_tree_plays(play_tree: object) -> list[tuple[int | None, dict]]:
+    indexed_plays: list[tuple[int | None, dict]] = []
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        quarter_num = quarter.get("quarter")
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if isinstance(play, dict):
+                    indexed_plays.append((quarter_num if isinstance(quarter_num, int) else None, play))
+    return indexed_plays
+
+
+def _iter_possession_drives(play_tree: object, team_abbr: object, opp_abbr: object) -> list[tuple[str, list[dict]]]:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    drives: list[tuple[str, list[dict]]] = []
+    current_side: str | None = None
+    current_plays: list[dict] = []
+    last_quarter: int | None = None
+
+    def flush() -> None:
+        nonlocal current_side, current_plays
+        if current_side and current_plays:
+            drives.append((current_side, current_plays))
+        current_side = None
+        current_plays = []
+
+    for quarter_num, play in _iter_flat_play_tree_plays(play_tree):
+        if not isinstance(play, dict) or play.get("is_no_play"):
+            continue
+        offense = str(play.get("offense") or "").upper()
+        if offense in team_aliases:
+            side = "team"
+        elif offense in opp_aliases:
+            side = "opp"
+        else:
+            side = None
+
+        if last_quarter == 2 and quarter_num == 3:
+            flush()
+        last_quarter = quarter_num
+
+        desc_up = str(play.get("description") or "").upper()
+        if "DRIVE STARTS AT" in desc_up:
+            flush()
+            current_side = side
+            continue
+
+        if side is None:
+            continue
+
+        if current_side is None:
+            current_side = side
+            current_plays = [play]
+            continue
+
+        if side != current_side:
+            flush()
+            current_side = side
+            current_plays = [play]
+        else:
+            current_plays.append(play)
+
+    if current_side and current_plays:
+        drives.append((current_side, current_plays))
+    return drives
+
+
+def _is_conversion_attempt_text(desc_up: str) -> bool:
+    return any(
+        token in desc_up
+        for token in (
+            "KICK ATTEMPT",
+            "EXTRA POINT",
+            "PAT",
+            "2PT",
+            "2-POINT",
+            "2 POINT",
+            "TWO-POINT",
+            "TWO POINT",
+            "CONVERSION",
+        )
+    )
+
+
+def _zone_drive_result(plays: list[dict], team_aliases: set[str]) -> tuple[int, int]:
+    for play in reversed(plays):
+        offense = str(play.get("offense") or "").upper()
+        if offense not in team_aliases:
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        if "TOUCHDOWN" in desc_up:
+            if play.get("is_turnover") and not _is_overturned_turnover_text(desc_up):
+                continue
+            return 1, 0
+        if (
+            "FIELD GOAL" in desc_up
+            and "GOOD" in desc_up
+            and "NO GOOD" not in desc_up
+            and "BLOCKED" not in desc_up
+            and "MISSED" not in desc_up
+        ):
+            return 0, 1
+    return 0, 0
+
+
+def _derive_zone_trip_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict[str, int]:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    rz_trips = rz_tds = rz_fgs = 0
+    trz_trips = trz_tds = trz_fgs = 0
+    gz_trips = gz_tds = gz_fgs = gz_failed = 0
+
+    for drive_side, drive_plays in _iter_possession_drives(play_tree, team_aliases, opp_aliases):
+        if drive_side != "team":
+            continue
+
+        scrimmage_plays = []
+        entered_rz = entered_trz = entered_gz = False
+
+        for play in drive_plays:
+            desc_up = str(play.get("description") or "").upper()
+            if "TIMEOUT" in desc_up or _is_conversion_attempt_text(desc_up):
+                continue
+            if " PUNT " in f" {desc_up} " or "KICKOFF" in desc_up or "KICK OFF" in desc_up:
+                continue
+
+            down = _parse_down(play.get("down_distance"))
+            is_fg_attempt = "FIELD GOAL" in desc_up
+            if not (_is_scrimmage_play(play, down) or is_fg_attempt):
+                continue
+            if not play.get("down_distance") and not is_fg_attempt:
+                continue
+
+            if _is_scrimmage_play(play, down) and not play.get("is_no_play"):
+                scrimmage_plays.append(play)
+
+            ytg = _yards_to_goal_from_spot(play.get("spot"), team_aliases, opp_aliases)
+            if not isinstance(ytg, int):
+                continue
+            if 0 < ytg <= 30:
+                entered_gz = True
+            if 0 < ytg <= 20:
+                entered_rz = True
+            if 0 < ytg <= 10:
+                entered_trz = True
+
+        if scrimmage_plays and all("KNEEL" in str(play.get("description") or "").upper() for play in scrimmage_plays):
+            continue
+
+        if not (entered_gz or entered_rz or entered_trz):
+            continue
+
+        td, fg = _zone_drive_result(drive_plays, team_aliases)
+        if entered_gz:
+            gz_trips += 1
+            gz_tds += td
+            gz_fgs += fg
+            if not td and not fg:
+                gz_failed += 1
+        if entered_rz:
+            rz_trips += 1
+            rz_tds += td
+            rz_fgs += fg
+        if entered_trz:
+            trz_trips += 1
+            trz_tds += td
+            trz_fgs += fg
+
+    return {
+        "red_zone_trips": rz_trips,
+        "red_zone_tds": rz_tds,
+        "red_zone_fgs": rz_fgs,
+        "tight_red_zone_trips": trz_trips,
+        "tight_red_zone_tds": trz_tds,
+        "tight_red_zone_fgs": trz_fgs,
+        "green_zone_trips": gz_trips,
+        "green_zone_tds": gz_tds,
+        "green_zone_fgs": gz_fgs,
+        "green_zone_failed": gz_failed,
+    }
+
+
 def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
     team_aliases = _abbr_set(team_abbr)
     opp_aliases = _abbr_set(opp_abbr)
@@ -1636,8 +1827,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
         for drive in quarter.get("drives") or []:
             if not isinstance(drive, dict):
                 continue
-            drive_rz = drive_trz = drive_gz = False
-            drive_td = drive_fg = False
             for play in drive.get("plays") or []:
                 if not isinstance(play, dict) or play.get("is_no_play"):
                     continue
@@ -1648,20 +1837,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 offense_is_opp = offense in opp_aliases
                 down = _parse_down(play.get("down_distance"))
                 is_scrimmage = _is_scrimmage_play(play, down)
-
-                if offense_is_team and is_scrimmage:
-                    ytg = _yards_to_goal_reached_on_play(play, offense, opp_aliases)
-                    if isinstance(ytg, int):
-                        if ytg <= 30:
-                            drive_gz = True
-                        if ytg <= 20:
-                            drive_rz = True
-                        if ytg <= 10:
-                            drive_trz = True
-                    if "TOUCHDOWN" in desc_up:
-                        drive_td = True
-                    if "FIELD GOAL" in desc_up and "GOOD" in desc_up:
-                        drive_fg = True
 
                 if offense_is_team and down in (3, 4):
                     if down == 3:
@@ -1784,26 +1959,17 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         if is_good:
                             opp_two_pt_conversions += 1
 
-            if drive_gz:
-                gz_trips += 1
-                if drive_td:
-                    gz_tds += 1
-                elif drive_fg:
-                    gz_fgs += 1
-                else:
-                    gz_failed += 1
-            if drive_rz:
-                rz_trips += 1
-                if drive_td:
-                    rz_tds += 1
-                elif drive_fg:
-                    rz_fgs += 1
-            if drive_trz:
-                trz_trips += 1
-                if drive_td:
-                    trz_tds += 1
-                elif drive_fg:
-                    trz_fgs += 1
+    zone_stats = _derive_zone_trip_stats(play_tree, team_aliases, opp_aliases)
+    rz_trips = int(zone_stats.get("red_zone_trips") or 0)
+    rz_tds = int(zone_stats.get("red_zone_tds") or 0)
+    rz_fgs = int(zone_stats.get("red_zone_fgs") or 0)
+    trz_trips = int(zone_stats.get("tight_red_zone_trips") or 0)
+    trz_tds = int(zone_stats.get("tight_red_zone_tds") or 0)
+    trz_fgs = int(zone_stats.get("tight_red_zone_fgs") or 0)
+    gz_trips = int(zone_stats.get("green_zone_trips") or 0)
+    gz_tds = int(zone_stats.get("green_zone_tds") or 0)
+    gz_fgs = int(zone_stats.get("green_zone_fgs") or 0)
+    gz_failed = int(zone_stats.get("green_zone_failed") or 0)
 
     if rz_trips > gz_trips:
         print(
@@ -2418,13 +2584,17 @@ def _derive_cfbstats_reference_metrics(pbp_entry: dict | None) -> dict[str, floa
 
 def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
     rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
+    turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
     derived = _derive_cfbstats_reference_metrics(pbp_entry)
     metrics = []
     summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
 
     for key, rule in _CFBSTATS_VERIFY_RULES.items():
         label = rule["label"]
-        source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
+        if key == "turnover_margin" and isinstance(turnover_split, dict):
+            source_value = _to_float_number(turnover_split.get("margin"))
+        else:
+            source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
         derived_value = derived.get(key)
         if rule.get("status") == "special_case":
             status = "special_case"
