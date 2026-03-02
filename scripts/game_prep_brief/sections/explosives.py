@@ -210,7 +210,7 @@ def _top_explosive_plays(games: list[dict], team_abbr: object = "") -> list[dict
         text = re.sub(r"^\[[A-Z]+\]\s*", "", text).strip()
         text = re.sub(r"^(Shotgun|No Huddle(?:-Shotgun)?|Pistol)\s+", "", text, flags=re.IGNORECASE).strip()
         # Typical format: "Player Name pass ..." / "Player Name rush ..."
-        m = re.match(r"([A-Za-z0-9'.,\\-\\s]+?)\\s+(?:pass|rush)\\b", text, flags=re.IGNORECASE)
+        m = re.match(r"([A-Za-z0-9'.,\-\s]+?)\s+(?:pass|rush)\b", text, flags=re.IGNORECASE)
         if m:
             return format_player_name(m.group(1).strip().rstrip(","))
         return format_player_name(text.split(" ", 1)[0].strip().rstrip(","))
