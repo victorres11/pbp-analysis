@@ -1574,6 +1574,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
     punt_returns_for = punt_return_yards_for = punt_return_long_for = punt_return_20_plus_for = 0
     punt_returns_allowed = punt_return_yards_allowed = punt_return_long_allowed = punt_return_20_plus_allowed = 0
     kick_returns = kick_return_yards = kick_return_long = kick_return_30_plus = 0
+    special_teams_tds = fg_blocks = punt_blocks = 0
+    onside_kicks_attempted = onside_kicks_recovered = 0
+    two_pt_attempts = two_pt_conversions = 0
+    opp_two_pt_attempts = opp_two_pt_conversions = 0
     rz_trips = rz_tds = rz_fgs = 0
     trz_trips = trz_tds = trz_fgs = 0
     gz_trips = gz_tds = gz_fgs = gz_failed = 0
@@ -1688,6 +1692,18 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         punt_return_long_for = max(punt_return_long_for, pret)
                         if pret >= 20:
                             punt_return_20_plus_for += 1
+                        if "TOUCHDOWN" in desc_up:
+                            special_teams_tds += 1
+
+                if offense_is_opp and " PUNT " in f" {desc_up} " and "BLOCKED" in desc_up:
+                    punt_blocks += 1
+                    if "TOUCHDOWN" in desc_up:
+                        special_teams_tds += 1
+
+                if offense_is_opp and ("FIELD GOAL" in desc_up or " KICK ATTEMPT " in f" {desc_up} ") and "BLOCKED" in desc_up:
+                    fg_blocks += 1
+                    if "TOUCHDOWN" in desc_up:
+                        special_teams_tds += 1
 
                 if offense_is_opp and " KICKOFF " in f" {desc_up} " and "RETURN" in desc_up:
                     kret = _parse_int(r"return(?:ed)?\s+(\d+)\s+yards?", desc) or 0
@@ -1697,6 +1713,27 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         kick_return_long = max(kick_return_long, kret)
                         if kret >= 30:
                             kick_return_30_plus += 1
+                        if "TOUCHDOWN" in desc_up:
+                            special_teams_tds += 1
+
+                if offense_is_team and "ONSIDE" in desc_up and "KICKOFF" in desc_up:
+                    onside_kicks_attempted += 1
+                    if any(f"RECOVERED BY {alias}" in desc_up for alias in team_aliases):
+                        onside_kicks_recovered += 1
+
+                if "TWO-POINT" in desc_up or "TWO POINT" in desc_up or "2-POINT" in desc_up or "2 POINT" in desc_up or "2PT" in desc_up:
+                    is_good = any(
+                        token in desc_up
+                        for token in ("GOOD", "SUCCESSFUL", "SUCCEEDS", "CONVERSION IS GOOD")
+                    ) and not any(token in desc_up for token in ("NO GOOD", "FAILED", "FAILS"))
+                    if offense_is_team:
+                        two_pt_attempts += 1
+                        if is_good:
+                            two_pt_conversions += 1
+                    elif offense_is_opp:
+                        opp_two_pt_attempts += 1
+                        if is_good:
+                            opp_two_pt_conversions += 1
 
             if drive_gz:
                 gz_trips += 1
@@ -1763,6 +1800,11 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
         "kickoff_return_yards": kick_return_yards,
         "kickoff_return_long": kick_return_long,
         "kick_return_30_plus": kick_return_30_plus,
+        "special_teams_tds": special_teams_tds,
+        "fg_blocks": fg_blocks,
+        "punt_blocks": punt_blocks,
+        "onside_kicks_attempted": onside_kicks_attempted,
+        "onside_kicks_recovered": onside_kicks_recovered,
     }
 
     return {
@@ -1785,6 +1827,10 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
         "green_zone_tds": gz_tds,
         "green_zone_fgs": gz_fgs,
         "green_zone_failed": gz_failed,
+        "two_pt_attempts": two_pt_attempts,
+        "two_pt_conversions": two_pt_conversions,
+        "opp_two_pt_attempts": opp_two_pt_attempts,
+        "opp_two_pt_conversions": opp_two_pt_conversions,
         "special_teams": special_teams,
     }
 
