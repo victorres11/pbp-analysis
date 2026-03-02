@@ -263,8 +263,31 @@ def _top_explosive_plays(games: list[dict], team_abbr: object = "") -> list[dict
     return plays[:10]
 
 
+def _best_explosive_player(p: dict) -> str:
+    desc = p.get("description") or p.get("play_text") or p.get("text") or ""
+    current = format_player_name(p.get("player", "?"))
+    if not desc:
+        return current
+
+    text = re.sub(r"^\[[A-Z]+\]\s*", "", str(desc).strip())
+    text = re.sub(r"^(Shotgun|No Huddle(?:-Shotgun)?|No Huddle|Pistol|Under Center|Wildcat)\s+", "", text, flags=re.IGNORECASE).strip()
+    derived = None
+
+    m = re.match(r"([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)\s+(?:pass|rush)\b", text)
+    if m:
+        derived = format_player_name(m.group(1))
+    else:
+        m = re.match(r"([A-Z]+,\s*[A-Za-z]+)\s+(?:pass|rush)\b", text)
+        if m:
+            derived = format_player_name(m.group(1))
+
+    if derived and (current in {"?", "Unknown"} or "," not in current and "→" not in current):
+        return derived
+    return current
+
+
 def _explosive_play_html(p):
-    header = f"<strong>{p.get('yards','?')} yd {p.get('type','play')} — {format_player_name(p.get('player','?'))}</strong>"
+    header = f"<strong>{p.get('yards','?')} yd {p.get('type','play')} — {_best_explosive_player(p)}</strong>"
     desc = p.get('description') or p.get('play_text') or p.get('text') or ''
     if desc:
         return f"<li>{header}<br><span style=\"color:#555;font-size:0.9em;\">{desc}</span></li>"
@@ -273,7 +296,7 @@ def _explosive_play_html(p):
 
 
 def _explosive_play_md(p):
-    header = f"**{p.get('yards','?')} yd {p.get('type','play')} — {format_player_name(p.get('player','?'))}**"
+    header = f"**{p.get('yards','?')} yd {p.get('type','play')} — {_best_explosive_player(p)}**"
     desc = p.get('description') or p.get('play_text') or p.get('text') or ''
     if desc:
         return f"  • {header}\n    {desc}"
