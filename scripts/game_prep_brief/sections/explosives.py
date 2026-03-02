@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+from ._names import format_player_name
+
 
 def _abbr_set(value: object) -> set[str]:
     if isinstance(value, str):
@@ -210,8 +212,8 @@ def _top_explosive_plays(games: list[dict], team_abbr: object = "") -> list[dict
         # Typical format: "Player Name pass ..." / "Player Name rush ..."
         m = re.match(r"([A-Za-z0-9'.,\\-\\s]+?)\\s+(?:pass|rush)\\b", text, flags=re.IGNORECASE)
         if m:
-            return m.group(1).strip().rstrip(",")
-        return text.split(" ", 1)[0].strip().rstrip(",")
+            return format_player_name(m.group(1).strip().rstrip(","))
+        return format_player_name(text.split(" ", 1)[0].strip().rstrip(","))
 
     plays = []
     for g in games:
@@ -262,7 +264,7 @@ def _top_explosive_plays(games: list[dict], team_abbr: object = "") -> list[dict
 
 
 def _explosive_play_html(p):
-    header = f"<strong>{p.get('yards','?')} yd {p.get('type','play')} — {p.get('player','?')}</strong>"
+    header = f"<strong>{p.get('yards','?')} yd {p.get('type','play')} — {format_player_name(p.get('player','?'))}</strong>"
     desc = p.get('description') or p.get('play_text') or p.get('text') or ''
     if desc:
         return f"<li>{header}<br><span style=\"color:#555;font-size:0.9em;\">{desc}</span></li>"
@@ -271,7 +273,7 @@ def _explosive_play_html(p):
 
 
 def _explosive_play_md(p):
-    header = f"**{p.get('yards','?')} yd {p.get('type','play')} — {p.get('player','?')}**"
+    header = f"**{p.get('yards','?')} yd {p.get('type','play')} — {format_player_name(p.get('player','?'))}**"
     desc = p.get('description') or p.get('play_text') or p.get('text') or ''
     if desc:
         return f"  • {header}\n    {desc}"

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+from ._names import format_player_name
+
 _NAME_COMMA_RE = r"([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)"
 
 
@@ -133,6 +135,8 @@ def _parse_play_fields(p: dict) -> dict:
                 elif passer:
                     out["player"] = passer
 
+    if out.get("player") and out.get("player") != "?":
+        out["player"] = format_player_name(out["player"])
     return out
 
 

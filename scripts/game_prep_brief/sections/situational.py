@@ -2,6 +2,8 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+from ._names import format_player_name
+
 
 def _abbr_set(value: object) -> set[str]:
     if isinstance(value, str):
@@ -168,7 +170,7 @@ def _collect_target_tendencies(team: dict) -> dict:
                     receiver = _parse_receiver(p.get("description") or "")
                     if not receiver:
                         continue
-                    receiver_norm = receiver.strip()
+                    receiver_norm = format_player_name(receiver.strip())
                     receiver_id = _receiver_key(receiver_norm)
 
                     dd = str(p.get("down_distance") or "")
