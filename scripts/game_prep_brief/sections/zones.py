@@ -80,6 +80,9 @@ def _warn_zone_invariants(team_name: str, scope: str, stats: dict) -> None:
 def _team_zone_stats(team: dict) -> dict:
     xml_rz = _xml_row(team, "red_zone")
     games = _games(team)
+    rz_trips = _sum(games, "red_zone_trips")
+    rz_tds = _sum(games, "red_zone_tds")
+    rz_fgs = _sum(games, "red_zone_fgs")
     trz_trips = _sum(games, "tight_red_zone_trips")
     trz_tds = _sum(games, "tight_red_zone_tds")
     trz_fgs = _sum(games, "tight_red_zone_fgs")
@@ -88,7 +91,10 @@ def _team_zone_stats(team: dict) -> dict:
     gz_fgs = _sum(games, "green_zone_fgs")
     gz_failed = _sum(games, "green_zone_failed")
 
-    if xml_rz:
+    # Use one consistent parser-derived source for zone trip/TD/FG totals so
+    # GZ >= RZ >= TRZ invariants remain meaningful. Keep XML row only as a
+    # fallback when local RZ data is missing and for external rank display.
+    if not rz_trips and xml_rz:
         rz_rate = xml_rz.get("rz_td_rate")
         rz_trips = xml_rz.get("rz_trips")
         rz_tds = xml_rz.get("rz_tds")
@@ -129,18 +135,6 @@ def _team_zone_stats(team: dict) -> dict:
             "gz_success": _rate(gz_tds + gz_fgs, gz_trips) if gz_trips else "N/A",
             "gz_failed": gz_failed if gz_trips else "N/A",
         }
-    rz_trips = _sum(games, "red_zone_trips")
-    rz_tds = _sum(games, "red_zone_tds")
-    rz_fgs = _sum(games, "red_zone_fgs")
-
-    trz_trips = _sum(games, "tight_red_zone_trips")
-    trz_tds = _sum(games, "tight_red_zone_tds")
-    trz_fgs = _sum(games, "tight_red_zone_fgs")
-
-    gz_trips = _sum(games, "green_zone_trips")
-    gz_tds = _sum(games, "green_zone_tds")
-    gz_fgs = _sum(games, "green_zone_fgs")
-    gz_failed = _sum(games, "green_zone_failed")
 
     return {
         "rz_trips": rz_trips,

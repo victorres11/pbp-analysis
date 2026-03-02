@@ -1558,6 +1558,39 @@ def _yards_to_goal_from_spot(spot: object, offense_abbr: object, opp_abbr: objec
     return yard if yard <= 50 else 100 - yard
 
 
+def _yards_to_goal_reached_on_play(play: dict, offense_abbr: object, opp_abbr: object) -> int | None:
+    """
+    Best-effort estimate of the closest point to the goal line reached during a play.
+
+    Use the minimum of:
+    - the recorded pre-play spot
+    - the explicit end spot in the play description (`to the XYZ12`)
+    - 0 for offensive touchdowns
+    """
+    offense_aliases = _abbr_set(offense_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    best = _yards_to_goal_from_spot(play.get("spot"), offense_abbr, opp_abbr)
+
+    desc = str(play.get("description") or "")
+    desc_up = desc.upper()
+    if "TOUCHDOWN" in desc_up:
+        best = 0 if best is None else min(best, 0)
+
+    matches = list(re.finditer(r"to the\s+([A-Z]{2,4})(\d{1,2})", desc, re.IGNORECASE))
+    for match in matches:
+        side = re.sub(r"[^A-Z0-9]", "", match.group(1).upper())
+        yard = int(match.group(2))
+        reached = None
+        if side in opp_aliases:
+            reached = yard
+        elif side in offense_aliases:
+            reached = 100 - yard
+        if reached is not None:
+            best = reached if best is None else min(best, reached)
+
+    return best
+
+
 def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
     team_aliases = _abbr_set(team_abbr)
     opp_aliases = _abbr_set(opp_abbr)
@@ -1601,7 +1634,7 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 is_scrimmage = _is_scrimmage_play(play, down)
 
                 if offense_is_team and is_scrimmage:
-                    ytg = _yards_to_goal_from_spot(play.get("spot"), offense, opp_aliases)
+                    ytg = _yards_to_goal_reached_on_play(play, offense, opp_aliases)
                     if isinstance(ytg, int):
                         if ytg <= 30:
                             drive_gz = True
@@ -1776,10 +1809,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
             f"[warn] Zone invariant violated for {team} vs {opp}: trz_tds ({trz_tds}) > trz_trips ({trz_trips})",
             file=sys.stderr,
         )
-
-    shared_rz_20 = _compute_red_zone_20_stats_from_play_tree(play_tree, team_aliases, opp_aliases)
-    if shared_rz_20 is not None:
-        rz_trips, rz_tds, rz_fgs = shared_rz_20
 
     special_teams = {
         "punts": punts,
