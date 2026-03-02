@@ -98,6 +98,10 @@ def _parse_receiver(desc: str) -> str | None:
     return None
 
 
+def _receiver_key(name: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", name.upper())
+
+
 def _yards_to_goal(spot: str, offense_abbr: str, opp_abbr: str) -> int | None:
     if not spot:
         return None
@@ -123,10 +127,17 @@ def _is_pass_target(play: dict) -> bool:
 
 
 def _target_outcome(play: dict) -> tuple[bool, bool, bool]:
-    desc = (play.get("description") or "").upper()
-    caught = "PASS COMPLETE" in desc
-    first_down = "1ST DOWN" in desc
-    td = "TOUCHDOWN" in desc
+    desc = str(play.get("description") or "")
+    desc_up = desc.upper()
+    # Ignore overturned original-play text when deriving target outcomes.
+    effective = desc_up.split("PLAY OVERTURNED", 1)[0]
+    caught = (" COMPLETE" in effective or "PASS COMPLETE" in effective) and "INCOMPLETE" not in effective
+    first_down = "1ST DOWN" in effective
+    td = "TOUCHDOWN" in effective
+    # A target cannot produce a first down or TD without a catch in this summary.
+    if not caught:
+        first_down = False
+        td = False
     return caught, first_down, td
 
 
@@ -139,8 +150,8 @@ def _collect_target_tendencies(team: dict) -> dict:
     if not team_abbr:
         return {"third_down": [], "red_zone": []}
 
-    third_down = defaultdict(lambda: {"targets": 0, "catches": 0, "first_downs": 0, "td": 0})
-    red_zone = defaultdict(lambda: {"targets": 0, "catches": 0, "first_downs": 0, "td": 0})
+    third_down = defaultdict(lambda: {"receiver": "", "targets": 0, "catches": 0, "first_downs": 0, "td": 0})
+    red_zone = defaultdict(lambda: {"receiver": "", "targets": 0, "catches": 0, "first_downs": 0, "td": 0})
 
     for g in _last_n_games(team, 3):
         opp_abbr = (g.get("opponent_abbr") or "").upper()
@@ -157,6 +168,8 @@ def _collect_target_tendencies(team: dict) -> dict:
                     receiver = _parse_receiver(p.get("description") or "")
                     if not receiver:
                         continue
+                    receiver_norm = receiver.strip()
+                    receiver_id = _receiver_key(receiver_norm)
 
                     dd = str(p.get("down_distance") or "")
                     is_third_down = dd.startswith("3-")
@@ -167,20 +180,24 @@ def _collect_target_tendencies(team: dict) -> dict:
 
                     caught, first_down, td = _target_outcome(p)
                     if is_third_down:
-                        row = third_down[receiver]
+                        row = third_down[receiver_id]
+                        if not row["receiver"]:
+                            row["receiver"] = receiver_norm
                         row["targets"] += 1
                         row["catches"] += 1 if caught else 0
                         row["first_downs"] += 1 if first_down else 0
                         row["td"] += 1 if td else 0
                     if in_red_zone:
-                        row = red_zone[receiver]
+                        row = red_zone[receiver_id]
+                        if not row["receiver"]:
+                            row["receiver"] = receiver_norm
                         row["targets"] += 1
                         row["catches"] += 1 if caught else 0
                         row["first_downs"] += 1 if first_down else 0
                         row["td"] += 1 if td else 0
 
     def _rows(src: dict) -> list[dict]:
-        rows = [{"receiver": k, **v} for k, v in src.items()]
+        rows = [dict(v) for v in src.values()]
         return sorted(rows, key=lambda r: (r["targets"], r["catches"], r["first_downs"], r["td"]), reverse=True)[:6]
 
     return {"third_down": _rows(third_down), "red_zone": _rows(red_zone)}

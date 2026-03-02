@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+_NAME_COMMA_RE = r"([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)"
+
 
 def _abbr_set(value: object) -> set[str]:
     if isinstance(value, str):
@@ -41,7 +43,9 @@ def _parse_play_fields(p: dict) -> dict:
     # --- type ---
     if not out.get("type") or out.get("type") in ("?", "play", ""):
         dl = desc.lower()
-        if "pass complete" in dl or "pass incomplete" in dl:
+        if "recovered by" in dl and "return" in dl:
+            out["type"] = "return"
+        elif "pass " in dl or "pass complete" in dl or "pass incomplete" in dl:
             out["type"] = "pass"
         elif "rush" in dl:
             out["type"] = "rush"
@@ -56,16 +60,21 @@ def _parse_play_fields(p: dict) -> dict:
     if not out.get("player") or out.get("player") == "?":
         ptype = out.get("type", "")
 
-        # For returns: find the returner (player before "return N yards")
+        # For returns: find the returner (player before "return N yards"),
+        # including turnover-return descriptions that begin with a rush/pass.
         if ptype == "return":
             # Format B: #N F.LastName return
             rm = re.search(r"#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)\s+return", desc)
             # Format A: LastName,FirstName return
-            rm_a = re.search(r"([A-Z][A-Za-z]+(?: [A-Z]+)?,\s*[A-Za-z]+)\s+return", desc)
+            rm_a = re.search(_NAME_COMMA_RE + r"\s+return", desc)
+            # Turnover return: "recovered by TEAM Last,First at ... Last,First return"
+            rm_b = re.search(r"recovered by\s+[A-Z]{2,5}\s+(" + _NAME_COMMA_RE[1:-1] + r").*?\b\1\s+return", desc, re.I)
             if rm:
                 out["player"] = rm.group(1).strip()
             elif rm_a:
                 out["player"] = rm_a.group(1).strip()
+            elif rm_b:
+                out["player"] = rm_b.group(1).strip()
             return out
 
         # Strip formation prefix
@@ -77,7 +86,7 @@ def _parse_play_fields(p: dict) -> dict:
         )
 
         # Format A: LastName,FirstName (e.g. "Aguilar,Joey", "Brazzell II,Chris")
-        m_a = re.match(r"([A-Z][A-Za-z]+(?: [A-Z]+)?,\s*[A-Za-z]+)", clean)
+        m_a = re.match(_NAME_COMMA_RE, clean)
         # Format B: #N F.LastName [optional Jr./Sr./II/III] — stop before lowercase words
         m_b = re.match(r"#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)", clean)
 
@@ -88,9 +97,9 @@ def _parse_play_fields(p: dict) -> dict:
         if passer_name:
             if ptype == "pass":
                 # Find receiver — Format A: "to LastName,FirstName"
-                r_a = re.search(r"\bto\s+([A-Z][A-Za-z]+(?: [A-Z]+)?,\s*[A-Za-z]+)", desc)
+                r_a = re.search(r"\b(?:to|for)\s+" + _NAME_COMMA_RE, desc)
                 # Format B: "to #N F.LastName [Jr./Sr./II/III]"
-                r_b = re.search(r"\bto\s+#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)", desc)
+                r_b = re.search(r"\b(?:to|for)\s+#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)", desc)
                 if r_a:
                     out["player"] = f"{passer_name} → {r_a.group(1).strip()}"
                 elif r_b:
@@ -99,6 +108,30 @@ def _parse_play_fields(p: dict) -> dict:
                     out["player"] = passer_name
             else:
                 out["player"] = passer_name
+
+        if not out.get("player") or out.get("player") == "?":
+            if ptype == "rush":
+                rush_a = re.search(_NAME_COMMA_RE + r"\s+rush\b", desc, re.I)
+                rush_b = re.search(r"#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)\s+rush\b", desc, re.I)
+                if rush_a:
+                    out["player"] = rush_a.group(1).strip()
+                elif rush_b:
+                    out["player"] = rush_b.group(1).strip()
+            elif ptype == "pass":
+                passer_a = re.search(_NAME_COMMA_RE + r"\s+pass\b", desc, re.I)
+                passer_b = re.search(r"#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)\s+pass\b", desc, re.I)
+                receiver_a = re.search(r"\b(?:to|for)\s+" + _NAME_COMMA_RE, desc, re.I)
+                receiver_b = re.search(
+                    r"\b(?:to|for)\s+#\d+\s+([A-Z]\.[A-Za-z]+(?:\s+(?:Jr\.|Sr\.|II|III|IV|V))*)",
+                    desc,
+                    re.I,
+                )
+                passer = passer_a.group(1).strip() if passer_a else passer_b.group(1).strip() if passer_b else None
+                receiver = receiver_a.group(1).strip() if receiver_a else receiver_b.group(1).strip() if receiver_b else None
+                if passer and receiver:
+                    out["player"] = f"{passer} → {receiver}"
+                elif passer:
+                    out["player"] = passer
 
     return out
 
@@ -176,6 +209,11 @@ def _derived_middle8_scoring_plays(team: dict, games: list[dict], limit: int = 6
                     if not isinstance(play, dict):
                         continue
                     if play.get("is_no_play") or not play.get("is_scoring"):
+                        continue
+                    desc = str(play.get("description") or "")
+                    desc_up = desc.upper()
+                    effective = desc_up.split("PLAY OVERTURNED", 1)[0]
+                    if "TOUCHDOWN" not in effective and "FIELD GOAL" not in effective and "SAFETY" not in effective:
                         continue
                     if not _is_middle8_window(qnum, play.get("clock")):
                         continue

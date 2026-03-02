@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Prep Brief v2</title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      padding: 24px;
+    }
+    .header {
+      background: #0b1220;
+      color: white;
+      padding: 20px 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, #88888855, #88888855);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .header-content { position: relative; z-index: 1; }
+    .header h1 { margin: 0; font-size: 22px; letter-spacing: 1.5px; text-transform: uppercase; }
+    .header .subtitle { margin-top: 6px; font-size: 13px; color: #d1d5db; }
+
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 18px 20px 22px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 18px;
+    }
+    .section-header {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .team-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #fbfdff;
+    }
+    .team-card h3 { margin: 0 0 8px; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+    .block h4 { margin: 10px 0 6px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+    .block ul { margin: 0; padding-left: 16px; }
+    .block li { margin: 2px 0; font-size: 12px; }
+    .section-note { margin-top: 10px; font-size: 11px; color: #64748b; }
+
+    .rankings-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .rankings-table th, .rankings-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; font-size: 12px; }
+    .rankings-table th { text-transform: uppercase; font-size: 11px; color: #64748b; text-align: left; }
+    .penalties-breakdown { table-layout: fixed; }
+    .penalties-breakdown th:nth-child(n+3),
+    .penalties-breakdown td:nth-child(n+3) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .penalties-breakdown th:nth-child(1),
+    .penalties-breakdown td:nth-child(1) { width: 44px; }
+    .penalties-breakdown th:nth-child(2),
+    .penalties-breakdown td:nth-child(2) { width: 54px; }
+    .warning {
+      margin-top: 10px;
+      border: 1px solid #fbbf24;
+      background: #fef9c3;
+      color: #78350f;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .metric-compare { margin: 8px 0 12px; }
+
+    .page-break { page-break-before: always; }
+    .page-break:first-child { page-break-before: auto; }
+
+    @media print {
+      body { background: white; padding: 12px; }
+      .section { box-shadow: none; border: 1px solid #ddd; }
+      .header { box-shadow: none; }
+      @page { margin: 1cm; }
+    }
+    @media (max-width: 900px) {
+      .section-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1>Game Prep Brief v2</h1>
+      <div class="subtitle">2025 Season · Washington vs Ohio State · Generated March 02, 2026 14:10</div>
+      
+    </div>
+  </header>
+
+  
+            <section class="section page-break" id="overview">
+              <div class="section-header">Overview</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Coaches</h4>
+        <ul><li>Head Coach: Unavailable in current source</li></ul>
+      </div>
+      <div class="block">
+        <h4>Season Summary</h4>
+        <ul><li>Record: 8-4-1</li><li>PPG: 28.8 for / 19.5 against  ·  L3: 27.3 for / 17.3 against</li></ul>
+      </div>
+      <div class="block">
+        <h4>Recent Results</h4>
+        <ul><li>L 9-15 @ WIS (2025-11-08)</li><li>W 42-12 vs PUR (2025-11-15)</li><li>W 42-18 @ UCLA (2025-11-22)</li><li>L 12-24 vs ORE (2025-11-29)</li><li>W 28-10 vs BSU (2025-12-13)</li></ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Coaches</h4>
+        <ul><li>Head Coach: Unavailable in current source</li></ul>
+      </div>
+      <div class="block">
+        <h4>Season Summary</h4>
+        <ul><li>Record: 13-1</li><li>PPG: 31.7 for / 9.7 against  ·  L3: 21.0 for / 13.3 against</li></ul>
+      </div>
+      <div class="block">
+        <h4>Recent Results</h4>
+        <ul><li>W 36-9 vs UCL (2025-11-15)</li><li>W 36-9 vs RUT (2025-11-22)</li><li>W 30-9 @ UOM (2025-11-29)</li><li>L 12-16 vs IND (2025-12-06)</li><li>W 21-15 vs MIA (2025-12-31)</li></ul>
+      </div>
+    </div>
+    
+    </div>
+    <div class="section-note">Generated Mar 02, 2026 14:10 · 2025 Season</div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="matchups">
+              <div class="section-header">Key Matchups</div>
+              <div class="section-body"><ul><li><span style='color:#166534;font-weight:600'>Ohio State Pass Protection vs Pass Rush has an edge: offense rank #3 vs Washington defense rank #16.</span></li><li><span style='color:#166534;font-weight:600'>Ohio State TFL Avoidance vs TFL Creation has an edge: offense rank #4 vs Washington defense rank #16.</span></li><li><span style='color:#166534;font-weight:600'>Ohio State Pass Game has an edge: offense rank #2 vs Washington defense rank #11.</span></li><li><span style='color:#991b1b;font-weight:600'>Ohio State can neutralize Washington pass protection vs pass rush: defense rank #3 vs offense rank #12.</span></li><li><span style='color:#991b1b;font-weight:600'>Ohio State can neutralize Washington tfl avoidance vs tfl creation: defense rank #6 vs offense rank #14.</span></li></ul></div>
+            </section>
+            
+            <section class="section page-break" id="schedule">
+              <div class="section-header">Schedule Snapshot</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <table class="rankings-table">
+        <thead>
+          <tr>
+            <th>Wk</th>
+            <th>Loc</th>
+            <th>Opp</th>
+            <th>R</th>
+            <th>Score</th>
+            <th>Mov</th>
+            <th>Yds</th>
+            <th>PF vs Avg</th>
+            <th>PA vs Avg</th>
+            <th>Rel Perf</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>1</td>
+              <td>Home</td>
+              <td>vs CSU</td>
+              <td>W</td>
+              <td>33-18</td>
+              <td>+15</td>
+              <td>533</td>
+              <td>+4.2</td>
+              <td>+1.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>2</td>
+              <td>Home</td>
+              <td>vs UCD</td>
+              <td>W</td>
+              <td>55-21</td>
+              <td>+34</td>
+              <td>628</td>
+              <td>+26.2</td>
+              <td>-1.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>3</td>
+              <td>Away</td>
+              <td>@ WSU</td>
+              <td>W</td>
+              <td>45-27</td>
+              <td>+18</td>
+              <td>510</td>
+              <td>+16.2</td>
+              <td>-7.5</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>5</td>
+              <td>Home</td>
+              <td>vs OSU</td>
+              <td>L</td>
+              <td>6-21</td>
+              <td>-15</td>
+              <td>341</td>
+              <td>-22.8</td>
+              <td>-1.5</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>6</td>
+              <td>Away</td>
+              <td>@ UMD</td>
+              <td>L</td>
+              <td>21-21</td>
+              <td>+0</td>
+              <td>474</td>
+              <td>-7.8</td>
+              <td>-1.5</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>7</td>
+              <td>Home</td>
+              <td>vs RU</td>
+              <td>W</td>
+              <td>36-21</td>
+              <td>+15</td>
+              <td>654</td>
+              <td>+7.2</td>
+              <td>-1.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>8</td>
+              <td>Away</td>
+              <td>@ UOM</td>
+              <td>L</td>
+              <td>9-24</td>
+              <td>-15</td>
+              <td>306</td>
+              <td>-19.8</td>
+              <td>-4.5</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>9</td>
+              <td>Home</td>
+              <td>vs ILL</td>
+              <td>W</td>
+              <td>36-21</td>
+              <td>+15</td>
+              <td>449</td>
+              <td>+7.2</td>
+              <td>-1.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>10</td>
+              <td>Away</td>
+              <td>@ WIS</td>
+              <td>L</td>
+              <td>9-15</td>
+              <td>-6</td>
+              <td>346</td>
+              <td>-19.8</td>
+              <td>+4.5</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>12</td>
+              <td>Home</td>
+              <td>vs PUR</td>
+              <td>W</td>
+              <td>42-12</td>
+              <td>+30</td>
+              <td>506</td>
+              <td>+13.2</td>
+              <td>+7.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>13</td>
+              <td>Away</td>
+              <td>@ UCLA</td>
+              <td>W</td>
+              <td>42-18</td>
+              <td>+24</td>
+              <td>554</td>
+              <td>+13.2</td>
+              <td>+1.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>14</td>
+              <td>Home</td>
+              <td>vs ORE</td>
+              <td>L</td>
+              <td>12-24</td>
+              <td>-12</td>
+              <td>283</td>
+              <td>-16.8</td>
+              <td>-4.5</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>15</td>
+              <td>Home</td>
+              <td>vs BSU</td>
+              <td>W</td>
+              <td>28-10</td>
+              <td>+18</td>
+              <td>414</td>
+              <td>-0.8</td>
+              <td>+9.5</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+        </tbody>
+      </table>
+      <div class="section-note">Rel Perf v1 uses team season baselines. Opponent-baseline overlay can be added when full opponent averages are available.</div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <table class="rankings-table">
+        <thead>
+          <tr>
+            <th>Wk</th>
+            <th>Loc</th>
+            <th>Opp</th>
+            <th>R</th>
+            <th>Score</th>
+            <th>Mov</th>
+            <th>Yds</th>
+            <th>PF vs Avg</th>
+            <th>PA vs Avg</th>
+            <th>Rel Perf</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>1</td>
+              <td>Home</td>
+              <td>vs TEX</td>
+              <td>W</td>
+              <td>12-6</td>
+              <td>+6</td>
+              <td>206</td>
+              <td>-19.7</td>
+              <td>+3.7</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>2</td>
+              <td>Home</td>
+              <td>vs GSU</td>
+              <td>W</td>
+              <td>60-9</td>
+              <td>+51</td>
+              <td>651</td>
+              <td>+28.3</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>3</td>
+              <td>Home</td>
+              <td>vs OHI</td>
+              <td>W</td>
+              <td>39-9</td>
+              <td>+30</td>
+              <td>656</td>
+              <td>+7.3</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>5</td>
+              <td>Away</td>
+              <td>@ UW</td>
+              <td>W</td>
+              <td>21-6</td>
+              <td>+15</td>
+              <td>391</td>
+              <td>-10.7</td>
+              <td>+3.7</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>6</td>
+              <td>Home</td>
+              <td>vs MIN</td>
+              <td>W</td>
+              <td>51-6</td>
+              <td>+45</td>
+              <td>524</td>
+              <td>+19.3</td>
+              <td>+3.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>7</td>
+              <td>Away</td>
+              <td>@ ILL</td>
+              <td>W</td>
+              <td>30-21</td>
+              <td>+9</td>
+              <td>372</td>
+              <td>-1.7</td>
+              <td>-11.3</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>8</td>
+              <td>Away</td>
+              <td>@ WIS</td>
+              <td>W</td>
+              <td>33-0</td>
+              <td>+33</td>
+              <td>620</td>
+              <td>+1.3</td>
+              <td>+9.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>10</td>
+              <td>Home</td>
+              <td>vs PSU</td>
+              <td>W</td>
+              <td>33-12</td>
+              <td>+21</td>
+              <td>517</td>
+              <td>+1.3</td>
+              <td>-2.3</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>11</td>
+              <td>Away</td>
+              <td>@ PUR</td>
+              <td>W</td>
+              <td>30-9</td>
+              <td>+21</td>
+              <td>610</td>
+              <td>-1.7</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>12</td>
+              <td>Home</td>
+              <td>vs UCL</td>
+              <td>W</td>
+              <td>36-9</td>
+              <td>+27</td>
+              <td>518</td>
+              <td>+4.3</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>13</td>
+              <td>Home</td>
+              <td>vs RUT</td>
+              <td>W</td>
+              <td>36-9</td>
+              <td>+27</td>
+              <td>430</td>
+              <td>+4.3</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#166534">Good</span></td>
+            </tr>
+            
+            <tr>
+              <td>14</td>
+              <td>Away</td>
+              <td>@ UOM</td>
+              <td>W</td>
+              <td>30-9</td>
+              <td>+21</td>
+              <td>466</td>
+              <td>-1.7</td>
+              <td>+0.7</td>
+              <td><span style="font-weight:600;color:#475569">Neutral</span></td>
+            </tr>
+            
+            <tr>
+              <td>15</td>
+              <td>Home</td>
+              <td>vs IND</td>
+              <td>L</td>
+              <td>12-16</td>
+              <td>-4</td>
+              <td>391</td>
+              <td>-19.7</td>
+              <td>-6.3</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+            <tr>
+              <td>19</td>
+              <td>Home</td>
+              <td>vs MIA</td>
+              <td>W</td>
+              <td>21-15</td>
+              <td>+6</td>
+              <td>458</td>
+              <td>-10.7</td>
+              <td>-5.3</td>
+              <td><span style="font-weight:600;color:#991b1b">Poor</span></td>
+            </tr>
+            
+        </tbody>
+      </table>
+      <div class="section-note">Rel Perf v1 uses team season baselines. Opponent-baseline overlay can be added when full opponent averages are available.</div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="rankings">
+              <div class="section-header">Rankings</div>
+              <div class="section-body"><div class="metric-compare"><p>Scoring Offense: Washington 34.1 | Ohio State 33.4</p></div><div class="metric-compare"><p>Scoring Defense: Washington 18.7 | Ohio State 9.3</p></div><div class="metric-compare"><p>Total Offense: Washington 409.9 | Ohio State 422.6</p></div><div class="metric-compare"><p>Total Defense: Washington 311.4 | Ohio State 219.1</p></div>
+    <h4>All Rankings</h4>
+    <table class="rankings-table">
+      <tr><th>Category</th><th>Washington</th><th>Ohio State</th></tr>
+      <tr><td>Scoring Offense</td><td>34.1 (#4)</td><td>33.4 (#5)</td></tr><tr><td>Scoring Defense</td><td>18.7 (#5)</td><td>9.3 (#1)</td></tr><tr><td>Total Offense</td><td>409.9 (#5)</td><td>422.6 (#4)</td></tr><tr><td>Total Defense</td><td>311.4 (#5)</td><td>219.1 (#1)</td></tr><tr><td>Rushing Offense</td><td>165.5 (#7)</td><td>154.4 (#9)</td></tr><tr><td>Rushing Defense</td><td>100.1 (#3)</td><td>89.4 (#2)</td></tr><tr><td>Passing Offense</td><td>244.5 (#6)</td><td>268.2 (#2)</td></tr><tr><td>Passing Defense</td><td>211.3 (#11)</td><td>129.7 (#1)</td></tr><tr><td>Scoring Margin</td><td>+15.4 (#4)</td><td>+24.1 (#2)</td></tr><tr><td>Turnover Margin</td><td>5 (#5)</td><td>7 (#7)</td></tr><tr><td>Red Zone TD%</td><td>75.9 (#2)</td><td>66.7 (#9)</td></tr><tr><td>3rd Down %</td><td>50.6 (#4)</td><td>53.3 (#2)</td></tr><tr><td>4th Down %</td><td>55 (#12)</td><td>70.6 (#1)</td></tr><tr><td>Explosive Plays</td><td>73 (#5)</td><td>57 (#4)</td></tr><tr><td>Penalties</td><td>55.3 (#16)</td><td>38.9 (#8)</td></tr><tr><td>Time of Possession</td><td>384:29 (#13)</td><td>463:38 (#1)</td></tr><tr><td>Sacks Allowed</td><td>24 (#12)</td><td>35 (#3)</td></tr><tr><td>Sacks</td><td>34 (#16)</td><td>16 (#3)</td></tr><tr><td>TFL Allowed</td><td>55 (#14)</td><td>78 (#4)</td></tr><tr><td>TFL</td><td>71 (#16)</td><td>56 (#6)</td></tr>
+    </table>
+    
+    <h4>Conf Rankings</h4>
+    <table class="rankings-table">
+      <tr><th>Category</th><th>Washington</th><th>Ohio State</th></tr>
+      <tr><td>Scoring Offense</td><td>34.1 (#4)</td><td>33.4 (#5)</td></tr><tr><td>Scoring Defense</td><td>18.7 (#5)</td><td>9.3 (#1)</td></tr><tr><td>Total Offense</td><td>409.9 (#5)</td><td>422.6 (#4)</td></tr><tr><td>Total Defense</td><td>311.4 (#5)</td><td>219.1 (#1)</td></tr><tr><td>Rushing Offense</td><td>165.5 (#7)</td><td>154.4 (#9)</td></tr><tr><td>Rushing Defense</td><td>100.1 (#3)</td><td>89.4 (#2)</td></tr><tr><td>Passing Offense</td><td>244.5 (#6)</td><td>268.2 (#2)</td></tr><tr><td>Passing Defense</td><td>211.3 (#11)</td><td>129.7 (#1)</td></tr><tr><td>Scoring Margin</td><td>+15.4 (#4)</td><td>+24.1 (#2)</td></tr><tr><td>Turnover Margin</td><td>5 (#5)</td><td>7 (#7)</td></tr><tr><td>Red Zone TD%</td><td>75.9 (#2)</td><td>66.7 (#9)</td></tr><tr><td>3rd Down %</td><td>50.6 (#4)</td><td>53.3 (#2)</td></tr><tr><td>4th Down %</td><td>55 (#12)</td><td>70.6 (#1)</td></tr><tr><td>Explosive Plays</td><td>73 (#5)</td><td>57 (#4)</td></tr><tr><td>Penalties</td><td>55.3 (#16)</td><td>38.9 (#8)</td></tr><tr><td>Time of Possession</td><td>384:29 (#13)</td><td>463:38 (#1)</td></tr><tr><td>Sacks Allowed</td><td>24 (#12)</td><td>35 (#3)</td></tr><tr><td>Sacks</td><td>34 (#16)</td><td>16 (#3)</td></tr><tr><td>TFL Allowed</td><td>55 (#14)</td><td>78 (#4)</td></tr><tr><td>TFL</td><td>71 (#16)</td><td>56 (#6)</td></tr>
+    </table>
+    
+    <h4>Nonconf Rankings</h4>
+    <table class="rankings-table">
+      <tr><th>Category</th><th>Washington</th><th>Ohio State</th></tr>
+      <tr><td>Scoring Offense</td><td>34.1 (#4)</td><td>33.4 (#5)</td></tr><tr><td>Scoring Defense</td><td>18.7 (#5)</td><td>9.3 (#1)</td></tr><tr><td>Total Offense</td><td>409.9 (#5)</td><td>422.6 (#4)</td></tr><tr><td>Total Defense</td><td>311.4 (#5)</td><td>219.1 (#1)</td></tr><tr><td>Rushing Offense</td><td>165.5 (#7)</td><td>154.4 (#9)</td></tr><tr><td>Rushing Defense</td><td>100.1 (#3)</td><td>89.4 (#2)</td></tr><tr><td>Passing Offense</td><td>244.5 (#6)</td><td>268.2 (#2)</td></tr><tr><td>Passing Defense</td><td>211.3 (#11)</td><td>129.7 (#1)</td></tr><tr><td>Scoring Margin</td><td>+15.4 (#4)</td><td>+24.1 (#2)</td></tr><tr><td>Turnover Margin</td><td>5 (#5)</td><td>7 (#7)</td></tr><tr><td>Red Zone TD%</td><td>75.9 (#2)</td><td>66.7 (#9)</td></tr><tr><td>3rd Down %</td><td>50.6 (#4)</td><td>53.3 (#2)</td></tr><tr><td>4th Down %</td><td>55 (#12)</td><td>70.6 (#1)</td></tr><tr><td>Explosive Plays</td><td>73 (#5)</td><td>57 (#4)</td></tr><tr><td>Penalties</td><td>55.3 (#16)</td><td>38.9 (#8)</td></tr><tr><td>Time of Possession</td><td>384:29 (#13)</td><td>463:38 (#1)</td></tr><tr><td>Sacks Allowed</td><td>24 (#12)</td><td>35 (#3)</td></tr><tr><td>Sacks</td><td>34 (#16)</td><td>16 (#3)</td></tr><tr><td>TFL Allowed</td><td>55 (#14)</td><td>78 (#4)</td></tr><tr><td>TFL</td><td>71 (#16)</td><td>56 (#6)</td></tr>
+    </table>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="explosives">
+              <div class="section-header">Explosive Plays</div>
+              <div class="section-body">
+    <div class="section-note">Explosives are shown as dual-source due to definition differences: CFBStats is source-of-truth; PBP is play-level context.</div>
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Totals</h4>
+        <ul>
+          <li>CFBStats Explosives (20+): 73 (#5)</li>
+          <li>PBP Explosives: 83 (Pass 48, Rush 35)</li>
+          <li>Delta (PBP-CFBStats): +10 (+13.7%) · Review</li>
+          <li>15-19y Rushes (PBP only): 14 (expected definition delta)</li>
+          <li>PBP 20+ (pass/rush): 69 (Pass 48, Rush 21)</li>
+          <li>Delta using PBP 20+ vs CFBStats: -4 (-5.5%) (residual -4)</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Explosives/Game: 4.7 (Season: 6.4) <span style="color: #b3261e;">↓</span></li>
+          <li>Pass/Game: 2.0 / Rush/Game: 2.7</li>
+          <li>Non-Explosive Avg (Run/Pass): 4.20 / 7.29</li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Per-Game Trend</h4>
+        <ul><li>G1 vs CSU: 10</li><li>G2 vs UCD: 12</li><li>G3 vs WSU: 9</li><li>G4 vs OSU: 4</li><li>G5 vs UMD: 3</li><li>G6 vs RU: 13</li><li>G7 vs UOM: 3</li><li>G8 vs ILL: 5</li><li>G9 vs WIS: 1</li><li>G10 vs PUR: 9</li><li>G11 vs UCLA: 7</li><li>G12 vs ORE: 4</li><li>G13 vs BSU: 3</li></ul>
+      </div>
+      <div class="block">
+        <h4>Without Explosives</h4>
+        <ul>
+          <li>Run Avg (&lt;15y): 3.85 (362 att)</li>
+          <li>Pass Avg (&lt;20y): 7.70 (212 att)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Top Explosive Plays</h4>
+        <ul><li><strong>78 yd pass — WILLIAMS</strong><br><span style="color:#555;font-size:0.9em;">[SG] WILLIAMS JR., Demond pass deep up the middle complete for 78 yards to BOSTON, Denzel caught at the BSU34 and advanced to the BSU0, 1ST DOWN, TOUCHDOWN WAS, clock 09:54 (Scoring play confirmed).</span></li><li><strong>68 yd run — Washington,Jordan</strong><br><span style="color:#555;font-size:0.9em;">Washington,Jordan rush right for 68 yards gain to the PUR00 TOUCHDOWN, clock 07:05, 1ST DOWN.</span></li><li><strong>61 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Williams Jr.,Demond pass complete deep middle to Harris,Audric caught at PUR13, for 61 yards to the PUR00 TOUCHDOWN, clock 11:59, 1ST DOWN.</span></li><li><strong>59 yd pass — WILLIAMS</strong><br><span style="color:#555;font-size:0.9em;">[SG] WILLIAMS JR., Demond pass deep to the left complete for 59 yards to EVANS, Omari caught at the WSU30 and advanced to the WSU0, 1ST DOWN, TOUCHDOWN WASH, clock 02:40 (Scoring play confirmed).</span></li><li><strong>59 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Williams Jr.,Demond pass complete short right to Roebuck,Dezmen caught at RU46, for 59 yards to the RU04 (Miller,Cam), 1ST DOWN. [14:10]</span></li><li><strong>48 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Williams Jr.,Demond pass complete deep middle to Boston,Denzel caught at UOM20, for 48 yards to the UOM19, End Of Play, 1ST DOWN. [05:40]</span></li><li><strong>47 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Williams Jr.,Demond pass complete short middle to Roebuck,Dezmen caught at UCD48, for 47 yards to the UCD00 TOUCHDOWN, clock 04:33, 1ST DOWN.</span></li><li><strong>45 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Williams Jr.,Demond pass complete deep left to Vines-Bright,Raiden caught at UCD17, for 45 yards to the UCD12 (Batson,Cole), out of bounds, 1ST DOWN. [09:28]</span></li><li><strong>45 yd pass — WILLIAMS</strong><br><span style="color:#555;font-size:0.9em;">[SG] WILLIAMS JR., Demond pass to the left complete for 45 yards to COLEMAN, Jonah caught at the WASH40 and advanced to the WSU28 (WORTHY III, Kenny), 1ST DOWN, clock 11:17.</span></li><li><strong>43 yd pass — Williams</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Williams Jr.,Demond pass complete deep left to Evans,Omari caught at PUR19, for 43 yards to the PUR19, End Of Play, 1ST DOWN.</span></li></ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Totals</h4>
+        <ul>
+          <li>CFBStats Explosives (20+): 57 (#4)</li>
+          <li>PBP Explosives: 71 (Pass 45, Rush 26)</li>
+          <li>Delta (PBP-CFBStats): +14 (+24.6%) · High mismatch</li>
+          <li>15-19y Rushes (PBP only): 14 (expected definition delta)</li>
+          <li>PBP 20+ (pass/rush): 57 (Pass 45, Rush 12)</li>
+          <li>Delta using PBP 20+ vs CFBStats: 0 (0.0%) (residual 0)</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Explosives/Game: 5.0 (Season: 5.1) <span style="color: #b3261e;">↓</span></li>
+          <li>Pass/Game: 3.7 / Rush/Game: 1.3</li>
+          <li>Non-Explosive Avg (Run/Pass): 3.32 / 7.71</li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Per-Game Trend</h4>
+        <ul><li>G1 vs TEX: 1</li><li>G2 vs GSU: 9</li><li>G3 vs OHI: 8</li><li>G4 vs UW: 1</li><li>G5 vs MIN: 6</li><li>G6 vs ILL: 2</li><li>G7 vs WIS: 5</li><li>G8 vs PSU: 6</li><li>G9 vs PUR: 6</li><li>G10 vs UCL: 5</li><li>G11 vs RUT: 7</li><li>G12 vs UOM: 6</li><li>G13 vs IND: 5</li><li>G14 vs MIA: 4</li></ul>
+      </div>
+      <div class="block">
+        <h4>Without Explosives</h4>
+        <ul>
+          <li>Run Avg (&lt;15y): 3.85 (416 att)</li>
+          <li>Pass Avg (&lt;20y): 8.01 (275 att)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Top Explosive Plays</h4>
+        <ul><li><strong>87 yd pass — Sayin,Julian</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete deep left to Smith,Jeremiah caught at OSU45, for 87 yards to the GSU00 TOUCHDOWN, clock 08:54, 1ST DOWN.</span></li><li><strong>64 yd run — Jackson,Bo</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Jackson,Bo rush middle for 64 yards gain to the OU11 (Mack II,Michael), out of bounds, 1ST DOWN.</span></li><li><strong>59 yd pass — SAYIN</strong><br><span style="color:#555;font-size:0.9em;">[SG] SAYIN, Julian pass deep up the middle complete for 59 yards to SMITH, Jeremiah caught at the MIA25 and advanced to the MIA16 (O'CONNOR, Ethan), 1ST DOWN, clock 13:16.</span></li><li><strong>57 yd pass — Sayin,Julian</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete deep middle to Tate,Carnell caught at PSU20, for 57 yards to the PSU04 (Wheatley,Zakee), 1ST DOWN.</span></li><li><strong>57 yd pass — Sayin,Julian</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete deep right to Smith,Jeremiah caught at PSU34, for 57 yards to the PSU21 (Mack,King; Collins,Audavion), 1ST DOWN.</span></li><li><strong>52 yd pass — SAYIN</strong><br><span style="color:#555;font-size:0.9em;">[SG] SAYIN, Julian pass deep up the middle complete for 52 yards to SMITH, Jeremiah caught at the IND32 and advanced to the IND22 (FERRELL, Amare), 1ST DOWN, clock 12:43. PENALTY IND Personal Foul on KAMARA, Mikail enforced half the distance from the goal, 11 yards from the end of the play at the IND22 to the IND11 and results in automatic 1ST DOWN.</span></li><li><strong>51 yd run — Jackson,Bo</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Jackson,Bo rush right for 51 yards gain to the GSU26 (Banks,Katrevrick), out of bounds, 1ST DOWN.</span></li><li><strong>51 yd run — Jackson,Bo</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Jackson,Bo rush left for 51 yards gain to the PSU11 (Harris,AJ), out of bounds, 1ST DOWN.</span></li><li><strong>50 yd pass — Sayin,Julian</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete deep middle to Tate,Carnell caught at UOM06, for 50 yards to the UOM00 TOUCHDOWN, clock 07:35, 1ST DOWN.</span></li><li><strong>49 yd pass — Sayin,Julian</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete deep middle to Tate,Carnell caught at OU02, for 49 yards to the OU00 TOUCHDOWN, clock 14:14, 1ST DOWN.</span></li></ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="zones">
+              <div class="section-header">Scoring Zones</div>
+              <div class="section-body">
+    <div class="metric-compare"><p>Washington: 70.2% | Ohio State: 81.5% Red Zone TD%</p></div>
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Green Zone (Inside 30)</h4>
+        <ul>
+          <li>Trips: 49 →(L3) 12</li>
+          <li>TDs: 33 →(L3) 7</li>
+          <li>FGs: 7</li>
+          <li>Success: 81.6% →(L3) 75.0% <span style="color: #b3261e;">↓</span></li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Red Zone</h4>
+        <ul>
+          <li>Trips: 47 →(L3) 12</li>
+          <li>TDs: 33 →(L3) 7</li>
+          <li>FGs: 7 →(L3) 2</li>
+          <li>TD%: 70.2% →(L3) 58.3% <span style="color: #b3261e;">↓</span></li>
+          <li>Efficiency: 85.1%</li>
+          <li>CFBStats Rank: 75.9 (#2)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Tight Red Zone (Inside 10)</h4>
+        <ul>
+          <li>Trips: 43 →(L3) 12</li>
+          <li>TDs: 33 →(L3) 7</li>
+          <li>FGs: 6 →(L3) 2</li>
+          <li>TD%: 76.7% →(L3) 58.3% <span style="color: #b3261e;">↓</span></li>
+        </ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Green Zone (Inside 30)</h4>
+        <ul>
+          <li>Trips: 56 →(L3) 12</li>
+          <li>TDs: 44 →(L3) 7</li>
+          <li>FGs: 5</li>
+          <li>Success: 87.5% →(L3) 83.3% <span style="color: #b3261e;">↓</span></li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Red Zone</h4>
+        <ul>
+          <li>Trips: 54 →(L3) 12</li>
+          <li>TDs: 44 →(L3) 7</li>
+          <li>FGs: 5 →(L3) 3</li>
+          <li>TD%: 81.5% →(L3) 58.3% <span style="color: #b3261e;">↓</span></li>
+          <li>Efficiency: 90.7%</li>
+          <li>CFBStats Rank: 66.7 (#9)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Tight Red Zone (Inside 10)</h4>
+        <ul>
+          <li>Trips: 52 →(L3) 11</li>
+          <li>TDs: 44 →(L3) 7</li>
+          <li>FGs: 4 →(L3) 3</li>
+          <li>TD%: 84.6% →(L3) 63.6% <span style="color: #b3261e;">↓</span></li>
+        </ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="turnovers">
+              <div class="section-header">Turnovers</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Season Totals</h4>
+        <ul>
+          <li>Turnovers Gained/Lost: 19 / 14</li>
+          <li>Margin: 5</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Games Trending</h4>
+        <ul>
+          <li>Margin: <span style="color: #b3261e;">4</span> (was 5)</li>
+          <li>Gained/Lost: 8 / 4</li>
+          <li>Points Off Turnovers (Offense): 20 total (6.7/gm) <span style="color: #1b7f3a;">↑</span></li>
+          <li>Points Allowed Off Giveaways (Defense): 7 total (2.3/gm) <span style="color: #1b7f3a;">↓</span></li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Breakdown</h4>
+        <ul>
+          <li>INT Gained/Lost: 14 / 8</li>
+          <li>Fumbles Gained/Lost: 5 / 6</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Points Off Turnovers</h4>
+        <ul>
+          <li>Offense (off takeaways): 65 total (5.0/gm)</li>
+          <li>Defense (allowed off giveaways): 44 total (3.4/gm)</li>
+          <li>Avg Points per Post-TO Drive: 2.24</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Post-Turnover Drives (Recent)</h4>
+        <ul><li>G11 vs UCLA: 4 drives</li><li>G12 vs ORE: 2 drives</li><li>G13 vs BSU: 3 drives</li></ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Season Totals</h4>
+        <ul>
+          <li>Turnovers Gained/Lost: 15 / 11</li>
+          <li>Margin: 4</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Games Trending</h4>
+        <ul>
+          <li>Margin: <span style="color: #b3261e;">-1</span> (was 4)</li>
+          <li>Gained/Lost: 3 / 4</li>
+          <li>Points Off Turnovers (Offense): 7 total (2.3/gm) <span style="color: #b3261e;">↓</span></li>
+          <li>Points Allowed Off Giveaways (Defense): 6 total (2.0/gm) <span style="color: #b3261e;">↑</span></li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Breakdown</h4>
+        <ul>
+          <li>INT Gained/Lost: 8 / 8</li>
+          <li>Fumbles Gained/Lost: 7 / 3</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Points Off Turnovers</h4>
+        <ul>
+          <li>Offense (off takeaways): 80 total (5.7/gm)</li>
+          <li>Defense (allowed off giveaways): 16 total (1.1/gm)</li>
+          <li>Avg Points per Post-TO Drive: 3.04</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Post-Turnover Drives (Recent)</h4>
+        <ul><li>G12 vs UOM: 2 drives</li><li>G13 vs IND: 1 drives</li><li>G14 vs MIA: 3 drives</li></ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="middle8">
+              <div class="section-header">Middle 8</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Season Totals</h4>
+        <ul>
+          <li>Points For / Against: 59 / 34</li>
+          <li>Margin: 25</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Points For / Against: 28 / 10</li>
+          <li>Margin: <span style="color: #b42318;">18</span> (Season: 25)</li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Per-Game Breakdown</h4>
+        <ul><li>G1 vs CSU: 7-7</li><li>G2 vs UCD: 14-7</li><li>G3 vs WSU: 3-0</li><li>G4 vs OSU: 0-7</li><li>G5 vs UMD: 0-7</li><li>G6 vs RU: 10-3</li><li>G7 vs UOM: 7-0</li><li>G8 vs ILL: 7-7</li><li>G9 vs WIS: 0-0</li><li>G10 vs PUR: 14-0</li><li>G11 vs UCLA: 0-0</li><li>G12 vs ORE: 7-3</li><li>G13 vs BSU: 14-0</li></ul>
+      </div>
+      <div class="block">
+        <h4>Notable Scoring Plays</h4>
+        <ul><li><strong>G1 vs CSU · Q2 00:14 — 15 yd rush, Dupree,Jalen</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Dupree,Jalen rush right for 15 yards gain to the WASH00 TOUCHDOWN, clock 00:10, 1ST DOWN.</span></li><li><strong>G1 vs CSU · Q3 11:19 — 1 yd rush, Eldridge,Kade</strong><br><span style="color:#555;font-size:0.9em;">Eldridge,Kade rush middle for 1 yard gain to the CSU00 TOUCHDOWN, clock 11:17.</span></li><li><strong>G2 vs UCD · Q2 02:40 — 7 yd rush, Coleman,Jonah</strong><br><span style="color:#555;font-size:0.9em;">No Huddle-Shotgun Coleman,Jonah rush right for 7 yards gain to the UCD00 TOUCHDOWN, clock 02:36, 1ST DOWN.</span></li><li><strong>G2 vs UCD · Q2 02:00 — 78 yd return, Boston,Denzel</strong><br><span style="color:#555;font-size:0.9em;">Mauro,Dylan punt 49 yards to the WASH22 Boston,Denzel return 78 yards to the UCD00 TOUCHDOWN, clock 01:43.</span></li><li><strong>G2 vs UCD · Q3 11:37 — 5 yd rush, Coleman,Jonah</strong><br><span style="color:#555;font-size:0.9em;">Coleman,Jonah rush middle for 5 yards gain to the UCD00 TOUCHDOWN, clock 11:31.</span></li><li><strong>G3 vs WSU · Q2 00:29 — 51 yd FG, GROSS, Grady</strong><br><span style="color:#555;font-size:0.9em;">GROSS, Grady field goal attempt from 51 yards GOOD [kick was spotted at WSU41], clock 00:25.</span></li></ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Season Totals</h4>
+        <ul>
+          <li>Points For / Against: 86 / 30</li>
+          <li>Margin: 56</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Points For / Against: 7 / 3</li>
+          <li>Margin: <span style="color: #b42318;">4</span> (Season: 56)</li>
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Per-Game Breakdown</h4>
+        <ul><li>G1 vs TEX: 0-0</li><li>G2 vs GSU: 7-0</li><li>G3 vs OHI: 17-10</li><li>G4 vs UW: 7-0</li><li>G5 vs MIN: 0-0</li><li>G6 vs ILL: 7-10</li><li>G7 vs WIS: 0-0</li><li>G8 vs PSU: 14-7</li><li>G9 vs PUR: 10-0</li><li>G10 vs UCL: 10-0</li><li>G11 vs RUT: 7-0</li><li>G12 vs UOM: 7-0</li><li>G13 vs IND: 0-3</li><li>G14 vs MIA: 0-0</li></ul>
+      </div>
+      <div class="block">
+        <h4>Notable Scoring Plays</h4>
+        <ul><li><strong>G2 vs GSU · Q2 00:57 — 2 yd rush, Donaldson Jr,CJ</strong><br><span style="color:#555;font-size:0.9em;">Donaldson Jr,CJ rush right for 2 yards gain to the GSU00 TOUCHDOWN, clock 00:57.</span></li><li><strong>G2 vs GSU · Q3 14:50 — -2 yd return, Pettijohn,Riley</strong><br><span style="color:#555;font-size:0.9em;">No Huddle-Shotgun Eaton Jr,Byron rush left for 2 yards loss to the GSU23 fumbled by Eaton Jr,Byron at GSU24 forced by McDonald,Kayden recovered by OSU Pettijohn,Riley at GSU23 Pettijohn,Riley return 23 yards to the GSU00 TOUCHDOWN, clock 14:50.</span></li><li><strong>G3 vs OHI · Q2 02:29 — 16 yd pass, Sayin,Julian → Klare,Max</strong><br><span style="color:#555;font-size:0.9em;">Shotgun Sayin,Julian pass complete short right to Klare,Max caught at OU00, for 16 yards to the OU00 TOUCHDOWN, clock 02:29, 1ST DOWN.</span></li><li><strong>G3 vs OHI · Q2 00:24 — 44 yd FG, Peacock,Brack</strong><br><span style="color:#555;font-size:0.9em;">Peacock,Brack field goal attempt from 44 yards GOOD (H: Haines,Magnus, LS: Hemer,Nick), clock 00:24.</span></li><li><strong>G3 vs OHI · Q3 14:07 — 67 yd pass, Navarro,Parker → Hendricks,Chase</strong><br><span style="color:#555;font-size:0.9em;">No Huddle-Shotgun Navarro,Parker pass complete deep right to Hendricks,Chase caught at OSU41, for 67 yards to the OSU00 TOUCHDOWN, clock 14:07, 1ST DOWN.</span></li><li><strong>G3 vs OHI · Q3 11:19 — 22 yd FG, Fielding,Jayden</strong><br><span style="color:#555;font-size:0.9em;">Fielding,Jayden field goal attempt from 22 yards GOOD (H: McGuire,Joe, LS: Ferlmann,John), clock 11:19.</span></li></ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="situational">
+              <div class="section-header">Situational</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>3rd Down</h4>
+        <ul>
+          <li>CFBStats: 50.6 (#4)</li>
+          <li>Conversions / Attempts (PBP): 78 / 163 (47.9%)</li>
+          <li>L3 Conversions / Attempts: 15 / 37 (40.5%)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Blitz Rate</h4>
+        <ul>
+          <li>Season: 38.1%</li>
+          <li>Last 3: 39.1%</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Negative Plays</h4>
+        <ul>
+          <li>Offense (Season / L3): 6.1/gm / 6.0/gm</li>
+          <li>Defense Forced (Season / L3): 4.6/gm / 5.7/gm</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Tempo (Plays/Game)</h4>
+        <ul>
+          <li>Offense (Season / L3): 64.2 / 64.0</li>
+          <li>Defense Allowed (Season / L3): 76.7 / 81.0</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Trenches Snapshot</h4>
+        <ul>
+          <li>Sacks Allowed/G: 1.5</li><li>Sacks (Def)/G: 1.8 | TFL/G: 2.1</li><li>TFL Allowed (season): 55</li><li>Missed Tackles/G: N/A | FMT/G: 4.5</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Targets Last 3 (3rd Down)</h4>
+        <ul><li>Roebuck,Dezmen: 3 tgt, 1 rec, 1 1D, 0 TD</li><li>Boston,Denzel: 2 tgt, 2 rec, 1 1D, 1 TD</li><li>DeGraaf,Decker: 1 tgt, 1 rec, 1 1D, 0 TD</li><li>Evans,Omari: 1 tgt, 0 rec, 0 1D, 0 TD</li><li>Harris,Audric: 1 tgt, 0 rec, 0 1D, 0 TD</li></ul>
+      </div>
+      <div class="block">
+        <h4>Targets Last 3 (Red Zone)</h4>
+        <ul><li>Boston,Denzel: 2 tgt, 2 rec, 1 1D, 2 TD</li><li>Roebuck,Dezmen: 2 tgt, 1 rec, 1 1D, 0 TD</li></ul>
+      </div>
+      <div class="block">
+        <h4>4th Down</h4>
+        <ul>
+          <li>Attempts / Conversions: 20 / 11</li>
+          <li>Conversion %: 55.0%</li>
+          <li><span style="color: #1b7f3a;">L3: 5 att / 3 conv (60.0%)</span></li>
+          <li>CFBStats: 55 (#12)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Per-Game Attempts</h4>
+        <ul><li>G1 vs CSU: 1 att</li><li>G2 vs UCD: 2 att</li><li>G3 vs WSU: 0 att</li><li>G4 vs OSU: 3 att</li><li>G5 vs UMD: 3 att</li><li>G6 vs RU: 1 att</li><li>G7 vs UOM: 2 att</li><li>G8 vs ILL: 0 att</li><li>G9 vs WIS: 3 att</li><li>G10 vs PUR: 0 att</li><li>G11 vs UCLA: 3 att</li><li>G12 vs ORE: 2 att</li><li>G13 vs BSU: 0 att</li></ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>3rd Down</h4>
+        <ul>
+          <li>CFBStats: 53.3 (#2)</li>
+          <li>Conversions / Attempts (PBP): 86 / 167 (51.5%)</li>
+          <li>L3 Conversions / Attempts: 19 / 42 (45.2%)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Blitz Rate</h4>
+        <ul>
+          <li>Season: 36.9%</li>
+          <li>Last 3: 40.0%</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Negative Plays</h4>
+        <ul>
+          <li>Offense (Season / L3): 5.1/gm / 7.3/gm</li>
+          <li>Defense Forced (Season / L3): 6.0/gm / 4.7/gm</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Tempo (Plays/Game)</h4>
+        <ul>
+          <li>Offense (Season / L3): 63.1 / 62.7</li>
+          <li>Defense Allowed (Season / L3): 67.1 / 69.0</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Trenches Snapshot</h4>
+        <ul>
+          <li>Sacks Allowed/G: 0.9</li><li>Sacks (Def)/G: 2.5 | TFL/G: 2.5</li><li>TFL Allowed (season): 78</li><li>Missed Tackles/G: N/A | FMT/G: 5.7</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Targets Last 3 (3rd Down)</h4>
+        <ul><li>Inniss,Brandon: 4 tgt, 4 rec, 4 1D, 1 TD</li><li>Tate,Carnell: 3 tgt, 3 rec, 3 1D, 0 TD</li><li>SMITH, Jeremiah: 3 tgt, 3 rec, 2 1D, 0 TD</li><li>DONALDSON JR, CJ: 3 tgt, 3 rec, 1 1D, 0 TD</li><li>Kacmarek,Will: 2 tgt, 1 rec, 1 1D, 0 TD</li><li>JACKSON, Bo: 1 tgt, 1 rec, 1 1D, 0 TD</li></ul>
+      </div>
+      <div class="block">
+        <h4>Targets Last 3 (Red Zone)</h4>
+        <ul><li>Kacmarek,Will: 3 tgt, 2 rec, 0 1D, 0 TD</li><li>Smith,Jeremiah: 2 tgt, 1 rec, 1 1D, 1 TD</li><li>Inniss,Brandon: 1 tgt, 1 rec, 1 1D, 1 TD</li><li>TATE, Carnell: 1 tgt, 1 rec, 0 1D, 1 TD</li></ul>
+      </div>
+      <div class="block">
+        <h4>4th Down</h4>
+        <ul>
+          <li>Attempts / Conversions: 17 / 12</li>
+          <li>Conversion %: 70.6%</li>
+          <li><span style="color: #1b7f3a;">L3: 4 att / 3 conv (75.0%)</span></li>
+          <li>CFBStats: 70.6 (#1)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Per-Game Attempts</h4>
+        <ul><li>G1 vs TEX: 2 att</li><li>G2 vs GSU: 1 att</li><li>G3 vs OHI: 1 att</li><li>G4 vs UW: 2 att</li><li>G5 vs MIN: 0 att</li><li>G6 vs ILL: 1 att</li><li>G7 vs WIS: 2 att</li><li>G8 vs PSU: 1 att</li><li>G9 vs PUR: 0 att</li><li>G10 vs UCL: 3 att</li><li>G11 vs RUT: 0 att</li><li>G12 vs UOM: 2 att</li><li>G13 vs IND: 1 att</li><li>G14 vs MIA: 1 att</li></ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="special_teams">
+              <div class="section-header">Special Teams</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Field Goals</h4>
+        <ul>
+          <li>Made/Att: 4 / 5 (80.0%)</li>
+          <li>Long: 39</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Punting</h4>
+        <ul>
+          <li>Avg / Net: 40.3 / 34.6</li>
+          <li>Long: 56</li>
+          <li>Inside 20: 14 · TB: 5</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Returns</h4>
+        <ul>
+          <li>Punt Return Avg/Long: 13.2 / 78 (20+ 1)</li>
+          <li>Punt Return Allowed Avg/Long: 12.6 / 32 (20+ 1)</li>
+          <li>KO Return Avg/Long: 21.4 / 35 (30+ 1)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Impact Plays</h4>
+        <ul>
+          <li>ST TDs: 1</li>
+          <li>FG Blocks: 0 · Punt Blocks: 1</li>
+          <li>Onside: 0 / 0</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Two-Point Conversions</h4>
+        <ul>
+          <li>Offense: 0/0</li>
+          <li>Defense Allowed: 0/0</li>
+          <li>Last 3 O/D: 0/0 · 0/0</li>
+        </ul>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Field Goals</h4>
+        <ul>
+          <li>Made/Att: 16 / 20 (80.0%)</li>
+          <li>Long: 53</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Punting</h4>
+        <ul>
+          <li>Avg / Net: 42.5 / 40.8</li>
+          <li>Long: 55</li>
+          <li>Inside 20: 14 · TB: 2</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Returns</h4>
+        <ul>
+          <li>Punt Return Avg/Long: 12.8 / 32 (20+ 2)</li>
+          <li>Punt Return Allowed Avg/Long: 3.0 / 4 (20+ 0)</li>
+          <li>KO Return Avg/Long: 26.0 / 37 (30+ 1)</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Impact Plays</h4>
+        <ul>
+          <li>ST TDs: 0</li>
+          <li>FG Blocks: 0 · Punt Blocks: 1</li>
+          <li>Onside: 0 / 0</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h4>Two-Point Conversions</h4>
+        <ul>
+          <li>Offense: 0/0</li>
+          <li>Defense Allowed: 0/1</li>
+          <li>Last 3 O/D: 0/0 · 0/0</li>
+        </ul>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+            <section class="section page-break" id="penalties">
+              <div class="section-header">Penalties</div>
+              <div class="section-body">
+    <div class="section-grid">
+      
+    <div class="team-card">
+      <h3>Washington</h3>
+      <div class="block">
+        <h4>Totals</h4>
+        <ul>
+          <li>Penalties/Game: 6.0 | Yards/Game: 58.4</li>
+          <li>Penalties: 42 for 409 yards</li>
+          <li>Offense: 20 / 158 yds</li>
+          <li>Defense: 22 / 251 yds</li>
+          <li>Procedural: 69 / 557 yds</li>
+          <li>Live-ball: 94 / 1366 yds</li>
+          <li>PI Drawn: 5 | PI Allowed: 10</li>
+          <li>CFBStats Rank: 55.3 (#16)</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Penalties/Game: 5.3 (Season: 6.0) <span style="color: #1b7f3a;">↓</span></li>
+          <li>Offense: 2.3 / Defense: 3.0 / ST: 0.0</li>
+          
+          
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Top Types (Count)</h4>
+        <ul><li>False Start: 38</li><li>Holding: 24</li><li>Unsportsmanlike Conduct: 18</li></ul>
+      </div>
+      <div class="block">
+        <h4>Top Types (Yards)</h4>
+        <ul><li>Holding: 317 yds</li><li>Offsides: 229 yds</li><li>Pass Interference: 187 yds</li></ul>
+      </div>
+      <div class="block">
+        <h4>Per-Game Breakdown</h4>
+        <table class="rankings-table penalties-breakdown">
+          <thead>
+            <tr>
+              <th>G#</th>
+              <th>Opp</th>
+              <th>Pen</th>
+              <th>Yds</th>
+              <th>Procedural</th>
+              <th>Live-ball</th>
+            </tr>
+          </thead>
+          <tbody><tr><td>G1</td><td>CSU</td><td>13</td><td>197</td><td>9 (98)</td><td>4 (99)</td></tr><tr><td>G2</td><td>UCD</td><td>17</td><td>246</td><td>10 (144)</td><td>7 (102)</td></tr><tr><td>G3</td><td>WSU</td><td>7</td><td>39</td><td>3 (21)</td><td>4 (18)</td></tr><tr><td>G4</td><td>OSU</td><td>11</td><td>81</td><td>3 (15)</td><td>8 (66)</td></tr><tr><td>G5</td><td>UMD</td><td>12</td><td>110</td><td>3 (15)</td><td>9 (95)</td></tr><tr><td>G6</td><td>RU</td><td>14</td><td>341</td><td>7 (85)</td><td>7 (256)</td></tr><tr><td>G7</td><td>UOM</td><td>10</td><td>84</td><td>5 (25)</td><td>5 (59)</td></tr><tr><td>G8</td><td>ILL</td><td>18</td><td>220</td><td>4 (23)</td><td>14 (197)</td></tr><tr><td>G9</td><td>WIS</td><td>11</td><td>119</td><td>5 (25)</td><td>6 (94)</td></tr><tr><td>G10</td><td>PUR</td><td>13</td><td>125</td><td>3 (27)</td><td>10 (98)</td></tr><tr><td>G11</td><td>UCLA</td><td>12</td><td>79</td><td>3 (10)</td><td>9 (69)</td></tr><tr><td>G12</td><td>ORE</td><td>10</td><td>134</td><td>2 (10)</td><td>8 (124)</td></tr><tr><td>G13</td><td>BSU</td><td>15</td><td>148</td><td>12 (59)</td><td>3 (89)</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    
+      
+    <div class="team-card">
+      <h3>Ohio State</h3>
+      <div class="block">
+        <h4>Totals</h4>
+        <ul>
+          <li>Penalties/Game: 4.1 | Yards/Game: 38.5</li>
+          <li>Penalties: 57 for 539 yards</li>
+          <li>Offense: 33 / 255 yds</li>
+          <li>Defense: 24 / 284 yds</li>
+          <li>Procedural: 49 / 416 yds</li>
+          <li>Live-ball: 70 / 983 yds</li>
+          <li>PI Drawn: 2 | PI Allowed: 11</li>
+          <li>CFBStats Rank: 38.9 (#8)</li>
+        </ul>
+      </div>
+      
+      <div class="block">
+        <h4>Last 3 Trending</h4>
+        <ul>
+          <li>Penalties/Game: 3.3 (Season: 4.1) <span style="color: #1b7f3a;">↓</span></li>
+          <li>Offense: 1.7 / Defense: 1.7 / ST: 0.0</li>
+          
+          
+        </ul>
+      </div>
+        
+      <div class="block">
+        <h4>Top Types (Count)</h4>
+        <ul><li>False Start: 29</li><li>Holding: 15</li><li>Unsportsmanlike Conduct: 13</li></ul>
+      </div>
+      <div class="block">
+        <h4>Top Types (Yards)</h4>
+        <ul><li>Pass Interference: 160 yds</li><li>Holding: 146 yds</li><li>False Start: 145 yds</li></ul>
+      </div>
+      <div class="block">
+        <h4>Per-Game Breakdown</h4>
+        <table class="rankings-table penalties-breakdown">
+          <thead>
+            <tr>
+              <th>G#</th>
+              <th>Opp</th>
+              <th>Pen</th>
+              <th>Yds</th>
+              <th>Procedural</th>
+              <th>Live-ball</th>
+            </tr>
+          </thead>
+          <tbody><tr><td>G1</td><td>TEX</td><td>9</td><td>53</td><td>4 (20)</td><td>5 (33)</td></tr><tr><td>G2</td><td>GSU</td><td>9</td><td>79</td><td>8 (78)</td><td>1 (1)</td></tr><tr><td>G3</td><td>OHI</td><td>11</td><td>99</td><td>5 (25)</td><td>6 (74)</td></tr><tr><td>G4</td><td>UW</td><td>11</td><td>81</td><td>3 (15)</td><td>8 (66)</td></tr><tr><td>G5</td><td>MIN</td><td>7</td><td>123</td><td>3 (15)</td><td>4 (108)</td></tr><tr><td>G6</td><td>ILL</td><td>12</td><td>139</td><td>8 (110)</td><td>4 (29)</td></tr><tr><td>G7</td><td>WIS</td><td>6</td><td>35</td><td>5 (25)</td><td>1 (10)</td></tr><tr><td>G8</td><td>PSU</td><td>5</td><td>102</td><td>1 (14)</td><td>4 (88)</td></tr><tr><td>G9</td><td>PUR</td><td>9</td><td>132</td><td>1 (5)</td><td>8 (127)</td></tr><tr><td>G10</td><td>UCL</td><td>11</td><td>122</td><td>7 (41)</td><td>4 (81)</td></tr><tr><td>G11</td><td>RUT</td><td>10</td><td>102</td><td>0 (0)</td><td>10 (102)</td></tr><tr><td>G12</td><td>UOM</td><td>10</td><td>172</td><td>1 (5)</td><td>9 (167)</td></tr><tr><td>G13</td><td>IND</td><td>7</td><td>101</td><td>2 (10)</td><td>5 (91)</td></tr><tr><td>G14</td><td>MIA</td><td>2</td><td>59</td><td>1 (53)</td><td>1 (6)</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    
+    </div>
+    </div>
+            </section>
+            
+</body>
+</html>
