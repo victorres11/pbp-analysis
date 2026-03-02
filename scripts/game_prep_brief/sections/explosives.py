@@ -272,6 +272,7 @@ def _best_explosive_player(p: dict) -> str:
     text = re.sub(r"^\[[A-Z]+\]\s*", "", str(desc).strip())
     text = re.sub(r"^(Shotgun|No Huddle(?:-Shotgun)?|No Huddle|Pistol|Under Center|Wildcat)\s+", "", text, flags=re.IGNORECASE).strip()
     derived = None
+    receiver = None
 
     m = re.match(r"([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)\s+(?:pass|rush)\b", text)
     if m:
@@ -281,6 +282,17 @@ def _best_explosive_player(p: dict) -> str:
         if m:
             derived = format_player_name(m.group(1))
 
+    if str(p.get("type", "")).lower() == "pass":
+        r = re.search(r"\b(?:to|for)\s+([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)", text)
+        if r:
+            receiver = format_player_name(r.group(1))
+        else:
+            r = re.search(r"\b(?:to|for)\s+([A-Z]+,\s*[A-Za-z]+)", text)
+            if r:
+                receiver = format_player_name(r.group(1))
+
+    if derived and receiver:
+        return f"{derived} → {receiver}"
     if derived and (current in {"?", "Unknown"} or "," not in current and "→" not in current):
         return derived
     return current

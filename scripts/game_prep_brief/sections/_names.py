@@ -21,7 +21,9 @@ def _title_token(token: str) -> str:
     upper = token.upper()
     if upper in _SUFFIX_MAP:
         return _SUFFIX_MAP[upper]
-    if token.isalpha() and len(token) <= 2:
+    if token.isalpha() and len(token) == 1:
+        return token.upper()
+    if token.isalpha() and len(token) <= 3 and token.upper() == token and not re.search(r"[AEIOU]", token.upper()):
         return token.upper()
     if len(token) == 2 and token.endswith(".") and token[0].isalpha():
         return f"{token[0].upper()}."
