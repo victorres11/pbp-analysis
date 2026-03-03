@@ -2607,15 +2607,6 @@ def _infer_verification_year(pbp_entry: dict | None) -> int | None:
 
 
 def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
-    def _recompute_summary(metric_rows: list[dict]) -> dict:
-        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
-        for row in metric_rows:
-            status = row.get("status")
-            if status in summary:
-                summary[status] += 1
-        summary["total"] = len(metric_rows)
-        return summary
-
     def _local_report() -> dict:
         rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
         turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
@@ -2734,27 +2725,18 @@ def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
                     "note": metric.get("note"),
                 }
             )
-        local_report = _local_report()
-        local_by_key = {m["key"]: m for m in local_report["metrics"]}
-        merged_metrics = []
-        seen_keys = set()
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
         for metric in metrics:
-            key = metric.get("key")
-            seen_keys.add(key)
-            if metric.get("status") == "missing_derived" and key in local_by_key:
-                merged_metrics.append(local_by_key[key])
-            else:
-                merged_metrics.append(metric)
-        for key, metric in local_by_key.items():
-            if key not in seen_keys:
-                merged_metrics.append(metric)
-        summary = _recompute_summary(merged_metrics)
+            status = metric.get("status")
+            if status in summary:
+                summary[status] += 1
+        summary["total"] = len(metrics)
         if summary["mismatch"]:
             mismatch_preview = ", ".join(
-                f"{m['label']} ({m['delta']:+.1f})" for m in merged_metrics if m["status"] == "mismatch"
+                f"{m['label']} ({m['delta']:+.1f})" for m in metrics if m["status"] == "mismatch"
             )
             print(f"[warn] CFBStats verification mismatches for {team_name}: {mismatch_preview}", file=sys.stderr)
-        return {"summary": summary, "metrics": merged_metrics}
+        return {"summary": summary, "metrics": metrics}
 
     local_report = _local_report()
     metrics = local_report["metrics"]
