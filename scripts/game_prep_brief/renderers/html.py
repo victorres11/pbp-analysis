@@ -78,6 +78,78 @@ def _parity_warning(team1: dict, team2: dict) -> str:
     return f"XML parity gaps detected: {preview}{more}"
 
 
+def _verification_warning(team1: dict, team2: dict) -> str:
+    notices: list[str] = []
+    for team in (team1, team2):
+        verification = team.get("cfbstats_verification") or {}
+        summary = verification.get("summary") or {}
+        mismatches = int(summary.get("mismatch") or 0)
+        if mismatches <= 0:
+            continue
+        metrics = verification.get("metrics") or []
+        preview_metrics = [m["label"] for m in metrics if m.get("status") == "mismatch"][:3]
+        preview = ", ".join(preview_metrics)
+        suffix = " ..." if mismatches > len(preview_metrics) else ""
+        notices.append(f"{team.get('display_name', 'Team')}: {mismatches} CFBStats mismatch(es) ({preview}{suffix})")
+    return " ".join(notices)
+
+
+_VERIFY_SECTION_MAP = {
+    "rankings": {
+        "scoring_offense",
+        "scoring_defense",
+        "total_offense",
+        "total_defense",
+        "rushing_offense",
+        "rushing_defense",
+        "passing_offense",
+        "passing_defense",
+        "scoring_margin",
+        "time_of_possession",
+    },
+    "zones": {"red_zone"},
+    "turnovers": {"turnover_margin"},
+    "situational": {"third_down", "fourth_down", "sacks_offense", "sacks_defense", "tfl_offense", "tfl_defense"},
+    "penalties": {"penalties"},
+    "explosives": {"explosives"},
+}
+
+
+def _section_verification_alert(section_key: str, team1: dict, team2: dict) -> str:
+    metric_keys = _VERIFY_SECTION_MAP.get(section_key)
+    if not metric_keys:
+        return ""
+
+    team_notices: list[str] = []
+    for team in (team1, team2):
+        verification = team.get("cfbstats_verification") or {}
+        metrics = verification.get("metrics") or []
+        relevant = [m for m in metrics if m.get("key") in metric_keys and m.get("status") != "match"]
+        if not relevant:
+            continue
+
+        parts = []
+        for metric in relevant[:4]:
+            label = metric.get("label")
+            status = metric.get("status")
+            if status == "special_case":
+                parts.append(f"{label} (special case)")
+            elif status == "missing_source":
+                parts.append(f"{label} (missing CFBStats)")
+            elif status == "missing_derived":
+                parts.append(f"{label} (missing derived)")
+            else:
+                delta = metric.get("delta")
+                delta_text = f"{delta:+.1f}" if isinstance(delta, (int, float)) else "delta N/A"
+                parts.append(f"{label} ({delta_text})")
+        more = " ..." if len(relevant) > 4 else ""
+        team_notices.append(f"{team.get('display_name', 'Team')}: {', '.join(parts)}{more}")
+
+    if not team_notices:
+        return ""
+    return " | ".join(team_notices)
+
+
 def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
     """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
@@ -90,10 +162,12 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
 
     section_html = []
     for s in _order_sections(sections):
+        section_alert = _section_verification_alert(s.get("key", ""), team1, team2)
         section_html.append(
             f"""
             <section class=\"section page-break\" id=\"{s.get('key','section')}\">
               <div class=\"section-header\">{s.get('title','Section')}</div>
+              {"<div class='warning'><strong>Section Alert:</strong> " + section_alert + "</div>" if section_alert else ""}
               <div class=\"section-body\">{s.get('html_content','')}</div>
             </section>
             """

@@ -82,6 +82,12 @@ except Exception as exc:
     _UPSTREAM_IMPORT_ERRORS["cfbstats_scraper"] = f"{type(exc).__name__}: {exc}"
 
 try:
+    from pbp_parser.cfbstats import verify_bundle_against_cfbstats as _upstream_verify_bundle_against_cfbstats
+except Exception as exc:
+    _upstream_verify_bundle_against_cfbstats = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["cfbstats_bundle_verifier"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.rate_limit import RateLimitConfig
 except Exception as exc:
     RateLimitConfig = None  # type: ignore[assignment]
@@ -415,10 +421,10 @@ def _fetch_live_rankings_fallback(team_name: str, team_slug: str, season: int) -
         ("fourth_down", "4th down conversion %", 26, "offense", ["Conversion %", "Conv %", "Conv%", "Pct"]),
         ("penalties", "penalty yards/game", 14, "offense", ["Yards/G", "Yds/G", "Yards/Gm", "Yds/Gm"]),
         ("time_of_possession", "time of possession", 15, "offense", ["TOP", "Time", "Time of Possession"]),
-        ("sacks_offense", "sacks allowed", 20, "offense", ["Sacks", "Sack", "Sk"]),
-        ("sacks_defense", "sacks", 20, "defense", ["Sacks", "Sack", "Sk"]),
-        ("tfl_offense", "TFL allowed", 21, "offense", ["TFL", "TFL/G", "TFLA"]),
-        ("tfl_defense", "TFL", 21, "defense", ["TFL", "TFL/G"]),
+        ("sacks_defense", "sacks", 20, "offense", ["Sacks", "Sack", "Sk"]),
+        ("sacks_offense", "sacks allowed", 20, "defense", ["Sacks", "Sack", "Sk"]),
+        ("tfl_defense", "TFL", 21, "offense", ["TFL", "TFL/G", "TFLA"]),
+        ("tfl_offense", "TFL allowed", 21, "defense", ["TFL", "TFL/G"]),
         ("total_offense", "total offense", 10, "offense", ["Yards/G", "Yds/G", "Total", "Yds"]),
         ("total_defense", "total defense", 10, "defense", ["Yards/G", "Yds/G", "Total", "Yds"]),
         ("rushing_offense", "rushing offense", 1, "offense", ["Rush Yds/G", "Rush Yards/G", "Yards/G", "Yds/G"]),
@@ -1007,7 +1013,11 @@ def _turnover_possessing_side(desc_up: str, offense_side: str | None, turnover_t
 
 
 def _is_overturned_turnover_text(desc_up: str) -> bool:
-    return "PLAY OVERTURNED" in desc_up or "CALL OVERTURNED" in desc_up
+    return (
+        "PLAY OVERTURNED" in desc_up
+        or "CALL OVERTURNED" in desc_up
+        or "RULING ON THE FIELD WAS OVERTURNED" in desc_up
+    )
 
 
 def _is_turnover_on_downs_text(desc_up: str) -> bool:
@@ -1021,10 +1031,11 @@ def _drive_takeaway_event(
     for play in plays:
         if play.get("is_no_play"):
             continue
-        if not play.get("is_turnover"):
-            continue
         offense = str(play.get("offense") or "").upper()
         desc_up = str(play.get("description") or "").upper()
+        turnover_looking = play.get("is_turnover") or "INTERCEPT" in desc_up or "FUMBLE" in desc_up
+        if not turnover_looking:
+            continue
         if _is_overturned_turnover_text(desc_up):
             continue
         if _is_turnover_on_downs_text(desc_up):
@@ -1287,6 +1298,8 @@ def _estimate_total_yards_from_play_tree(play_tree: object, team_abbr: object) -
             continue
         if str(play.get("offense") or "").upper() not in team_aliases:
             continue
+        if not _counts_toward_total_offense(play):
+            continue
         yards = play.get("yards")
         if isinstance(yards, (int, float)):
             total += int(yards)
@@ -1539,6 +1552,20 @@ def _is_scrimmage_play(play: dict, down: int | None) -> bool:
     return False
 
 
+def _counts_toward_total_offense(play: dict) -> bool:
+    down = _parse_down(play.get("down_distance"))
+    if not _is_scrimmage_play(play, down):
+        return False
+    desc = str(play.get("description") or "").upper()
+    if " PUNT " in f" {desc} ":
+        return False
+    if "FIELD GOAL" in desc or "KICK ATTEMPT" in desc:
+        return False
+    if "PAT" in desc or "EXTRA POINT" in desc:
+        return False
+    return any(token in desc for token in (" PASS ", " RUSH ", "SACK", "SCRAMBLE", "KNEEL"))
+
+
 def _yards_to_goal_from_spot(spot: object, offense_abbr: object, opp_abbr: object) -> int | None:
     text = str(spot or "").strip().upper()
     if not text:
@@ -1591,6 +1618,192 @@ def _yards_to_goal_reached_on_play(play: dict, offense_abbr: object, opp_abbr: o
     return best
 
 
+def _iter_flat_play_tree_plays(play_tree: object) -> list[tuple[int | None, dict]]:
+    indexed_plays: list[tuple[int | None, dict]] = []
+    for quarter in play_tree or []:
+        if not isinstance(quarter, dict):
+            continue
+        quarter_num = quarter.get("quarter")
+        for drive in quarter.get("drives") or []:
+            if not isinstance(drive, dict):
+                continue
+            for play in drive.get("plays") or []:
+                if isinstance(play, dict):
+                    indexed_plays.append((quarter_num if isinstance(quarter_num, int) else None, play))
+    return indexed_plays
+
+
+def _iter_possession_drives(play_tree: object, team_abbr: object, opp_abbr: object) -> list[tuple[str, list[dict]]]:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    drives: list[tuple[str, list[dict]]] = []
+    current_side: str | None = None
+    current_plays: list[dict] = []
+    last_quarter: int | None = None
+
+    def flush() -> None:
+        nonlocal current_side, current_plays
+        if current_side and current_plays:
+            drives.append((current_side, current_plays))
+        current_side = None
+        current_plays = []
+
+    for quarter_num, play in _iter_flat_play_tree_plays(play_tree):
+        if not isinstance(play, dict) or play.get("is_no_play"):
+            continue
+        offense = str(play.get("offense") or "").upper()
+        if offense in team_aliases:
+            side = "team"
+        elif offense in opp_aliases:
+            side = "opp"
+        else:
+            side = None
+
+        if last_quarter == 2 and quarter_num == 3:
+            flush()
+        last_quarter = quarter_num
+
+        desc_up = str(play.get("description") or "").upper()
+        if "DRIVE STARTS AT" in desc_up:
+            flush()
+            current_side = side
+            continue
+
+        if side is None:
+            continue
+
+        if current_side is None:
+            current_side = side
+            current_plays = [play]
+            continue
+
+        if side != current_side:
+            flush()
+            current_side = side
+            current_plays = [play]
+        else:
+            current_plays.append(play)
+
+    if current_side and current_plays:
+        drives.append((current_side, current_plays))
+    return drives
+
+
+def _is_conversion_attempt_text(desc_up: str) -> bool:
+    return any(
+        token in desc_up
+        for token in (
+            "KICK ATTEMPT",
+            "EXTRA POINT",
+            "PAT",
+            "2PT",
+            "2-POINT",
+            "2 POINT",
+            "TWO-POINT",
+            "TWO POINT",
+            "CONVERSION",
+        )
+    )
+
+
+def _zone_drive_result(plays: list[dict], team_aliases: set[str]) -> tuple[int, int]:
+    for play in reversed(plays):
+        offense = str(play.get("offense") or "").upper()
+        if offense not in team_aliases:
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        if "TOUCHDOWN" in desc_up:
+            if play.get("is_turnover") and not _is_overturned_turnover_text(desc_up):
+                continue
+            return 1, 0
+        if (
+            "FIELD GOAL" in desc_up
+            and "GOOD" in desc_up
+            and "NO GOOD" not in desc_up
+            and "BLOCKED" not in desc_up
+            and "MISSED" not in desc_up
+        ):
+            return 0, 1
+    return 0, 0
+
+
+def _derive_zone_trip_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict[str, int]:
+    team_aliases = _abbr_set(team_abbr)
+    opp_aliases = _abbr_set(opp_abbr)
+    rz_trips = rz_tds = rz_fgs = 0
+    trz_trips = trz_tds = trz_fgs = 0
+    gz_trips = gz_tds = gz_fgs = gz_failed = 0
+
+    for drive_side, drive_plays in _iter_possession_drives(play_tree, team_aliases, opp_aliases):
+        if drive_side != "team":
+            continue
+
+        scrimmage_plays = []
+        entered_rz = entered_trz = entered_gz = False
+
+        for play in drive_plays:
+            desc_up = str(play.get("description") or "").upper()
+            if "TIMEOUT" in desc_up or _is_conversion_attempt_text(desc_up):
+                continue
+            if " PUNT " in f" {desc_up} " or "KICKOFF" in desc_up or "KICK OFF" in desc_up:
+                continue
+
+            down = _parse_down(play.get("down_distance"))
+            is_fg_attempt = "FIELD GOAL" in desc_up
+            if not (_is_scrimmage_play(play, down) or is_fg_attempt):
+                continue
+            if not play.get("down_distance") and not is_fg_attempt:
+                continue
+
+            if _is_scrimmage_play(play, down) and not play.get("is_no_play"):
+                scrimmage_plays.append(play)
+
+            ytg = _yards_to_goal_from_spot(play.get("spot"), team_aliases, opp_aliases)
+            if not isinstance(ytg, int):
+                continue
+            if 0 < ytg <= 30:
+                entered_gz = True
+            if 0 < ytg <= 20:
+                entered_rz = True
+            if 0 < ytg <= 10:
+                entered_trz = True
+
+        if scrimmage_plays and all("KNEEL" in str(play.get("description") or "").upper() for play in scrimmage_plays):
+            continue
+
+        if not (entered_gz or entered_rz or entered_trz):
+            continue
+
+        td, fg = _zone_drive_result(drive_plays, team_aliases)
+        if entered_gz:
+            gz_trips += 1
+            gz_tds += td
+            gz_fgs += fg
+            if not td and not fg:
+                gz_failed += 1
+        if entered_rz:
+            rz_trips += 1
+            rz_tds += td
+            rz_fgs += fg
+        if entered_trz:
+            trz_trips += 1
+            trz_tds += td
+            trz_fgs += fg
+
+    return {
+        "red_zone_trips": rz_trips,
+        "red_zone_tds": rz_tds,
+        "red_zone_fgs": rz_fgs,
+        "tight_red_zone_trips": trz_trips,
+        "tight_red_zone_tds": trz_tds,
+        "tight_red_zone_fgs": trz_fgs,
+        "green_zone_trips": gz_trips,
+        "green_zone_tds": gz_tds,
+        "green_zone_fgs": gz_fgs,
+        "green_zone_failed": gz_failed,
+    }
+
+
 def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: object) -> dict:
     team_aliases = _abbr_set(team_abbr)
     opp_aliases = _abbr_set(opp_abbr)
@@ -1620,8 +1833,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
         for drive in quarter.get("drives") or []:
             if not isinstance(drive, dict):
                 continue
-            drive_rz = drive_trz = drive_gz = False
-            drive_td = drive_fg = False
             for play in drive.get("plays") or []:
                 if not isinstance(play, dict) or play.get("is_no_play"):
                     continue
@@ -1632,20 +1843,6 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                 offense_is_opp = offense in opp_aliases
                 down = _parse_down(play.get("down_distance"))
                 is_scrimmage = _is_scrimmage_play(play, down)
-
-                if offense_is_team and is_scrimmage:
-                    ytg = _yards_to_goal_reached_on_play(play, offense, opp_aliases)
-                    if isinstance(ytg, int):
-                        if ytg <= 30:
-                            drive_gz = True
-                        if ytg <= 20:
-                            drive_rz = True
-                        if ytg <= 10:
-                            drive_trz = True
-                    if "TOUCHDOWN" in desc_up:
-                        drive_td = True
-                    if "FIELD GOAL" in desc_up and "GOOD" in desc_up:
-                        drive_fg = True
 
                 if offense_is_team and down in (3, 4):
                     if down == 3:
@@ -1768,26 +1965,17 @@ def _derive_game_detail_stats(play_tree: object, team_abbr: object, opp_abbr: ob
                         if is_good:
                             opp_two_pt_conversions += 1
 
-            if drive_gz:
-                gz_trips += 1
-                if drive_td:
-                    gz_tds += 1
-                elif drive_fg:
-                    gz_fgs += 1
-                else:
-                    gz_failed += 1
-            if drive_rz:
-                rz_trips += 1
-                if drive_td:
-                    rz_tds += 1
-                elif drive_fg:
-                    rz_fgs += 1
-            if drive_trz:
-                trz_trips += 1
-                if drive_td:
-                    trz_tds += 1
-                elif drive_fg:
-                    trz_fgs += 1
+    zone_stats = _derive_zone_trip_stats(play_tree, team_aliases, opp_aliases)
+    rz_trips = int(zone_stats.get("red_zone_trips") or 0)
+    rz_tds = int(zone_stats.get("red_zone_tds") or 0)
+    rz_fgs = int(zone_stats.get("red_zone_fgs") or 0)
+    trz_trips = int(zone_stats.get("tight_red_zone_trips") or 0)
+    trz_tds = int(zone_stats.get("tight_red_zone_tds") or 0)
+    trz_fgs = int(zone_stats.get("tight_red_zone_fgs") or 0)
+    gz_trips = int(zone_stats.get("green_zone_trips") or 0)
+    gz_tds = int(zone_stats.get("green_zone_tds") or 0)
+    gz_fgs = int(zone_stats.get("green_zone_fgs") or 0)
+    gz_failed = int(zone_stats.get("green_zone_failed") or 0)
 
     if rz_trips > gz_trips:
         print(
@@ -1957,11 +2145,11 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
         game_rollup = _rollup_game_from_play_tree(play_tree, team_aliases, opp_abbr)
         game_detail = _derive_game_detail_stats(play_tree, team_aliases, opp_abbr)
         game_turnover_detail = _derive_turnover_drive_stats(play_tree, team_aliases, opp_abbr)
-        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
         raw_pf = g.get("points_for")
         raw_pa = g.get("points_against")
-        points_for = estimated_pf if isinstance(estimated_pf, int) else raw_pf
-        points_against = estimated_pa if isinstance(estimated_pa, int) else raw_pa
+        estimated_pf, estimated_pa = _estimate_points_from_play_tree(play_tree, team_aliases, opp_abbr)
+        points_for = raw_pf if isinstance(raw_pf, (int, float)) else estimated_pf
+        points_against = raw_pa if isinstance(raw_pa, (int, float)) else estimated_pa
         total_plays = g.get("total_plays")
         if not isinstance(total_plays, int):
             total_plays = sum(
@@ -2029,7 +2217,9 @@ def _load_xml_bundle_data() -> dict:
     out: dict = {}
     for slug, payload in raw.items():
         if isinstance(payload, dict):
-            out[slug] = _convert_xml_bundle_team(slug, payload)
+            converted = _convert_xml_bundle_team(slug, payload)
+            converted["_parser_bundle_payload"] = payload
+            out[slug] = converted
     return out
 
 
@@ -2202,6 +2392,381 @@ def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: f
         f"{team_name}: 4th-down parity delta {delta:+.1f} pts "
         f"(PBP {conversions}/{attempts}={pbp_pct}% vs CFBStats {cfb_pct}%)"
     )
+
+
+_CFBSTATS_VERIFY_RULES = {
+    "scoring_offense": {"label": "Scoring Offense", "tolerance": 0.2},
+    "scoring_defense": {"label": "Scoring Defense", "tolerance": 0.2},
+    "total_offense": {"label": "Total Offense", "tolerance": 0.5},
+    "total_defense": {"label": "Total Defense", "tolerance": 0.5},
+    "rushing_offense": {"label": "Rushing Offense", "tolerance": 0.5},
+    "rushing_defense": {"label": "Rushing Defense", "tolerance": 0.5},
+    "passing_offense": {"label": "Passing Offense", "tolerance": 0.5},
+    "passing_defense": {"label": "Passing Defense", "tolerance": 0.5},
+    "scoring_margin": {"label": "Scoring Margin", "tolerance": 0.2},
+    "turnover_margin": {"label": "Turnover Margin", "tolerance": 0.2},
+    "red_zone": {"label": "Red Zone TD%", "tolerance": 0.2},
+    "third_down": {"label": "3rd Down %", "tolerance": 0.2},
+    "fourth_down": {"label": "4th Down %", "tolerance": 0.2},
+    "penalties": {"label": "Penalty Yards/Game", "tolerance": 0.5},
+    "sacks_offense": {"label": "Sacks Allowed", "tolerance": 0.0},
+    "sacks_defense": {"label": "Sacks", "tolerance": 0.0},
+    "tfl_offense": {"label": "TFL Allowed", "tolerance": 0.0},
+    "tfl_defense": {"label": "TFL", "tolerance": 0.0},
+    "explosives": {
+        "label": "Explosive Plays",
+        "status": "special_case",
+        "note": "Definition mismatch: brief uses 15+ rush / 20+ pass, CFBStats uses 20+ for both.",
+    },
+    "time_of_possession": {
+        "label": "Time of Possession",
+        "status": "special_case",
+        "note": "No canonical parser-derived season TOP is computed in this brief path yet.",
+    },
+}
+
+
+def _derive_yard_splits_from_play_tree(play_tree: object, offense_abbr: object) -> dict[str, int | None]:
+    offense_aliases = _abbr_set(offense_abbr)
+    if not offense_aliases:
+        return {"total": None, "rush": None, "pass": None}
+
+    total = 0
+    rush = 0
+    pas = 0
+    seen_total = seen_rush = seen_pass = False
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        if str(play.get("offense") or "").upper() not in offense_aliases:
+            continue
+        if not _counts_toward_total_offense(play):
+            continue
+        yards = play.get("yards")
+        if not isinstance(yards, (int, float)):
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        yards_i = int(yards)
+        total += yards_i
+        seen_total = True
+        if "SACK" in desc_up:
+            rush += yards_i
+            seen_rush = True
+        elif " PASS " in f" {desc_up} ":
+            pas += yards_i
+            seen_pass = True
+        elif any(token in desc_up for token in (" RUSH ", "SCRAMBLE", "KNEEL")):
+            rush += yards_i
+            seen_rush = True
+
+    return {
+        "total": total if seen_total else None,
+        "rush": rush if seen_rush else None,
+        "pass": pas if seen_pass else None,
+    }
+
+
+def _derive_cfbstats_reference_metrics(pbp_entry: dict | None) -> dict[str, float | None]:
+    if not isinstance(pbp_entry, dict):
+        return {}
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return {}
+
+    team_aliases = _abbr_set(pbp_entry.get("abbr_aliases") or pbp_entry.get("abbr"))
+    game_count = len(games)
+    pf_total = pa_total = 0.0
+    total_off = total_def = 0.0
+    rush_off = rush_def = 0.0
+    pass_off = pass_def = 0.0
+    total_off_games = total_def_games = 0
+    rush_off_games = rush_def_games = 0
+    pass_off_games = pass_def_games = 0
+    third_att = third_conv = 0
+    fourth_att = fourth_conv = 0
+    penalty_yards = 0
+    turnovers_gained = turnovers_lost = 0
+    rz_trips = rz_tds = 0
+    sacks_allowed = sacks_forced = 0
+    tfl_allowed = tfl_forced = 0
+
+    for g in games:
+        pf = g.get("points_for")
+        pa = g.get("points_against")
+        if isinstance(pf, (int, float)):
+            pf_total += float(pf)
+        if isinstance(pa, (int, float)):
+            pa_total += float(pa)
+
+        own_total = g.get("total_yards")
+        if not isinstance(own_total, (int, float)):
+            own_total = _estimate_total_yards_from_play_tree(g.get("play_tree") or [], team_aliases)
+        if isinstance(own_total, (int, float)):
+            total_off += float(own_total)
+            total_off_games += 1
+
+        opp_abbr = g.get("opponent_abbr")
+        opp_total = _estimate_total_yards_from_play_tree(g.get("play_tree") or [], opp_abbr)
+        if isinstance(opp_total, (int, float)):
+            total_def += float(opp_total)
+            total_def_games += 1
+
+        own_splits = _derive_yard_splits_from_play_tree(g.get("play_tree") or [], team_aliases)
+        opp_splits = _derive_yard_splits_from_play_tree(g.get("play_tree") or [], opp_abbr)
+        if isinstance(own_splits.get("rush"), (int, float)):
+            rush_off += float(own_splits["rush"])
+            rush_off_games += 1
+        if isinstance(own_splits.get("pass"), (int, float)):
+            pass_off += float(own_splits["pass"])
+            pass_off_games += 1
+        if isinstance(opp_splits.get("rush"), (int, float)):
+            rush_def += float(opp_splits["rush"])
+            rush_def_games += 1
+        if isinstance(opp_splits.get("pass"), (int, float)):
+            pass_def += float(opp_splits["pass"])
+            pass_def_games += 1
+
+        third_att += int(g.get("third_down_attempts") or 0)
+        third_conv += int(g.get("third_down_conversions") or 0)
+        fourth_att += int(g.get("4th_down_attempts") or 0)
+        fourth_conv += int(g.get("4th_down_conversions") or 0)
+        penalty_yards += int(g.get("penalty_yards") or 0)
+        turnovers_gained += int(g.get("turnovers_gained") or 0)
+        turnovers_lost += int(g.get("turnovers_lost") or 0)
+        rz_trips += int(g.get("red_zone_trips") or 0)
+        rz_tds += int(g.get("red_zone_tds") or 0)
+
+        opp_aliases = _abbr_set(opp_abbr)
+        for play in _iter_play_tree_plays(g.get("play_tree") or []):
+            if play.get("is_no_play"):
+                continue
+            offense = str(play.get("offense") or "").upper()
+            desc = str(play.get("description") or "").upper()
+            yards = play.get("yards")
+            if "SACK" in desc:
+                if offense in team_aliases:
+                    sacks_allowed += 1
+                    tfl_allowed += 1
+                elif offense in opp_aliases:
+                    sacks_forced += 1
+                    tfl_forced += 1
+            elif isinstance(yards, (int, float)) and yards < 0 and "RUSH" in desc:
+                if offense in team_aliases:
+                    tfl_allowed += 1
+                elif offense in opp_aliases:
+                    tfl_forced += 1
+
+    def _avg(total: float, n: int) -> float | None:
+        return round(total / n, 1) if n else None
+
+    def _pct(num: int, den: int) -> float | None:
+        return round((num / den) * 100.0, 1) if den else None
+
+    scoring_offense = _avg(pf_total, game_count)
+    scoring_defense = _avg(pa_total, game_count)
+    scoring_margin = round(scoring_offense - scoring_defense, 1) if scoring_offense is not None and scoring_defense is not None else None
+
+    return {
+        "scoring_offense": scoring_offense,
+        "scoring_defense": scoring_defense,
+        "total_offense": _avg(total_off, total_off_games),
+        "total_defense": _avg(total_def, total_def_games),
+        "rushing_offense": _avg(rush_off, rush_off_games),
+        "rushing_defense": _avg(rush_def, rush_def_games),
+        "passing_offense": _avg(pass_off, pass_off_games),
+        "passing_defense": _avg(pass_def, pass_def_games),
+        "scoring_margin": scoring_margin,
+        "turnover_margin": float(turnovers_gained - turnovers_lost),
+        "red_zone": _pct(rz_tds, rz_trips),
+        "third_down": _pct(third_conv, third_att),
+        "fourth_down": _pct(fourth_conv, fourth_att),
+        "penalties": _avg(float(penalty_yards), game_count),
+        "sacks_offense": float(sacks_allowed),
+        "sacks_defense": float(sacks_forced),
+        "tfl_offense": float(tfl_allowed),
+        "tfl_defense": float(tfl_forced),
+        "explosives": None,
+        "time_of_possession": None,
+    }
+
+
+def _infer_verification_year(pbp_entry: dict | None) -> int | None:
+    if not isinstance(pbp_entry, dict):
+        return None
+    for game in pbp_entry.get("games") or []:
+        if not isinstance(game, dict):
+            continue
+        raw_date = str(game.get("date") or game.get("game_date") or "").strip()
+        if not raw_date:
+            continue
+        try:
+            return datetime.fromisoformat(raw_date).year
+        except ValueError:
+            continue
+    return None
+
+
+def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
+    def _recompute_summary(metric_rows: list[dict]) -> dict:
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
+        for row in metric_rows:
+            status = row.get("status")
+            if status in summary:
+                summary[status] += 1
+        summary["total"] = len(metric_rows)
+        return summary
+
+    def _local_report() -> dict:
+        rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
+        turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
+        xml_rollups = ((pbp_entry or {}).get("xml_rollups") or {})
+        xml_tov = xml_rollups.get("turnovers") if isinstance(xml_rollups.get("turnovers"), dict) else {}
+        derived = _derive_cfbstats_reference_metrics(pbp_entry)
+        metrics = []
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
+
+        for key, rule in _CFBSTATS_VERIFY_RULES.items():
+            label = rule["label"]
+            if key == "turnover_margin" and isinstance(xml_tov, dict) and xml_tov:
+                gained = _to_float_number(xml_tov.get("turnovers_forced"))
+                lost = _to_float_number(xml_tov.get("turnovers"))
+                source_value = None if gained is None or lost is None else round(gained - lost, 1)
+            elif key == "turnover_margin" and isinstance(turnover_split, dict):
+                source_value = _to_float_number(turnover_split.get("margin"))
+            else:
+                source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
+            derived_value = derived.get(key)
+            if rule.get("status") == "special_case":
+                status = "special_case"
+                delta = None
+                summary[status] += 1
+            elif source_value is None:
+                status = "missing_source"
+                delta = None
+                summary[status] += 1
+            elif derived_value is None:
+                status = "missing_derived"
+                delta = None
+                summary[status] += 1
+            else:
+                delta = round(float(derived_value) - float(source_value), 1)
+                status = "match" if abs(delta) <= float(rule.get("tolerance", 0.0)) else "mismatch"
+                summary[status] += 1
+            metrics.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "status": status,
+                    "derived": derived_value,
+                    "source": source_value,
+                    "delta": delta,
+                    "tolerance": rule.get("tolerance"),
+                    "note": rule.get("note"),
+                }
+            )
+
+        summary["total"] = len(metrics)
+        return {"summary": summary, "metrics": metrics}
+
+    parser_payload = (pbp_entry or {}).get("_parser_bundle_payload")
+    if isinstance(parser_payload, dict) and _upstream_verify_bundle_against_cfbstats is not None:
+        parser_team_name = str(parser_payload.get("team_name") or team_name).strip()
+        team_slug = slugify(parser_team_name)
+        report = _upstream_verify_bundle_against_cfbstats(
+            {team_slug: parser_payload},
+            year=_infer_verification_year(pbp_entry) or datetime.now(timezone.utc).year,
+        )
+        teams = report.get("teams") or []
+        team_report = teams[0] if teams else {}
+        raw_metrics = team_report.get("metrics") or []
+        key_map = {
+            "red_zone_td_pct": "red_zone",
+            "third_down_pct": "third_down",
+            "fourth_down_pct": "fourth_down",
+            "penalty_yards_pg": "penalties",
+            "turnover_margin": "turnover_margin",
+            "total_offense_ypg": "total_offense",
+            "total_defense_ypg": "total_defense",
+            "scoring_offense_ppg": "scoring_offense",
+            "scoring_defense_ppg": "scoring_defense",
+            "scoring_margin_pg": "scoring_margin",
+            "rushing_offense_ypg": "rushing_offense",
+            "rushing_defense_ypg": "rushing_defense",
+            "passing_offense_ypg": "passing_offense",
+            "passing_defense_ypg": "passing_defense",
+            "sacks_allowed_pg": "sacks_offense",
+            "sacks_defense_pg": "sacks_defense",
+        }
+        label_map = {
+            "red_zone_td_pct": "Red Zone TD%",
+            "third_down_pct": "3rd Down %",
+            "fourth_down_pct": "4th Down %",
+            "penalty_yards_pg": "Penalties",
+            "turnover_margin": "Turnover Margin",
+            "total_offense_ypg": "Total Offense",
+            "total_defense_ypg": "Total Defense",
+            "scoring_offense_ppg": "Scoring Offense",
+            "scoring_defense_ppg": "Scoring Defense",
+            "scoring_margin_pg": "Scoring Margin",
+            "rushing_offense_ypg": "Rushing Offense",
+            "rushing_defense_ypg": "Rushing Defense",
+            "passing_offense_ypg": "Passing Offense",
+            "passing_defense_ypg": "Passing Defense",
+            "sacks_allowed_pg": "Sacks Allowed",
+            "sacks_defense_pg": "Sacks",
+        }
+        metrics = []
+        for metric in raw_metrics:
+            raw_key = metric.get("metric")
+            status = str(metric.get("status") or "")
+            if status in {"missing_cfbstats_team", "invalid_cfbstats_value"}:
+                status = "missing_source"
+            elif status not in {"match", "mismatch", "special_case", "missing_source"}:
+                status = "missing_derived"
+            metrics.append(
+                {
+                    "key": key_map.get(raw_key, raw_key),
+                    "label": label_map.get(raw_key, raw_key),
+                    "status": status,
+                    "derived": metric.get("bundle_value"),
+                    "source": metric.get("cfbstats_value"),
+                    "delta": metric.get("delta"),
+                    "note": metric.get("note"),
+                }
+            )
+        local_report = _local_report()
+        local_by_key = {m["key"]: m for m in local_report["metrics"]}
+        merged_metrics = []
+        seen_keys = set()
+        for metric in metrics:
+            key = metric.get("key")
+            seen_keys.add(key)
+            if metric.get("status") == "missing_derived" and key in local_by_key:
+                merged_metrics.append(local_by_key[key])
+            else:
+                merged_metrics.append(metric)
+        for key, metric in local_by_key.items():
+            if key not in seen_keys:
+                merged_metrics.append(metric)
+        summary = _recompute_summary(merged_metrics)
+        if summary["mismatch"]:
+            mismatch_preview = ", ".join(
+                f"{m['label']} ({m['delta']:+.1f})" for m in merged_metrics if m["status"] == "mismatch"
+            )
+            print(f"[warn] CFBStats verification mismatches for {team_name}: {mismatch_preview}", file=sys.stderr)
+        return {"summary": summary, "metrics": merged_metrics}
+
+    local_report = _local_report()
+    metrics = local_report["metrics"]
+    summary = local_report["summary"]
+
+    if summary["mismatch"]:
+        mismatch_preview = ", ".join(
+            f"{m['label']} ({m['delta']:+.1f})" for m in metrics if m["status"] == "mismatch"
+        )
+        print(f"[warn] CFBStats verification mismatches for {team_name}: {mismatch_preview}", file=sys.stderr)
+
+    return {"summary": summary, "metrics": metrics}
 
 
 def get_team_pbp(pbp_teams: dict, team_name: str, school_slug: str) -> dict | None:
@@ -3009,9 +3574,11 @@ def gather_team_data(
             if value not in (None, ""):
                 pbp_stats[key] = value
     games = pbp_entry.get("games", []) if pbp_entry else []
+    cfbstats_verification = _verify_cfbstats_metrics(team_name, pbp_entry) if pbp_entry else {"summary": {}, "metrics": []}
     turnover_game_recon = _turnover_game_reconciliation(pbp_entry) if pbp_entry else []
     turnover_recon = _turnover_reconciliation(pbp_entry, turnover_game_recon) if pbp_entry else {}
     if pbp_entry:
+        pbp_entry["cfbstats_verification"] = cfbstats_verification
         pbp_entry["turnover_reconciliation"] = turnover_recon
         pbp_entry["turnover_game_reconciliation"] = turnover_game_recon
         if turnover_recon and not turnover_recon.get("in_sync", True):
@@ -3112,6 +3679,7 @@ def gather_team_data(
         "last_n": last_n_stats,
         "turnover_reconciliation": turnover_recon,
         "turnover_game_reconciliation": turnover_game_recon,
+        "cfbstats_verification": cfbstats_verification,
         "pbp_entry": pbp_entry,
         "parity_gaps": parity_gaps,
         "has_pbp": pbp_entry is not None,
