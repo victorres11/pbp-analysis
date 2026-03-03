@@ -2607,6 +2607,67 @@ def _infer_verification_year(pbp_entry: dict | None) -> int | None:
 
 
 def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
+    def _recompute_summary(metric_rows: list[dict]) -> dict:
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
+        for row in metric_rows:
+            status = row.get("status")
+            if status in summary:
+                summary[status] += 1
+        summary["total"] = len(metric_rows)
+        return summary
+
+    def _local_report() -> dict:
+        rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
+        turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
+        xml_rollups = ((pbp_entry or {}).get("xml_rollups") or {})
+        xml_tov = xml_rollups.get("turnovers") if isinstance(xml_rollups.get("turnovers"), dict) else {}
+        derived = _derive_cfbstats_reference_metrics(pbp_entry)
+        metrics = []
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
+
+        for key, rule in _CFBSTATS_VERIFY_RULES.items():
+            label = rule["label"]
+            if key == "turnover_margin" and isinstance(xml_tov, dict) and xml_tov:
+                gained = _to_float_number(xml_tov.get("turnovers_forced"))
+                lost = _to_float_number(xml_tov.get("turnovers"))
+                source_value = None if gained is None or lost is None else round(gained - lost, 1)
+            elif key == "turnover_margin" and isinstance(turnover_split, dict):
+                source_value = _to_float_number(turnover_split.get("margin"))
+            else:
+                source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
+            derived_value = derived.get(key)
+            if rule.get("status") == "special_case":
+                status = "special_case"
+                delta = None
+                summary[status] += 1
+            elif source_value is None:
+                status = "missing_source"
+                delta = None
+                summary[status] += 1
+            elif derived_value is None:
+                status = "missing_derived"
+                delta = None
+                summary[status] += 1
+            else:
+                delta = round(float(derived_value) - float(source_value), 1)
+                status = "match" if abs(delta) <= float(rule.get("tolerance", 0.0)) else "mismatch"
+                summary[status] += 1
+            metrics.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "status": status,
+                    "derived": derived_value,
+                    "source": source_value,
+                    "delta": delta,
+                    "tolerance": rule.get("tolerance"),
+                    "note": rule.get("note"),
+                }
+            )
+
+        summary["total"] = len(metrics)
+        return {"summary": summary, "metrics": metrics}
+
     parser_payload = (pbp_entry or {}).get("_parser_bundle_payload")
     if isinstance(parser_payload, dict) and _upstream_verify_bundle_against_cfbstats is not None:
         parser_team_name = str(parser_payload.get("team_name") or team_name).strip()
@@ -2655,21 +2716,12 @@ def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
             "sacks_defense_pg": "Sacks",
         }
         metrics = []
-        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
         for metric in raw_metrics:
             raw_key = metric.get("metric")
             status = str(metric.get("status") or "")
-            if status == "match":
-                summary["match"] += 1
-            elif status == "mismatch":
-                summary["mismatch"] += 1
-            elif status == "special_case":
-                summary["special_case"] += 1
-            elif status in {"missing_cfbstats_team", "invalid_cfbstats_value"}:
-                summary["missing_source"] += 1
+            if status in {"missing_cfbstats_team", "invalid_cfbstats_value"}:
                 status = "missing_source"
-            else:
-                summary["missing_derived"] += 1
+            elif status not in {"match", "mismatch", "special_case", "missing_source"}:
                 status = "missing_derived"
             metrics.append(
                 {
@@ -2682,59 +2734,31 @@ def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
                     "note": metric.get("note"),
                 }
             )
-        summary["total"] = len(metrics)
-        # Fallback to local brief-side verification when the downstream bundle source
-        # has not yet caught up with parser-side metric coverage.
-        if summary["missing_derived"] == 0:
-            return {"summary": summary, "metrics": metrics}
+        local_report = _local_report()
+        local_by_key = {m["key"]: m for m in local_report["metrics"]}
+        merged_metrics = []
+        seen_keys = set()
+        for metric in metrics:
+            key = metric.get("key")
+            seen_keys.add(key)
+            if metric.get("status") == "missing_derived" and key in local_by_key:
+                merged_metrics.append(local_by_key[key])
+            else:
+                merged_metrics.append(metric)
+        for key, metric in local_by_key.items():
+            if key not in seen_keys:
+                merged_metrics.append(metric)
+        summary = _recompute_summary(merged_metrics)
+        if summary["mismatch"]:
+            mismatch_preview = ", ".join(
+                f"{m['label']} ({m['delta']:+.1f})" for m in merged_metrics if m["status"] == "mismatch"
+            )
+            print(f"[warn] CFBStats verification mismatches for {team_name}: {mismatch_preview}", file=sys.stderr)
+        return {"summary": summary, "metrics": merged_metrics}
 
-    rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
-    turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
-    xml_rollups = ((pbp_entry or {}).get("xml_rollups") or {})
-    xml_tov = xml_rollups.get("turnovers") if isinstance(xml_rollups.get("turnovers"), dict) else {}
-    derived = _derive_cfbstats_reference_metrics(pbp_entry)
-    metrics = []
-    summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
-
-    for key, rule in _CFBSTATS_VERIFY_RULES.items():
-        label = rule["label"]
-        if key == "turnover_margin" and isinstance(xml_tov, dict) and xml_tov:
-            gained = _to_float_number(xml_tov.get("turnovers_forced"))
-            lost = _to_float_number(xml_tov.get("turnovers"))
-            source_value = None if gained is None or lost is None else round(gained - lost, 1)
-        elif key == "turnover_margin" and isinstance(turnover_split, dict):
-            source_value = _to_float_number(turnover_split.get("margin"))
-        else:
-            source_value = _to_float_number((rankings.get(key) or {}).get("value")) if isinstance(rankings, dict) else None
-        derived_value = derived.get(key)
-        if rule.get("status") == "special_case":
-            status = "special_case"
-            delta = None
-            summary[status] += 1
-        elif source_value is None:
-            status = "missing_source"
-            delta = None
-            summary[status] += 1
-        elif derived_value is None:
-            status = "missing_derived"
-            delta = None
-            summary[status] += 1
-        else:
-            delta = round(float(derived_value) - float(source_value), 1)
-            status = "match" if abs(delta) <= float(rule.get("tolerance", 0.0)) else "mismatch"
-            summary[status] += 1
-        metrics.append(
-            {
-                "key": key,
-                "label": label,
-                "status": status,
-                "derived": derived_value,
-                "source": source_value,
-                "delta": delta,
-                "tolerance": rule.get("tolerance"),
-                "note": rule.get("note"),
-            }
-        )
+    local_report = _local_report()
+    metrics = local_report["metrics"]
+    summary = local_report["summary"]
 
     if summary["mismatch"]:
         mismatch_preview = ", ".join(
@@ -2742,7 +2766,6 @@ def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
         )
         print(f"[warn] CFBStats verification mismatches for {team_name}: {mismatch_preview}", file=sys.stderr)
 
-    summary["total"] = len(metrics)
     return {"summary": summary, "metrics": metrics}
 
 
