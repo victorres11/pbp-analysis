@@ -82,6 +82,12 @@ except Exception as exc:
     _UPSTREAM_IMPORT_ERRORS["cfbstats_scraper"] = f"{type(exc).__name__}: {exc}"
 
 try:
+    from pbp_parser.cfbstats import verify_bundle_against_cfbstats as _upstream_verify_bundle_against_cfbstats
+except Exception as exc:
+    _upstream_verify_bundle_against_cfbstats = None  # type: ignore[assignment]
+    _UPSTREAM_IMPORT_ERRORS["cfbstats_bundle_verifier"] = f"{type(exc).__name__}: {exc}"
+
+try:
     from pbp_parser.rate_limit import RateLimitConfig
 except Exception as exc:
     RateLimitConfig = None  # type: ignore[assignment]
@@ -2211,7 +2217,9 @@ def _load_xml_bundle_data() -> dict:
     out: dict = {}
     for slug, payload in raw.items():
         if isinstance(payload, dict):
-            out[slug] = _convert_xml_bundle_team(slug, payload)
+            converted = _convert_xml_bundle_team(slug, payload)
+            converted["_parser_bundle_payload"] = payload
+            out[slug] = converted
     return out
 
 
@@ -2582,7 +2590,104 @@ def _derive_cfbstats_reference_metrics(pbp_entry: dict | None) -> dict[str, floa
     }
 
 
+def _infer_verification_year(pbp_entry: dict | None) -> int | None:
+    if not isinstance(pbp_entry, dict):
+        return None
+    for game in pbp_entry.get("games") or []:
+        if not isinstance(game, dict):
+            continue
+        raw_date = str(game.get("date") or game.get("game_date") or "").strip()
+        if not raw_date:
+            continue
+        try:
+            return datetime.fromisoformat(raw_date).year
+        except ValueError:
+            continue
+    return None
+
+
 def _verify_cfbstats_metrics(team_name: str, pbp_entry: dict | None) -> dict:
+    parser_payload = (pbp_entry or {}).get("_parser_bundle_payload")
+    if isinstance(parser_payload, dict) and _upstream_verify_bundle_against_cfbstats is not None:
+        parser_team_name = str(parser_payload.get("team_name") or team_name).strip()
+        team_slug = slugify(parser_team_name)
+        report = _upstream_verify_bundle_against_cfbstats(
+            {team_slug: parser_payload},
+            year=_infer_verification_year(pbp_entry) or datetime.now(timezone.utc).year,
+        )
+        teams = report.get("teams") or []
+        team_report = teams[0] if teams else {}
+        raw_metrics = team_report.get("metrics") or []
+        key_map = {
+            "red_zone_td_pct": "red_zone",
+            "third_down_pct": "third_down",
+            "fourth_down_pct": "fourth_down",
+            "penalty_yards_pg": "penalties",
+            "turnover_margin": "turnover_margin",
+            "total_offense_ypg": "total_offense",
+            "total_defense_ypg": "total_defense",
+            "scoring_offense_ppg": "scoring_offense",
+            "scoring_defense_ppg": "scoring_defense",
+            "scoring_margin_pg": "scoring_margin",
+            "rushing_offense_ypg": "rushing_offense",
+            "rushing_defense_ypg": "rushing_defense",
+            "passing_offense_ypg": "passing_offense",
+            "passing_defense_ypg": "passing_defense",
+            "sacks_allowed_pg": "sacks_offense",
+            "sacks_defense_pg": "sacks_defense",
+        }
+        label_map = {
+            "red_zone_td_pct": "Red Zone TD%",
+            "third_down_pct": "3rd Down %",
+            "fourth_down_pct": "4th Down %",
+            "penalty_yards_pg": "Penalties",
+            "turnover_margin": "Turnover Margin",
+            "total_offense_ypg": "Total Offense",
+            "total_defense_ypg": "Total Defense",
+            "scoring_offense_ppg": "Scoring Offense",
+            "scoring_defense_ppg": "Scoring Defense",
+            "scoring_margin_pg": "Scoring Margin",
+            "rushing_offense_ypg": "Rushing Offense",
+            "rushing_defense_ypg": "Rushing Defense",
+            "passing_offense_ypg": "Passing Offense",
+            "passing_defense_ypg": "Passing Defense",
+            "sacks_allowed_pg": "Sacks Allowed",
+            "sacks_defense_pg": "Sacks",
+        }
+        metrics = []
+        summary = {"match": 0, "mismatch": 0, "missing_source": 0, "missing_derived": 0, "special_case": 0}
+        for metric in raw_metrics:
+            raw_key = metric.get("metric")
+            status = str(metric.get("status") or "")
+            if status == "match":
+                summary["match"] += 1
+            elif status == "mismatch":
+                summary["mismatch"] += 1
+            elif status == "special_case":
+                summary["special_case"] += 1
+            elif status in {"missing_cfbstats_team", "invalid_cfbstats_value"}:
+                summary["missing_source"] += 1
+                status = "missing_source"
+            else:
+                summary["missing_derived"] += 1
+                status = "missing_derived"
+            metrics.append(
+                {
+                    "key": key_map.get(raw_key, raw_key),
+                    "label": label_map.get(raw_key, raw_key),
+                    "status": status,
+                    "derived": metric.get("bundle_value"),
+                    "source": metric.get("cfbstats_value"),
+                    "delta": metric.get("delta"),
+                    "note": metric.get("note"),
+                }
+            )
+        summary["total"] = len(metrics)
+        # Fallback to local brief-side verification when the downstream bundle source
+        # has not yet caught up with parser-side metric coverage.
+        if summary["missing_derived"] == 0:
+            return {"summary": summary, "metrics": metrics}
+
     rankings = (((pbp_entry or {}).get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
     turnover_split = (((pbp_entry or {}).get("cfbstats") or {}).get("turnover_split") or {})
     xml_rollups = ((pbp_entry or {}).get("xml_rollups") or {})
