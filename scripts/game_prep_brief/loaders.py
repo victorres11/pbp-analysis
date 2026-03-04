@@ -3062,12 +3062,14 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
                 out["pff_hurry_up_pct"] = "N/A"
         try:
             avg = float(out["pff_avg_play_clock"])
-            if avg >= 18:
+            # Play clock counts DOWN from 40. Low seconds left at snap = milked the clock.
+            # High seconds left = snapped early = hurry-up.
+            if avg <= 13:
                 out["pff_tempo_label"] = "Deliberate"
-            elif avg >= 14:
+            elif avg <= 17:
                 out["pff_tempo_label"] = "Moderate"
             else:
-                out["pff_tempo_label"] = "Fast"
+                out["pff_tempo_label"] = "Hurry-Up"
         except (ValueError, TypeError):
             out["pff_tempo_label"] = "N/A"
 

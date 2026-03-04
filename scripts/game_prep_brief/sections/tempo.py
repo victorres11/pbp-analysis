@@ -28,7 +28,7 @@ def tempo_html(team: dict, label: str = "") -> str:
     hurry_pct = stats.get("pff_hurry_up_pct", "N/A")
     tempo_label = stats.get("pff_tempo_label", "N/A")
 
-    color_map = {"Fast": "#e74c3c", "Moderate": "#f39c12", "Deliberate": "#27ae60"}
+    color_map = {"Hurry-Up": "#27ae60", "Moderate": "#f39c12", "Deliberate": "#e74c3c"}
     badge_color = color_map.get(str(tempo_label), "#888")
 
     avg_display = f"{round(float(avg_clock), 1)}s" if avg_clock not in ("N/A", "") else "N/A"
