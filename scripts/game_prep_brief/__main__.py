@@ -128,18 +128,20 @@ def main():
             )
 
     section_list = [
-        overview.build(team1, team2, args.week, args.season),
-        tempo.build(team1, team2),
-        matchups.build(team1, team2),
-        schedule.build(team1, team2),
-        rankings.build(team1, team2),
-        explosives.build(team1, team2),
-        zones.build(team1, team2),
-        turnovers.build(team1, team2),
-        middle8.build(team1, team2),
-        situational.build(team1, team2),
-        special_teams.build(team1, team2),
-        penalties.build(team1, team2),
+        s for s in [
+            overview.build(team1, team2, args.week, args.season),
+            tempo.build(team1, team2),
+            matchups.build(team1, team2),
+            schedule.build(team1, team2),
+            rankings.build(team1, team2),
+            explosives.build(team1, team2),
+            zones.build(team1, team2),
+            turnovers.build(team1, team2),
+            middle8.build(team1, team2),
+            situational.build(team1, team2),
+            special_teams.build(team1, team2),
+            penalties.build(team1, team2),
+        ] if s is not None
     ]
 
     slug1 = team1["slug"]

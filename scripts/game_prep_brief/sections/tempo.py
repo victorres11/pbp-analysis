@@ -68,7 +68,23 @@ def tempo_md(team: dict, label: str = "") -> str:
     return "\n".join(lines)
 
 
-def build(team1: dict, team2: dict) -> dict:
+_TEMPO_KEYS = ("pff_avg_play_clock", "pff_hurry_up_pct", "pff_tempo_label")
+
+
+def _has_data(team: dict) -> bool:
+    """Return True if at least one tempo key has a real value (not N/A / missing)."""
+    stats = team.get("stats") or {}
+    return any(stats.get(k) not in (None, "N/A", "") for k in _TEMPO_KEYS)
+
+
+def build(team1: dict, team2: dict) -> dict | None:
+    """Return section dict, or None if tempo data is absent (e.g. stale enrichment cache).
+
+    Callers should filter out None sections. Re-run with --refresh-enrichment to populate.
+    """
+    if not _has_data(team1) and not _has_data(team2):
+        return None
+
     html_content = f"""
     <div class=\"section-grid\">
       <div class=\"team-card\">
