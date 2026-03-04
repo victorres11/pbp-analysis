@@ -66,6 +66,9 @@ ENRICHMENT_KEYS = (
     "pff_sacks_allowed_pg",
     "pff_fmt_total",
     "pff_fmt_pg",
+    "pff_avg_play_clock",
+    "pff_hurry_up_pct",
+    "pff_tempo_label",
 )
 
 _PBP_PARSER_SRC = ROOT_DIR.parent / "pbp-parser" / "src"
@@ -2997,6 +3000,9 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
             "pff_sacks_allowed_pg": "N/A",
             "pff_fmt_total": "N/A",
             "pff_fmt_pg": "N/A",
+            "pff_avg_play_clock": "N/A",
+            "pff_hurry_up_pct": "N/A",
+            "pff_tempo_label": "N/A",
         }
 
     candidates = _candidate_team_ids(team_slug, team_name)
@@ -3010,6 +3016,9 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
         "pff_sacks_allowed_pg": "N/A",
         "pff_fmt_total": "N/A",
         "pff_fmt_pg": "N/A",
+        "pff_avg_play_clock": "N/A",
+        "pff_hurry_up_pct": "N/A",
+        "pff_tempo_label": "N/A",
     }
 
     def _try_fetch(suffix: str) -> str | None:
@@ -3039,6 +3048,28 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
         if len(parts) >= 2:
             out["pff_fmt_total"] = parts[0] or "N/A"
             out["pff_fmt_pg"] = parts[1] or "N/A"
+
+    play_clock = _try_fetch("pff/play-clock?format=text")
+    if play_clock:
+        parts = [p.strip() for p in play_clock.split("\t")]
+        if len(parts) >= 1:
+            out["pff_avg_play_clock"] = parts[0] or "N/A"
+        if len(parts) >= 2:
+            try:
+                hurry_pct = round(float(parts[1]) * 100, 1)
+                out["pff_hurry_up_pct"] = f"{hurry_pct}%"
+            except (ValueError, TypeError):
+                out["pff_hurry_up_pct"] = "N/A"
+        try:
+            avg = float(out["pff_avg_play_clock"])
+            if avg >= 18:
+                out["pff_tempo_label"] = "Deliberate"
+            elif avg >= 14:
+                out["pff_tempo_label"] = "Moderate"
+            else:
+                out["pff_tempo_label"] = "Fast"
+        except (ValueError, TypeError):
+            out["pff_tempo_label"] = "N/A"
 
     return out
 
