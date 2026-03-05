@@ -94,7 +94,7 @@ def _build_matchup_rows(team1: dict, team2: dict) -> list[dict]:
 
 
 def build(team1: dict, team2: dict) -> dict:
-    rows = _build_matchup_rows(team1, team2)
+    rows = [r for r in _build_matchup_rows(team1, team2) if r["classification"]]
     if not rows:
         return {
             "title": "Key Matchups",

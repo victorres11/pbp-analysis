@@ -273,7 +273,6 @@ def _aggregate(team: dict) -> dict:
                             pen_is_offense = (
                                 pen_tok == play_off
                                 or (pen_tok in team_aliases and play_off in team_aliases)
-                                or (pen_tok in opp_aliases and play_off in opp_aliases)
                             )
                             ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)

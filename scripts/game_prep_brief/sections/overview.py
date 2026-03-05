@@ -15,23 +15,6 @@ def _safe_float(value: object) -> float | None:
         return None
 
 
-def _coach_lines(team: dict) -> list[str]:
-    coaches = team.get("coaches", {})
-    head = coaches.get("head_coach")
-    lines = [f"Head Coach: {head}" if head and head != "N/A" else "Head Coach: Unavailable in current source"]
-    play_caller = coaches.get("play_caller")
-    if play_caller:
-        title = coaches.get("play_caller_title") or "Play Caller"
-        lines.append(f"Play Caller: {play_caller} ({title})")
-    elif coaches.get("oc") and coaches.get("oc") != "N/A":
-        title = coaches.get("oc_title") or "OC"
-        lines.append(f"Off. Coord: {coaches.get('oc')} ({title})")
-
-    if coaches.get("dc") and coaches.get("dc") != "N/A":
-        title = coaches.get("dc_title") or "DC"
-        lines.append(f"Def. Coord: {coaches.get('dc')} ({title})")
-    return lines
-
 
 def _season_summary(team: dict) -> list[str]:
     stats = team.get("stats", {})

@@ -24,7 +24,6 @@ from .loaders import (
 )
 from .sections import (
     overview,
-    tempo,
     matchups,
     schedule,
     explosives,
