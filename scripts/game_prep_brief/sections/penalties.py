@@ -246,8 +246,8 @@ def _aggregate(team: dict) -> dict:
                         play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
                         is_team_penalty = pen_tok and pen_tok in team_aliases
 
-                        # PI drawn/allowed tracking requires both teams' penalties.
-                        if "PASS INTERFERENCE" in desc_up:
+                        # PI drawn/allowed tracking requires both teams' penalties (accepted only).
+                        if "PASS INTERFERENCE" in desc_up and "DECLINED" not in desc_up:
                             if pen_tok and pen_tok in team_aliases:
                                 pi_allowed += 1
                             elif pen_tok and pen_tok in opp_aliases:
@@ -263,8 +263,10 @@ def _aggregate(team: dict) -> dict:
                                 elif play_off and play_off in opp_aliases:
                                     pi_drawn += 1
 
-                        # Only count the team's own penalties in aggregates.
+                        # Only count the team's own accepted penalties in aggregates.
                         if not is_team_penalty:
+                            continue
+                        if "DECLINED" in desc_up:
                             continue
 
                         pen_obj = {"description": desc}
@@ -385,13 +387,23 @@ def _aggregate(team: dict) -> dict:
         has_pi_breakdown = bool(pi_drawn or pi_allowed)
         has_holding_breakdown = bool(off_holding or def_holding)
 
+    # Reconcile top-type counts with bundle source of truth where available.
+    if stats_row:
+        _overrides = {
+            "Offensive Holding": off_holding,
+            "Defensive Holding": def_holding,
+            "Pass Interference": pi_allowed,
+        }
+        for label, authoritative in _overrides.items():
+            if authoritative > 0 or label in by_type_count:
+                by_type_count[label] = authoritative
+
     return {
         "total": total,
         "yards": yards,
         "by_side": by_side,
         "by_group": by_group,
         "by_type_count": by_type_count,
-        "by_type_yards": by_type_yards,
         "by_quarter": by_quarter,
         "per_game": sorted(per_game, key=lambda r: r["game_number"]),
         "pi_drawn": pi_drawn,
