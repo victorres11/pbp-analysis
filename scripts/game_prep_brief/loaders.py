@@ -2221,10 +2221,12 @@ def _load_xml_bundle_data() -> dict:
     with open(XML_BUNDLE_JSON) as f:
         raw = json.load(f)
     out: dict = {}
+    # Support wrapper shape {"teams": {...}, "_meta": {...}} and legacy flat shape.
     meta = raw.get("_meta")
     if isinstance(meta, dict):
         out["_meta"] = meta
-    for slug, payload in raw.items():
+    teams = raw.get("teams", raw) if "teams" in raw else raw
+    for slug, payload in teams.items():
         if slug.startswith("_"):
             continue
         if isinstance(payload, dict):
