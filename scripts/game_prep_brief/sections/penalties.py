@@ -81,6 +81,24 @@ def _extract_penalized_team_token(desc: str) -> str:
     return ""
 
 
+def _expand_aliases(base_set: set[str]) -> set[str]:
+    """Expand a team abbreviation set with known raw-text aliases.
+
+    The adapter normalizes abbreviations (e.g. WASH→UW), but play-text still
+    uses the raw form.  Import the normalization table to reverse-map.
+    """
+    try:
+        from pbp_parser.statbroadcast.adapter import _TEAM_ABBR_NORMALIZATION
+    except ImportError:
+        return base_set
+    expanded = set(base_set)
+    for raw, canonical in _TEAM_ABBR_NORMALIZATION.items():
+        norm = re.sub(r"[^A-Z0-9]", "", canonical.upper())
+        if norm in base_set:
+            expanded.add(re.sub(r"[^A-Z0-9]", "", raw.upper()))
+    return expanded
+
+
 def _penalty_stats_row(team: dict) -> dict | None:
     """Best available team penalty row from bundled stats payload."""
     pbp = team.get("pbp_entry") or {}
@@ -150,7 +168,7 @@ def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
-    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
+    team_aliases = _expand_aliases(_abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr")))
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -186,6 +204,11 @@ def _aggregate(team: dict) -> dict:
             y = p.get("yards", 0) or 0
             side = (p.get("offense_or_defense", "unknown") or "unknown").lower()
             ptype = _simplify_penalty(p)
+            if ptype == "Holding":
+                if side == "offense":
+                    ptype = "Offensive Holding"
+                elif side == "defense":
+                    ptype = "Defensive Holding"
             group = _penalty_group(p)
 
             total += 1
@@ -220,6 +243,16 @@ def _aggregate(team: dict) -> dict:
                             continue
                         pen_obj = {"description": desc}
                         ptype = _simplify_penalty(pen_obj)
+                        if ptype == "Holding":
+                            _pen_tok = _extract_penalized_team_token(desc.upper())
+                            _play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                            if _pen_tok and _play_off:
+                                _pen_is_offense = (
+                                    _pen_tok == _play_off
+                                    or (_pen_tok in team_aliases and _play_off in team_aliases)
+                                    or (_pen_tok in opp_aliases and _play_off in opp_aliases)
+                                )
+                                ptype = "Offensive Holding" if _pen_is_offense else "Defensive Holding"
                         by_type_count[ptype] += 1
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
