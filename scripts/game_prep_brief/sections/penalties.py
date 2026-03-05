@@ -432,11 +432,9 @@ def _team_html(team: dict) -> str:
     stats_row = _penalty_stats_row(team) or {}
     has_source_data = bool(games) or bool(stats_row)
     top_common = agg["by_type_count"].most_common(3)
-    top_yards = agg["by_type_yards"].most_common(3)
     per_game_rows = agg["per_game"]
 
     common_html = "".join(f"<li>{k}: {v}</li>" for k, v in top_common) or "<li>N/A</li>"
-    yards_html = "".join(f"<li>{k}: {v} yds</li>" for k, v in top_yards) or "<li>N/A</li>"
 
     offense = agg["by_side"].get("offense", {"count": 0, "yards": 0})
     defense = agg["by_side"].get("defense", {"count": 0, "yards": 0})
@@ -533,10 +531,6 @@ def _team_html(team: dict) -> str:
       <div class=\"block\">
         <h4>Top Types (Count)</h4>
         <ul>{common_html}</ul>
-      </div>
-      <div class=\"block\">
-        <h4>Top Types (Yards)</h4>
-        <ul>{yards_html}</ul>
       </div>
       <div class=\"block\">
         <h4>Per-Game Breakdown</h4>
