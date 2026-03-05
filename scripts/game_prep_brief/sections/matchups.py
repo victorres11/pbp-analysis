@@ -21,10 +21,35 @@ def _rank(team: dict, key: str) -> int | None:
         return None
 
 
-def _build_callouts(team1: dict, team2: dict) -> list[dict]:
+def _classify(off_rank: int, def_rank: int, max_rank: int) -> str:
+    strong_cutoff = max(3, round(max_rank * 0.25))
+    weak_cutoff = max(strong_cutoff + 2, round(max_rank * 0.75))
+    off_strong = off_rank <= strong_cutoff
+    off_weak = off_rank >= weak_cutoff
+    def_strong = def_rank <= strong_cutoff
+    def_weak = def_rank >= weak_cutoff
+    if off_strong and def_strong:
+        return "Strength vs Strength"
+    if off_weak and def_weak:
+        return "Weakness vs Weakness"
+    if off_strong and def_weak:
+        return "Strength vs Weakness"
+    if off_weak and def_strong:
+        return "Weakness vs Strength"
+    return ""
+
+
+_CLASS_COLORS = {
+    "Strength vs Strength": "#334155",
+    "Strength vs Weakness": "#166534",
+    "Weakness vs Strength": "#991b1b",
+    "Weakness vs Weakness": "#7c2d12",
+}
+
+
+def _build_matchup_rows(team1: dict, team2: dict) -> list[dict]:
     t1_name = team1.get("display_name", "Team 1")
     t2_name = team2.get("display_name", "Team 2")
-    out: list[dict] = []
 
     all_ranks: list[int] = []
     for off_key, def_key, _ in MATCHUP_KEYS:
@@ -33,105 +58,81 @@ def _build_callouts(team1: dict, team2: dict) -> list[dict]:
             if r is not None:
                 all_ranks.append(r)
     max_rank = max(all_ranks) if all_ranks else 134
-    strong_cutoff = max(3, round(max_rank * 0.25))
-    weak_cutoff = max(strong_cutoff + 2, round(max_rank * 0.75))
 
-    def add_adv(off_team: str, def_team: str, label: str, off_rank: int, def_rank: int) -> None:
-        diff = def_rank - off_rank
-        if abs(diff) < 3:
-            return
-        if diff > 0:
-            text = (
-                f"{off_team} {label} has an edge: offense rank #{off_rank} "
-                f"vs {def_team} defense rank #{def_rank}."
-            )
-            color = "#166534"
-        else:
-            text = (
-                f"{def_team} can neutralize {off_team} {label.lower()}: defense rank #{def_rank} "
-                f"vs offense rank #{off_rank}."
-            )
-            color = "#991b1b"
-        out.append({"score": abs(diff), "text": text, "color": color})
-
+    rows: list[dict] = []
     for off_key, def_key, label in MATCHUP_KEYS:
         t1_off = _rank(team1, off_key)
-        t1_def = _rank(team1, def_key)
-        t2_off = _rank(team2, off_key)
         t2_def = _rank(team2, def_key)
+        t2_off = _rank(team2, off_key)
+        t1_def = _rank(team1, def_key)
 
         if t1_off is not None and t2_def is not None:
-            add_adv(t1_name, t2_name, label, t1_off, t2_def)
-            if t1_off <= strong_cutoff and t2_def <= strong_cutoff:
-                out.append(
-                    {
-                        "score": 2,
-                        "text": f"{label} is strength-on-strength: {t1_name} offense #{t1_off} vs {t2_name} defense #{t2_def}.",
-                        "color": "#334155",
-                    }
-                )
-            elif t1_off >= weak_cutoff and t2_def >= weak_cutoff:
-                out.append(
-                    {
-                        "score": 2,
-                        "text": f"{label} is weakness-on-weakness: {t1_name} offense #{t1_off} vs {t2_name} defense #{t2_def}.",
-                        "color": "#7c2d12",
-                    }
-                )
-        if t2_off is not None and t1_def is not None:
-            add_adv(t2_name, t1_name, label, t2_off, t1_def)
-            if t2_off <= strong_cutoff and t1_def <= strong_cutoff:
-                out.append(
-                    {
-                        "score": 2,
-                        "text": f"{label} is strength-on-strength: {t2_name} offense #{t2_off} vs {t1_name} defense #{t1_def}.",
-                        "color": "#334155",
-                    }
-                )
-            elif t2_off >= weak_cutoff and t1_def >= weak_cutoff:
-                out.append(
-                    {
-                        "score": 2,
-                        "text": f"{label} is weakness-on-weakness: {t2_name} offense #{t2_off} vs {t1_name} defense #{t1_def}.",
-                        "color": "#7c2d12",
-                    }
-                )
+            classification = _classify(t1_off, t2_def, max_rank)
+            rows.append({
+                "label": label,
+                "offense": t1_name,
+                "off_rank": t1_off,
+                "defense": t2_name,
+                "def_rank": t2_def,
+                "classification": classification,
+                "color": _CLASS_COLORS.get(classification, "#a1a1aa"),
+            })
 
-    unique = []
-    seen = set()
-    for row in sorted(out, key=lambda item: item["score"], reverse=True):
-        text = row["text"]
-        if text in seen:
-            continue
-        seen.add(text)
-        unique.append(row)
-        if len(unique) >= 5:
-            break
-    return unique
+        if t2_off is not None and t1_def is not None:
+            classification = _classify(t2_off, t1_def, max_rank)
+            rows.append({
+                "label": label,
+                "offense": t2_name,
+                "off_rank": t2_off,
+                "defense": t1_name,
+                "def_rank": t1_def,
+                "classification": classification,
+                "color": _CLASS_COLORS.get(classification, "#a1a1aa"),
+            })
+
+    return rows
 
 
 def build(team1: dict, team2: dict) -> dict:
-    callouts = _build_callouts(team1, team2)
-    if not callouts:
+    rows = _build_matchup_rows(team1, team2)
+    if not rows:
         return {
             "title": "Key Matchups",
-            "html_content": "<p>No matchup callouts available.</p>",
-            "md_content": "*Key Matchups*\n- No matchup callouts available.",
+            "html_content": "<p>No matchup data available.</p>",
+            "md_content": "*Key Matchups*\n- No matchup data available.",
             "key": "matchups",
         }
 
-    html_content = (
-        "<ul>"
-        + "".join(
-            f"<li><span style='color:{item['color']};font-weight:600'>{item['text']}</span></li>"
-            for item in callouts
+    # HTML: table layout
+    table_rows = ""
+    for r in rows:
+        tag = f"<span style='color:{r['color']};font-weight:600'>{r['classification']}</span>" if r["classification"] else ""
+        table_rows += (
+            f"<tr>"
+            f"<td>{r['label']}</td>"
+            f"<td>{r['offense']} OFF #{r['off_rank']}</td>"
+            f"<td>{r['defense']} DEF #{r['def_rank']}</td>"
+            f"<td>{tag}</td>"
+            f"</tr>"
         )
-        + "</ul>"
+    html_content = (
+        "<table class='matchup-table'>"
+        "<thead><tr><th>Category</th><th>Offense</th><th>Defense</th><th>Type</th></tr></thead>"
+        f"<tbody>{table_rows}</tbody>"
+        "</table>"
     )
-    md_content = "\n".join(["*Key Matchups*"] + [f"- {item['text']}" for item in callouts])
+
+    # Markdown: aligned rows
+    md_lines = ["*Key Matchups*", ""]
+    for r in rows:
+        tag = f" — {r['classification']}" if r["classification"] else ""
+        md_lines.append(
+            f"- **{r['label']}**: {r['offense']} OFF #{r['off_rank']} vs {r['defense']} DEF #{r['def_rank']}{tag}"
+        )
+
     return {
         "title": "Key Matchups",
         "html_content": html_content,
-        "md_content": md_content,
+        "md_content": "\n".join(md_lines),
         "key": "matchups",
     }

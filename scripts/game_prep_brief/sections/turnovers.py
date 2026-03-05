@@ -41,14 +41,29 @@ def _live_turnover_split(team: dict) -> dict:
     return split if isinstance(split, dict) else {}
 
 
-def _post_turnover_drives(games: list[dict]) -> list[str]:
+def _post_turnover_drives(games: list[dict]) -> list[dict]:
     items = []
     for g in sorted(games, key=lambda x: x.get("game_number", 0))[-3:]:
         opp = g.get("opponent", "?")
         drives = g.get("post_turnover_drives", []) or []
         if not drives:
             continue
-        items.append(f"G{g.get('game_number', '?')} vs {opp}: {len(drives)} drives")
+        drive_details = []
+        for i, d in enumerate(drives, 1):
+            result = d.get("drive_result", "?")
+            yards = d.get("total_yards", "?")
+            num_plays = d.get("num_plays", "?")
+            drive_details.append({
+                "drive_num": i,
+                "result": result,
+                "yards": yards,
+                "num_plays": num_plays,
+            })
+        items.append({
+            "game_label": f"G{g.get('game_number', '?')} vs {opp}",
+            "count": len(drives),
+            "drives": drive_details,
+        })
     return items
 
 
@@ -104,7 +119,17 @@ def _team_html(team: dict) -> str:
     season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
     drives_list = _post_turnover_drives(games)
-    drives_html = "".join(f"<li>{d}</li>" for d in drives_list) or "<li>N/A</li>"
+    drives_html_parts = []
+    for game_entry in drives_list:
+        drives_html_parts.append(f"<li><strong>{game_entry['game_label']}: {game_entry['count']} drives</strong>")
+        if game_entry["drives"]:
+            inner = "".join(
+                f"<li>Drive {d['drive_num']}: {d['result']}, {d['yards']} yds, {d['num_plays']} plays</li>"
+                for d in game_entry["drives"]
+            )
+            drives_html_parts.append(f"<ul>{inner}</ul>")
+        drives_html_parts.append("</li>")
+    drives_html = "".join(drives_html_parts) or "<li>N/A</li>"
     avg_pts_post_to = _avg_pts_after_turnover(games)
     avg_pts_text = f"{avg_pts_post_to}" if isinstance(avg_pts_post_to, (int, float)) else "N/A"
 

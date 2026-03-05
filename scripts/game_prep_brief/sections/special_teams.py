@@ -56,12 +56,29 @@ def _sum_optional_game_metric(games: list[dict], key: str) -> int | None:
     return int(sum(values))
 
 
+def _cfbstats_two_point(team: dict) -> dict:
+    """Extract cfbstats two-point source values from the verification report."""
+    verification = team.get("cfbstats_verification") or {}
+    metrics = verification.get("metrics") or []
+    out = {}
+    for m in metrics:
+        key = m.get("key", "")
+        source = m.get("source")
+        if key.startswith("two_point") and source is not None:
+            try:
+                out[key] = int(source)
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
 def _team_stats(team: dict) -> dict:
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
     xml_stats = pbp.get("xml_stats") or {}
     xml_st = xml_stats.get("special_teams") if isinstance(xml_stats.get("special_teams"), dict) else {}
     xml_tp = xml_stats.get("two_point") if isinstance(xml_stats.get("two_point"), dict) else {}
+    cfb_tp = _cfbstats_two_point(team)
 
     team_abbr = str((team.get("stats") or {}).get("abbr") or "").upper()
 
@@ -206,6 +223,15 @@ def _team_stats(team: dict) -> dict:
         out["l3_two_pt_conv"] = "N/A"
         out["l3_two_pt_allowed_att"] = "N/A"
         out["l3_two_pt_allowed_conv"] = "N/A"
+    # Prefer cfbstats season totals when available (more widely cited source).
+    if cfb_tp.get("two_point_attempts") is not None:
+        out["two_pt_att"] = cfb_tp["two_point_attempts"]
+    if cfb_tp.get("two_point_conversions") is not None:
+        out["two_pt_conv"] = cfb_tp["two_point_conversions"]
+    if cfb_tp.get("two_point_allowed_attempts") is not None:
+        out["two_pt_allowed_att"] = cfb_tp["two_point_allowed_attempts"]
+    if cfb_tp.get("two_point_allowed_conversions") is not None:
+        out["two_pt_allowed_conv"] = cfb_tp["two_point_allowed_conversions"]
     if not has_any_data:
         out.update(
             {

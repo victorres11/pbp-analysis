@@ -1215,6 +1215,7 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
             points_off_turnovers_for += points_scored
         else:
             points_off_turnovers_against += points_scored
+        total_yards = sum(p.get("yards", 0) or 0 for p in drive_plays if isinstance(p.get("yards"), (int, float)))
         post_turnover_drives.append(
             {
                 "quarter": start_quarter if isinstance(start_quarter, int) else quarter_num,
@@ -1224,6 +1225,8 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
                 "recovered_by": recovered_by or recovered_by_default or "?",
                 "drive_result": drive_result,
                 "points_scored": points_scored,
+                "num_plays": len(drive_plays),
+                "total_yards": total_yards,
                 "turnover_description": play.get("description") or "",
             }
         )
@@ -2218,7 +2221,12 @@ def _load_xml_bundle_data() -> dict:
     with open(XML_BUNDLE_JSON) as f:
         raw = json.load(f)
     out: dict = {}
+    meta = raw.get("_meta")
+    if isinstance(meta, dict):
+        out["_meta"] = meta
     for slug, payload in raw.items():
+        if slug.startswith("_"):
+            continue
         if isinstance(payload, dict):
             converted = _convert_xml_bundle_team(slug, payload)
             converted["_parser_bundle_payload"] = payload

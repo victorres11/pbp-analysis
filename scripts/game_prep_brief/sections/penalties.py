@@ -161,6 +161,10 @@ def _aggregate(team: dict) -> dict:
     per_game = []
     pi_drawn = 0
     pi_allowed = 0
+    off_holding = 0
+    off_holding_yards = 0
+    def_holding = 0
+    def_holding_yards = 0
 
     for g in games:
         opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
@@ -282,6 +286,10 @@ def _aggregate(team: dict) -> dict:
         }
         pi_drawn = int(stats_row.get("pass_interference_drawn", pi_drawn) or 0)
         pi_allowed = int(stats_row.get("pass_interference_allowed", pi_allowed) or 0)
+        off_holding = int(stats_row.get("offensive_holding", off_holding) or 0)
+        off_holding_yards = int(stats_row.get("offensive_holding_yards", off_holding_yards) or 0)
+        def_holding = int(stats_row.get("defensive_holding", def_holding) or 0)
+        def_holding_yards = int(stats_row.get("defensive_holding_yards", def_holding_yards) or 0)
         has_group_breakdown = any(
             stats_row.get(k) is not None
             for k in (
@@ -304,6 +312,13 @@ def _aggregate(team: dict) -> dict:
                 "pass_interference_allowed_yards",
             )
         ) and not (total > 0 and pi_drawn == 0 and pi_allowed == 0)
+        has_holding_breakdown = any(
+            stats_row.get(k) is not None
+            for k in (
+                "offensive_holding",
+                "defensive_holding",
+            )
+        ) and not (total > 0 and off_holding == 0 and def_holding == 0)
         # XML feeds can publish zeroed advanced splits while per-play details are present.
         if (
             total > 0
@@ -326,9 +341,12 @@ def _aggregate(team: dict) -> dict:
             has_group_breakdown = True
         if not has_pi_breakdown and (pi_drawn > 0 or pi_allowed > 0):
             has_pi_breakdown = True
+        if not has_holding_breakdown and (off_holding > 0 or def_holding > 0):
+            has_holding_breakdown = True
     else:
         has_group_breakdown = bool(by_group["procedural"]["count"] or by_group["live_ball"]["count"])
         has_pi_breakdown = bool(pi_drawn or pi_allowed)
+        has_holding_breakdown = bool(off_holding or def_holding)
 
     return {
         "total": total,
@@ -341,8 +359,13 @@ def _aggregate(team: dict) -> dict:
         "per_game": sorted(per_game, key=lambda r: r["game_number"]),
         "pi_drawn": pi_drawn,
         "pi_allowed": pi_allowed,
+        "off_holding": off_holding,
+        "off_holding_yards": off_holding_yards,
+        "def_holding": def_holding,
+        "def_holding_yards": def_holding_yards,
         "has_group_breakdown": has_group_breakdown,
         "has_pi_breakdown": has_pi_breakdown,
+        "has_holding_breakdown": has_holding_breakdown,
     }
 
 
@@ -384,6 +407,7 @@ def _team_html(team: dict) -> str:
     live_ball = agg["by_group"].get("live_ball", {"count": 0, "yards": 0})
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
+    show_holding = bool(agg.get("has_holding_breakdown"))
     if stats_row:
         pen_per_game = stats_row.get("total_penalties_pg")
         yds_per_game = stats_row.get("total_penalty_yards_pg")
@@ -425,6 +449,8 @@ def _team_html(team: dict) -> str:
         l3_live = stats_row.get("last_3_live_ball_penalties_pg")
         l3_pi_drawn = stats_row.get("last_3_pass_interference_drawn_pg")
         l3_pi_allowed = stats_row.get("last_3_pass_interference_allowed_pg")
+        l3_off_holding = stats_row.get("last_3_offensive_holding_pg")
+        l3_def_holding = stats_row.get("last_3_defensive_holding_pg")
 
         proc_live_line = ""
         if show_group and l3_proc is not None and l3_live is not None:
@@ -432,6 +458,9 @@ def _team_html(team: dict) -> str:
         pi_line = ""
         if show_pi and l3_pi_drawn is not None and l3_pi_allowed is not None:
             pi_line = f"<li>PI Drawn: {l3_pi_drawn:.1f} / PI Allowed: {l3_pi_allowed:.1f}</li>"
+        holding_line = ""
+        if show_holding and l3_off_holding is not None and l3_def_holding is not None:
+            holding_line = f"<li>Off. Holding: {l3_off_holding:.1f} / Def. Holding: {l3_def_holding:.1f}</li>"
 
         last_n_html = f"""
       <div class=\"block\">
@@ -441,6 +470,7 @@ def _team_html(team: dict) -> str:
           <li>Offense: {l3_off:.1f} / Defense: {l3_def:.1f} / ST: {last_n.get('penalties_special_teams', 0):.1f}</li>
           {proc_live_line}
           {pi_line}
+          {holding_line}
         </ul>
       </div>
         """
@@ -458,6 +488,7 @@ def _team_html(team: dict) -> str:
           <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}</li>
           <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}</li>
           <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}</li>
+          <li>Offensive Holding: {f"{agg['off_holding']} / {agg['off_holding_yards']} yds" if show_holding else 'N/A'} | Defensive Holding: {f"{agg['def_holding']} / {agg['def_holding_yards']} yds" if show_holding else 'N/A'}</li>
           <li>CFBStats Rank: {_penalties_rank(team)}</li>
         </ul>
       </div>
@@ -512,6 +543,7 @@ def _team_md(team: dict) -> str:
     live_ball = agg["by_group"].get("live_ball", {"count": 0})
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
+    show_holding = bool(agg.get("has_holding_breakdown"))
 
     lines = [f"*{team['display_name']}*"]
     suffix = ""
@@ -531,6 +563,10 @@ def _team_md(team: dict) -> str:
     lines.append(
         f"- PI Drawn / Allowed: "
         f"{agg['pi_drawn'] if show_pi else 'N/A'} / {agg['pi_allowed'] if show_pi else 'N/A'}"
+    )
+    lines.append(
+        f"- Off. Holding / Def. Holding: "
+        f"{agg['off_holding'] if show_holding else 'N/A'} / {agg['def_holding'] if show_holding else 'N/A'}"
     )
     lines.append(f"- Top Penalty Type: {worst}")
     return "\n".join(lines)

@@ -83,6 +83,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     pbp_teams = load_pbp_data(matchup_slug=args.matchup_slug)
+    bundle_meta = pbp_teams.pop("_meta", None) or {}
     team_specs = [
         {"slug": slugify(args.team1), "display_name": args.team1},
         {"slug": slugify(args.team2), "display_name": args.team2},
@@ -129,8 +130,7 @@ def main():
 
     section_list = [
         s for s in [
-            overview.build(team1, team2, args.week, args.season),
-            tempo.build(team1, team2),
+            overview.build(team1, team2, args.week, args.season, bundle_meta=bundle_meta),
             matchups.build(team1, team2),
             schedule.build(team1, team2),
             rankings.build(team1, team2),
