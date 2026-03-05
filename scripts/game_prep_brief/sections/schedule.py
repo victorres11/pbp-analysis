@@ -109,7 +109,6 @@ def _team_table_html(team: dict) -> str:
                   <td>—</td>
                   <td>—</td>
                   <td>—</td>
-                  <td><span style=\"font-weight:600;color:#334155\">Off</span></td>
                 </tr>
                 """
             )
@@ -149,7 +148,6 @@ def _team_table_html(team: dict) -> str:
               <td>{yds}</td>
               <td>{_fmt_delta(pf_delta)}</td>
               <td>{_fmt_delta(pa_delta, inverse=True)}</td>
-              <td><span style=\"font-weight:600;color:{badge_color}\">{badge_text}</span></td>
             </tr>
             """
         )
@@ -169,14 +167,12 @@ def _team_table_html(team: dict) -> str:
             <th>Yds</th>
             <th>PF vs Avg</th>
             <th>PA vs Avg</th>
-            <th>Rel Perf</th>
           </tr>
         </thead>
         <tbody>
           {''.join(rows)}
         </tbody>
       </table>
-      <div class="section-note">Rel Perf v1 uses team season baselines. Opponent-baseline overlay can be added when full opponent averages are available.</div>
     </div>
     """
 
@@ -222,9 +218,8 @@ def _team_md(team: dict) -> str:
         score_txt = f"{int(pf)}-{int(pa)}" if pf is not None and pa is not None else "—"
         yds = game.get("total_yards", "—")
         lines.append(
-            f"- Wk {wk} ({loc}) {prefix} {opponent}: {result} {score_txt} | Yds {yds} | PFΔ {_fmt_delta(pf_delta)} | PAΔ {_fmt_delta(pa_delta, inverse=True)} | {badge_text}"
+            f"- Wk {wk} ({loc}) {prefix} {opponent}: {result} {score_txt} | Yds {yds} | PFΔ {_fmt_delta(pf_delta)} | PAΔ {_fmt_delta(pa_delta, inverse=True)}"
         )
-    lines.append("- Note: Relative performance v1 compares each game vs team season averages.")
     return "\n".join(lines)
 
 

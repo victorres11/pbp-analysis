@@ -310,7 +310,6 @@ def build(team1: dict, team2: dict) -> dict:
     t2_rz = t2_stats.get("rz_td_pct", "N/A")
 
     html_content = f"""
-    <div class="metric-compare"><p>{t1_name}: {t1_rz}% | {t2_name}: {t2_rz}% Red Zone TD%</p></div>
     <div class="section-grid">
       {_team_html(team1, t1_stats)}
       {_team_html(team2, t2_stats)}

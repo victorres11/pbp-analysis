@@ -81,6 +81,24 @@ def _extract_penalized_team_token(desc: str) -> str:
     return ""
 
 
+def _expand_aliases(base_set: set[str]) -> set[str]:
+    """Expand a team abbreviation set with known raw-text aliases.
+
+    The adapter normalizes abbreviations (e.g. WASH→UW), but play-text still
+    uses the raw form.  Import the normalization table to reverse-map.
+    """
+    try:
+        from pbp_parser.statbroadcast.adapter import _TEAM_ABBR_NORMALIZATION
+    except ImportError:
+        return base_set
+    expanded = set(base_set)
+    for raw, canonical in _TEAM_ABBR_NORMALIZATION.items():
+        norm = re.sub(r"[^A-Z0-9]", "", canonical.upper())
+        if norm in base_set:
+            expanded.add(re.sub(r"[^A-Z0-9]", "", raw.upper()))
+    return expanded
+
+
 def _penalty_stats_row(team: dict) -> dict | None:
     """Best available team penalty row from bundled stats payload."""
     pbp = team.get("pbp_entry") or {}
@@ -150,7 +168,7 @@ def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
-    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
+    team_aliases = _expand_aliases(_abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr")))
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -161,6 +179,10 @@ def _aggregate(team: dict) -> dict:
     per_game = []
     pi_drawn = 0
     pi_allowed = 0
+    off_holding = 0
+    off_holding_yards = 0
+    def_holding = 0
+    def_holding_yards = 0
 
     for g in games:
         opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
@@ -182,6 +204,11 @@ def _aggregate(team: dict) -> dict:
             y = p.get("yards", 0) or 0
             side = (p.get("offense_or_defense", "unknown") or "unknown").lower()
             ptype = _simplify_penalty(p)
+            if ptype == "Holding":
+                if side == "offense":
+                    ptype = "Offensive Holding"
+                elif side == "defense":
+                    ptype = "Defensive Holding"
             group = _penalty_group(p)
 
             total += 1
@@ -214,11 +241,43 @@ def _aggregate(team: dict) -> dict:
                         desc = str(play.get("description") or "")
                         if "PENALTY" not in desc.upper():
                             continue
+                        desc_up = desc.upper()
+                        pen_tok = _extract_penalized_team_token(desc_up)
+                        play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                        is_team_penalty = pen_tok and pen_tok in team_aliases
+
+                        # PI drawn/allowed tracking requires both teams' penalties.
+                        if "PASS INTERFERENCE" in desc_up:
+                            if pen_tok and pen_tok in team_aliases:
+                                pi_allowed += 1
+                            elif pen_tok and pen_tok in opp_aliases:
+                                pi_drawn += 1
+                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
+                                if play_off and play_off in team_aliases:
+                                    pi_drawn += 1
+                                elif play_off and play_off in opp_aliases:
+                                    pi_allowed += 1
+                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
+                                if play_off and play_off in team_aliases:
+                                    pi_allowed += 1
+                                elif play_off and play_off in opp_aliases:
+                                    pi_drawn += 1
+
+                        # Only count the team's own penalties in aggregates.
+                        if not is_team_penalty:
+                            continue
+
                         pen_obj = {"description": desc}
                         ptype = _simplify_penalty(pen_obj)
-                        by_type_count[ptype] += 1
+                        if ptype == "Holding" and pen_tok and play_off:
+                            pen_is_offense = (
+                                pen_tok == play_off
+                                or (pen_tok in team_aliases and play_off in team_aliases)
+                            )
+                            ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
+                        by_type_count[ptype] += 1
                         by_type_yards[ptype] += y_val
                         group = _penalty_group(pen_obj)
                         by_group[group]["count"] += 1
@@ -233,24 +292,6 @@ def _aggregate(team: dict) -> dict:
                         else:
                             game_row["live_ball_count"] += 1
                             game_row["live_ball_yards"] += y_val
-                        if "PASS INTERFERENCE" in desc.upper():
-                            desc_up = desc.upper()
-                            penalized = _extract_penalized_team_token(desc_up)
-                            offense = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                            if penalized and penalized in team_aliases:
-                                pi_allowed += 1
-                            elif penalized and penalized in opp_aliases:
-                                pi_drawn += 1
-                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
-                                if offense and offense in team_aliases:
-                                    pi_drawn += 1
-                                elif offense and offense in opp_aliases:
-                                    pi_allowed += 1
-                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
-                                if offense and offense in team_aliases:
-                                    pi_allowed += 1
-                                elif offense and offense in opp_aliases:
-                                    pi_drawn += 1
 
         per_game.append(game_row)
 
@@ -282,6 +323,10 @@ def _aggregate(team: dict) -> dict:
         }
         pi_drawn = int(stats_row.get("pass_interference_drawn", pi_drawn) or 0)
         pi_allowed = int(stats_row.get("pass_interference_allowed", pi_allowed) or 0)
+        off_holding = int(stats_row.get("offensive_holding", off_holding) or 0)
+        off_holding_yards = int(stats_row.get("offensive_holding_yards", off_holding_yards) or 0)
+        def_holding = int(stats_row.get("defensive_holding", def_holding) or 0)
+        def_holding_yards = int(stats_row.get("defensive_holding_yards", def_holding_yards) or 0)
         has_group_breakdown = any(
             stats_row.get(k) is not None
             for k in (
@@ -304,6 +349,13 @@ def _aggregate(team: dict) -> dict:
                 "pass_interference_allowed_yards",
             )
         ) and not (total > 0 and pi_drawn == 0 and pi_allowed == 0)
+        has_holding_breakdown = any(
+            stats_row.get(k) is not None
+            for k in (
+                "offensive_holding",
+                "defensive_holding",
+            )
+        ) and not (total > 0 and off_holding == 0 and def_holding == 0)
         # XML feeds can publish zeroed advanced splits while per-play details are present.
         if (
             total > 0
@@ -326,9 +378,12 @@ def _aggregate(team: dict) -> dict:
             has_group_breakdown = True
         if not has_pi_breakdown and (pi_drawn > 0 or pi_allowed > 0):
             has_pi_breakdown = True
+        if not has_holding_breakdown and (off_holding > 0 or def_holding > 0):
+            has_holding_breakdown = True
     else:
         has_group_breakdown = bool(by_group["procedural"]["count"] or by_group["live_ball"]["count"])
         has_pi_breakdown = bool(pi_drawn or pi_allowed)
+        has_holding_breakdown = bool(off_holding or def_holding)
 
     return {
         "total": total,
@@ -341,8 +396,13 @@ def _aggregate(team: dict) -> dict:
         "per_game": sorted(per_game, key=lambda r: r["game_number"]),
         "pi_drawn": pi_drawn,
         "pi_allowed": pi_allowed,
+        "off_holding": off_holding,
+        "off_holding_yards": off_holding_yards,
+        "def_holding": def_holding,
+        "def_holding_yards": def_holding_yards,
         "has_group_breakdown": has_group_breakdown,
         "has_pi_breakdown": has_pi_breakdown,
+        "has_holding_breakdown": has_holding_breakdown,
     }
 
 
@@ -384,6 +444,7 @@ def _team_html(team: dict) -> str:
     live_ball = agg["by_group"].get("live_ball", {"count": 0, "yards": 0})
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
+    show_holding = bool(agg.get("has_holding_breakdown"))
     if stats_row:
         pen_per_game = stats_row.get("total_penalties_pg")
         yds_per_game = stats_row.get("total_penalty_yards_pg")
@@ -425,6 +486,8 @@ def _team_html(team: dict) -> str:
         l3_live = stats_row.get("last_3_live_ball_penalties_pg")
         l3_pi_drawn = stats_row.get("last_3_pass_interference_drawn_pg")
         l3_pi_allowed = stats_row.get("last_3_pass_interference_allowed_pg")
+        l3_off_holding = stats_row.get("last_3_offensive_holding_pg")
+        l3_def_holding = stats_row.get("last_3_defensive_holding_pg")
 
         proc_live_line = ""
         if show_group and l3_proc is not None and l3_live is not None:
@@ -432,6 +495,9 @@ def _team_html(team: dict) -> str:
         pi_line = ""
         if show_pi and l3_pi_drawn is not None and l3_pi_allowed is not None:
             pi_line = f"<li>PI Drawn: {l3_pi_drawn:.1f} / PI Allowed: {l3_pi_allowed:.1f}</li>"
+        holding_line = ""
+        if show_holding and l3_off_holding is not None and l3_def_holding is not None:
+            holding_line = f"<li>Off. Holding: {l3_off_holding:.1f} / Def. Holding: {l3_def_holding:.1f}</li>"
 
         last_n_html = f"""
       <div class=\"block\">
@@ -441,6 +507,7 @@ def _team_html(team: dict) -> str:
           <li>Offense: {l3_off:.1f} / Defense: {l3_def:.1f} / ST: {last_n.get('penalties_special_teams', 0):.1f}</li>
           {proc_live_line}
           {pi_line}
+          {holding_line}
         </ul>
       </div>
         """
@@ -458,6 +525,7 @@ def _team_html(team: dict) -> str:
           <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}</li>
           <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}</li>
           <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}</li>
+          <li>Offensive Holding: {f"{agg['off_holding']} / {agg['off_holding_yards']} yds" if show_holding else 'N/A'} | Defensive Holding: {f"{agg['def_holding']} / {agg['def_holding_yards']} yds" if show_holding else 'N/A'}</li>
           <li>CFBStats Rank: {_penalties_rank(team)}</li>
         </ul>
       </div>
@@ -512,6 +580,7 @@ def _team_md(team: dict) -> str:
     live_ball = agg["by_group"].get("live_ball", {"count": 0})
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
+    show_holding = bool(agg.get("has_holding_breakdown"))
 
     lines = [f"*{team['display_name']}*"]
     suffix = ""
@@ -531,6 +600,10 @@ def _team_md(team: dict) -> str:
     lines.append(
         f"- PI Drawn / Allowed: "
         f"{agg['pi_drawn'] if show_pi else 'N/A'} / {agg['pi_allowed'] if show_pi else 'N/A'}"
+    )
+    lines.append(
+        f"- Off. Holding / Def. Holding: "
+        f"{agg['off_holding'] if show_holding else 'N/A'} / {agg['def_holding'] if show_holding else 'N/A'}"
     )
     lines.append(f"- Top Penalty Type: {worst}")
     return "\n".join(lines)

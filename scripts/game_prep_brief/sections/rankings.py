@@ -216,7 +216,6 @@ def _verification_md(team: dict) -> str:
 def build(team1: dict, team2: dict) -> dict:
     """Full rankings section with all/conf/nonconf splits."""
     html_content = (
-        f"{_metric_text(team1, team2)}"
         f"{_table_html(team1, team2, 'all')}"
         f"<div class='section-grid'>{_verification_html(team1)}{_verification_html(team2)}</div>"
         f"{_table_html(team1, team2, 'conf')}"

@@ -15,23 +15,6 @@ def _safe_float(value: object) -> float | None:
         return None
 
 
-def _coach_lines(team: dict) -> list[str]:
-    coaches = team.get("coaches", {})
-    head = coaches.get("head_coach")
-    lines = [f"Head Coach: {head}" if head and head != "N/A" else "Head Coach: Unavailable in current source"]
-    play_caller = coaches.get("play_caller")
-    if play_caller:
-        title = coaches.get("play_caller_title") or "Play Caller"
-        lines.append(f"Play Caller: {play_caller} ({title})")
-    elif coaches.get("oc") and coaches.get("oc") != "N/A":
-        title = coaches.get("oc_title") or "OC"
-        lines.append(f"Off. Coord: {coaches.get('oc')} ({title})")
-
-    if coaches.get("dc") and coaches.get("dc") != "N/A":
-        title = coaches.get("dc_title") or "DC"
-        lines.append(f"Def. Coord: {coaches.get('dc')} ({title})")
-    return lines
-
 
 def _season_summary(team: dict) -> list[str]:
     stats = team.get("stats", {})
@@ -67,21 +50,15 @@ def _recent_results(team: dict) -> list[str]:
 
 
 def _team_html(team: dict) -> str:
-    lines = _coach_lines(team)
     summary = _season_summary(team)
     recent = _recent_results(team)
 
-    coach_html = "".join(f"<li>{l}</li>" for l in lines)
     summary_html = "".join(f"<li>{l}</li>" for l in summary)
     recent_html = "".join(f"<li>{r}</li>" for r in recent) if recent else "<li>N/A</li>"
 
     return f"""
     <div class="team-card">
       <h3>{team['display_name']}</h3>
-      <div class="block">
-        <h4>Coaches</h4>
-        <ul>{coach_html}</ul>
-      </div>
       <div class="block">
         <h4>Season Summary</h4>
         <ul>{summary_html}</ul>
@@ -96,9 +73,6 @@ def _team_html(team: dict) -> str:
 
 def _team_md(team: dict) -> str:
     lines = [f"*{team['display_name']}*"]
-    lines.append("Coaches:")
-    for l in _coach_lines(team):
-        lines.append(f"- {l}")
     lines.append("Season Summary:")
     stats = team.get("stats", {})
     record = stats.get("record", "N/A")
@@ -137,21 +111,37 @@ def _team_md(team: dict) -> str:
     return "\n".join(lines)
 
 
-def build(team1: dict, team2: dict, week: int | None, season: int) -> dict:
+def _format_bundle_ts(bundle_meta: dict) -> str:
+    raw = bundle_meta.get("generated_at", "")
+    if not raw:
+        return ""
+    try:
+        dt = datetime.fromisoformat(raw)
+        return dt.strftime("%b %d, %Y %H:%M UTC")
+    except (TypeError, ValueError):
+        return str(raw)
+
+
+def build(team1: dict, team2: dict, week: int | None, season: int, *, bundle_meta: dict | None = None) -> dict:
     """Returns section dict with keys: title, html_content, md_content."""
     now = datetime.now().strftime("%b %d, %Y %H:%M")
     week_str = f"Week {week} | " if week else ""
+    data_ts = _format_bundle_ts(bundle_meta or {})
+    data_note = f" · Data bundle: {data_ts}" if data_ts else ""
 
     html_content = f"""
     <div class="section-grid">
       {_team_html(team1)}
       {_team_html(team2)}
     </div>
-    <div class="section-note">Generated {now} · {week_str}{season} Season</div>
+    <div class="section-note">Generated {now} · {week_str}{season} Season{data_note}</div>
     """
 
+    md_header = f"🏈 *GAME PREP BRIEF*\n{week_str}{season} Season\n{team1['display_name']} vs {team2['display_name']}"
+    if data_ts:
+        md_header += f"\nData bundle: {data_ts}"
     md_content = "\n\n".join([
-        f"🏈 *GAME PREP BRIEF*\n{week_str}{season} Season\n{team1['display_name']} vs {team2['display_name']}",
+        md_header,
         _team_md(team1),
         _team_md(team2),
     ])
