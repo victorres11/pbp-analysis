@@ -241,21 +241,44 @@ def _aggregate(team: dict) -> dict:
                         desc = str(play.get("description") or "")
                         if "PENALTY" not in desc.upper():
                             continue
+                        desc_up = desc.upper()
+                        pen_tok = _extract_penalized_team_token(desc_up)
+                        play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                        is_team_penalty = pen_tok and pen_tok in team_aliases
+
+                        # PI drawn/allowed tracking requires both teams' penalties.
+                        if "PASS INTERFERENCE" in desc_up:
+                            if pen_tok and pen_tok in team_aliases:
+                                pi_allowed += 1
+                            elif pen_tok and pen_tok in opp_aliases:
+                                pi_drawn += 1
+                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
+                                if play_off and play_off in team_aliases:
+                                    pi_drawn += 1
+                                elif play_off and play_off in opp_aliases:
+                                    pi_allowed += 1
+                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
+                                if play_off and play_off in team_aliases:
+                                    pi_allowed += 1
+                                elif play_off and play_off in opp_aliases:
+                                    pi_drawn += 1
+
+                        # Only count the team's own penalties in aggregates.
+                        if not is_team_penalty:
+                            continue
+
                         pen_obj = {"description": desc}
                         ptype = _simplify_penalty(pen_obj)
-                        if ptype == "Holding":
-                            _pen_tok = _extract_penalized_team_token(desc.upper())
-                            _play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                            if _pen_tok and _play_off:
-                                _pen_is_offense = (
-                                    _pen_tok == _play_off
-                                    or (_pen_tok in team_aliases and _play_off in team_aliases)
-                                    or (_pen_tok in opp_aliases and _play_off in opp_aliases)
-                                )
-                                ptype = "Offensive Holding" if _pen_is_offense else "Defensive Holding"
-                        by_type_count[ptype] += 1
+                        if ptype == "Holding" and pen_tok and play_off:
+                            pen_is_offense = (
+                                pen_tok == play_off
+                                or (pen_tok in team_aliases and play_off in team_aliases)
+                                or (pen_tok in opp_aliases and play_off in opp_aliases)
+                            )
+                            ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
+                        by_type_count[ptype] += 1
                         by_type_yards[ptype] += y_val
                         group = _penalty_group(pen_obj)
                         by_group[group]["count"] += 1
@@ -270,24 +293,6 @@ def _aggregate(team: dict) -> dict:
                         else:
                             game_row["live_ball_count"] += 1
                             game_row["live_ball_yards"] += y_val
-                        if "PASS INTERFERENCE" in desc.upper():
-                            desc_up = desc.upper()
-                            penalized = _extract_penalized_team_token(desc_up)
-                            offense = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                            if penalized and penalized in team_aliases:
-                                pi_allowed += 1
-                            elif penalized and penalized in opp_aliases:
-                                pi_drawn += 1
-                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
-                                if offense and offense in team_aliases:
-                                    pi_drawn += 1
-                                elif offense and offense in opp_aliases:
-                                    pi_allowed += 1
-                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
-                                if offense and offense in team_aliases:
-                                    pi_allowed += 1
-                                elif offense and offense in opp_aliases:
-                                    pi_drawn += 1
 
         per_game.append(game_row)
 
