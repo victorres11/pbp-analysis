@@ -74,6 +74,11 @@ def parse_args():
         action="store_true",
         help="Allow live enrichment fetch during render if enrichment file is missing/stale.",
     )
+    p.add_argument(
+        "--no-alerts",
+        action="store_true",
+        help="Suppress section alert and data notice warnings in HTML output.",
+    )
     return p.parse_args()
 
 
@@ -157,7 +162,7 @@ def main():
             print(md)
 
     if args.format in ("html", "both"):
-        html = html_renderer.render(section_list, team1, team2, args.week, args.season)
+        html = html_renderer.render(section_list, team1, team2, args.week, args.season, show_alerts=not args.no_alerts)
         path = args.output_dir / f"{base_name}.html"
         path.write_text(html)
         print(f"[ok] HTML → {path}", file=sys.stderr)
