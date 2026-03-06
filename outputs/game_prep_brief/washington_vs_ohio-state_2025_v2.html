@@ -108,10 +108,42 @@
     .page-break:first-child { page-break-before: auto; }
 
     @media print {
-      body { background: white; padding: 12px; }
-      .section { box-shadow: none; border: 1px solid #ddd; }
-      .header { box-shadow: none; }
-      @page { margin: 1cm; }
+      body {
+        background: white;
+        padding: 0;
+        font-size: 11px;
+      }
+      .section {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 12px 12px;
+        margin-bottom: 8px;
+      }
+      .header {
+        box-shadow: none;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+      }
+      .header h1 { font-size: 18px; }
+      .header .subtitle { font-size: 12px; margin-top: 4px; }
+      .section-header {
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        font-size: 12px;
+      }
+      .rankings-table { margin-bottom: 8px; }
+      .rankings-table th,
+      .rankings-table td {
+        padding: 4px 6px;
+        font-size: 10.5px;
+      }
+      .block h4 { margin: 7px 0 4px; }
+      .block li { margin: 1px 0; font-size: 10.5px; }
+      .warning { margin-top: 6px; padding: 6px 8px; font-size: 10.5px; }
+      .metric-compare { margin: 6px 0 8px; }
+      @page { margin: 0.45in; }
+       .page-break { page-break-before: auto !important; break-before: auto !important; }
     }
     @media (max-width: 900px) {
       .section-grid { grid-template-columns: 1fr; }
@@ -122,8 +154,8 @@
   <header class="header">
     <div class="header-content">
       <h1>Game Prep Brief v2</h1>
-      <div class="subtitle">2025 Season · Washington vs Ohio State · Generated March 05, 2026 21:24</div>
-      <div class='warning'><strong>Data Notice:</strong> PFF/API snapshot is partial for: Washington, Ohio State. Some situational/trenches metrics are shown as N/A.</div>
+      <div class="subtitle">2025 Season · Washington vs Ohio State · Generated March 06, 2026 08:30</div>
+      
       <div class="source-legend"><sup class="src">pbp</sup> Play-by-Play Parser · <sup class="src">cfb</sup> CFBStats · <sup class="src">pff</sup> PFF/API</div>
     </div>
   </header>
@@ -161,7 +193,7 @@
     </div>
     
     </div>
-    <div class="section-note">Generated Mar 05, 2026 21:24 · 2025 Season</div>
+    <div class="section-note">Generated Mar 06, 2026 08:30 · 2025 Season</div>
     </div>
             </section>
             
@@ -553,7 +585,7 @@
             
             <section class="section page-break" id="rankings">
               <div class="section-header">Rankings</div>
-              <div class='warning'><strong>Section Alert:</strong> Washington: Total Offense (special case), Rushing Offense (special case), Rushing Defense (special case)</div>
+              
               <div class="section-body">
     <h4>All Rankings</h4>
     <table class="rankings-table">
@@ -770,7 +802,7 @@
             
             <section class="section page-break" id="turnovers">
               <div class="section-header">Turnovers</div>
-              <div class='warning'><strong>Section Alert:</strong> Washington: Turnover Margin (special case) | Ohio State: Turnover Margin (special case)</div>
+              
               <div class="section-body">
     <div class="section-grid">
       
@@ -930,7 +962,7 @@
             
             <section class="section page-break" id="situational">
               <div class="section-header">Situational</div>
-              <div class='warning'><strong>Section Alert:</strong> Washington: Sacks Allowed (special case)</div>
+              
               <div class="section-body">
     <div class="section-grid">
       
@@ -1162,7 +1194,7 @@
             
             <section class="section page-break" id="penalties">
               <div class="section-header">Penalties</div>
-              <div class='warning'><strong>Section Alert:</strong> Ohio State: Penalties (special case)</div>
+              
               <div class="section-body">
     <div class="section-grid">
       

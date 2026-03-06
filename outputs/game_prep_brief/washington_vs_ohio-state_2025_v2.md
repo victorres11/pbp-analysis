@@ -262,4 +262,4 @@ Recent Results (last 5):
 📡 *Data Sources*
 • PBP Analysis (cfbstats + play-by-play aggregates)
 • Matchup overlay (optional matchups/<slug>/data.json)
-• Generated: Mar 05, 2026 21:24
+• Generated: Mar 06, 2026 08:30
