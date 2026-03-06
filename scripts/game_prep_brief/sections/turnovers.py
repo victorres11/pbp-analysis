@@ -119,9 +119,8 @@ def _team_html(team: dict) -> str:
         totals["int_gained"] = live_tov.get("interceptions_gained", totals["int_gained"])
         totals["fum_lost"] = live_tov.get("fumbles_lost", totals["fum_lost"])
         totals["fum_gained"] = live_tov.get("fumbles_gained", totals["fum_gained"])
-    if xml_pot:
-        totals["pts_for"] = xml_pot.get("points_off_turnovers", totals["pts_for"])
-        totals["pts_against"] = xml_pot.get("points_off_turnovers_allowed", totals["pts_against"])
+    # POT: use play-by-play derived values (not pre-baked StatBroadcast
+    # aggregates, which are internally inconsistent with their own play tree).
     season_off_pg = _pg(totals["pts_for"], games)
     season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
@@ -245,9 +244,7 @@ def _team_md(team: dict) -> str:
     if live_tov:
         lost = live_tov.get("turnovers_lost", lost)
         gained = live_tov.get("turnovers_gained", gained)
-    if xml_pot:
-        pts_for = xml_pot.get("points_off_turnovers", pts_for)
-        pts_against = xml_pot.get("points_off_turnovers_allowed", pts_against)
+    # POT: use play-by-play derived values (see _team_html comment).
     season_off_pg = _pg(pts_for, games)
     season_def_pg = _pg(pts_against, games)
     margin_note = ""
