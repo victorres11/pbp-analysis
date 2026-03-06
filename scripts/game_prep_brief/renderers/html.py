@@ -158,19 +158,23 @@ def render(
     season: int,
     *,
     compact_print: bool = True,
+    show_alerts: bool = True,
 ) -> str:
     """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
     week_str = f"Week {week} · " if week else ""
     t1_color = team1.get("stats", {}).get("color", "#2563eb")
     t2_color = team2.get("stats", {}).get("color", "#dc2626")
-    warning = _missing_warning(team1, team2)
-    parity_warning = _parity_warning(team1, team2)
-    warning_text = " ".join(part for part in (warning, parity_warning) if part).strip()
+    if show_alerts:
+        warning = _missing_warning(team1, team2)
+        parity_warning = _parity_warning(team1, team2)
+        warning_text = " ".join(part for part in (warning, parity_warning) if part).strip()
+    else:
+        warning_text = ""
 
     section_html = []
     for s in _order_sections(sections):
-        section_alert = _section_verification_alert(s.get("key", ""), team1, team2)
+        section_alert = _section_verification_alert(s.get("key", ""), team1, team2) if show_alerts else ""
         section_html.append(
             f"""
             <section class=\"section page-break\" id=\"{s.get('key','section')}\">
