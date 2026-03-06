@@ -872,13 +872,29 @@ def _infer_team_alias_from_play_tree(
         return set()
 
     offense_counts: dict[str, int] = {}
+    desc_tokens: dict[str, int] = {}
     for play in _iter_play_tree_plays(play_tree):
         if play.get("is_no_play"):
             continue
         token = str(play.get("offense") or "").upper().strip()
-        if not token:
-            continue
-        offense_counts[token] = offense_counts.get(token, 0) + 1
+        if token:
+            offense_counts[token] = offense_counts.get(token, 0) + 1
+        # Also scan descriptions for team abbreviations in key patterns:
+        # "RECOVERED BY [TEAM]", "TOUCHDOWN [TEAM]", "[TEAM] ball on"
+        desc_up = str(play.get("description") or "").upper()
+        for m in re.finditer(r"RECOVERED BY ([A-Z]{2,6})\b", desc_up):
+            t = m.group(1)
+            if t not in opp_aliases:
+                desc_tokens[t] = desc_tokens.get(t, 0) + 1
+        for m in re.finditer(r"TOUCHDOWN ([A-Z]{2,6})\b", desc_up):
+            t = m.group(1)
+            if t not in opp_aliases:
+                desc_tokens[t] = desc_tokens.get(t, 0) + 1
+        m = re.match(r"([A-Z]{2,6}) BALL ON\b", desc_up)
+        if m:
+            t = m.group(1)
+            if t not in opp_aliases:
+                desc_tokens[t] = desc_tokens.get(t, 0) + 1
     if not offense_counts:
         return set()
 
@@ -886,22 +902,27 @@ def _infer_team_alias_from_play_tree(
     if not has_opp:
         return set()
 
+    inferred: set[str] = set()
+
+    # Infer from offense field — conservative, one dominant token.
     unknown = {
         token: count
         for token, count in offense_counts.items()
         if token not in team_aliases and token not in opp_aliases
     }
-    if not unknown:
-        return set()
+    if unknown:
+        sorted_unknown = sorted(unknown.items(), key=lambda kv: kv[1], reverse=True)
+        best_token, best_count = sorted_unknown[0]
+        if best_count >= 3 and (len(sorted_unknown) == 1 or best_count > sorted_unknown[1][1]):
+            inferred.add(best_token)
 
-    # Keep this conservative: only infer when one token clearly dominates.
-    sorted_unknown = sorted(unknown.items(), key=lambda kv: kv[1], reverse=True)
-    best_token, best_count = sorted_unknown[0]
-    if best_count < 3:
-        return set()
-    if len(sorted_unknown) > 1 and best_count == sorted_unknown[1][1]:
-        return set()
-    return {best_token}
+    # Infer from description patterns — tokens appearing 2+ times
+    # that aren't already known.
+    for token, count in desc_tokens.items():
+        if count >= 2 and token not in team_aliases and token not in opp_aliases and token not in inferred:
+            inferred.add(token)
+
+    return inferred
 
 
 def _aggregate_xml_alias_rows(stats: object, category: str, team_aliases: set[str]) -> dict:
@@ -958,6 +979,12 @@ def _drive_points_result(plays: list[dict]) -> tuple[str, int]:
     for idx, play in enumerate(plays):
         if not play.get("is_scoring"):
             continue
+        # Skip defensive TDs (e.g. another turnover returned for a score during the
+        # post-TO drive) — those aren't "points off turnovers" for the offense.
+        if play.get("is_turnover"):
+            desc_chk = str(play.get("description") or "").upper()
+            if "TOUCHDOWN" in desc_chk or re.search(r"\bTD\b", desc_chk):
+                continue
         desc_up = str(play.get("description") or "").upper()
         if "TOUCHDOWN" in desc_up or re.search(r"\bTD\b", desc_up):
             return "TD", 6 + _touchdown_extra_points(plays, idx)
@@ -965,7 +992,39 @@ def _drive_points_result(plays: list[dict]) -> tuple[str, int]:
             return "FG", 3
         if "SAFETY" in desc_up:
             return "SAFETY", 2
+    # Classify non-scoring ending from last play description
+    if plays:
+        last = plays[-1]
+        last_desc = str(last.get("description") or "").upper()
+        if "PUNT" in last_desc:
+            return "PUNT", 0
+        if "FUMBLE" in last_desc or "INTERCEPTED" in last_desc or "INTERCEPTION" in last_desc:
+            return "TURNOVER", 0
+        if "FIELD GOAL" in last_desc and ("MISSED" in last_desc or "NO GOOD" in last_desc or "BLOCKED" in last_desc):
+            return "MISSED FG", 0
+        if "END OF" in last_desc or "KNEEL" in last_desc or "KNEE" in last_desc:
+            return "END OF PERIOD", 0
+        # Check explicit down==4 first, then scan all plays for 4th-down indicator
+        if last.get("down") == 4:
+            return "DOWNS", 0
+        # When down numbers aren't populated, a non-scoring drive that doesn't
+        # end in a punt/turnover/kick was most likely a failed 4th-down attempt.
+        return "DOWNS", 0
     return "NO SCORE", 0
+
+
+def _is_transition_play(play: dict) -> bool:
+    """Return True for non-action plays (spot indicators, timeouts, kickoffs)
+    that should be skipped when searching for the next offensive possession."""
+    desc = str(play.get("description") or "").upper()
+    if re.search(r"\bBALL ON\b", desc):
+        return True
+    if not play.get("offense"):
+        return True
+    # Standalone timeout lines — no rush/pass/kick action
+    if re.match(r"^TIMEOUT\b", desc):
+        return True
+    return False
 
 
 def _turnover_return_points(play: dict) -> tuple[str, int]:
@@ -1091,7 +1150,7 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
     def _next_possession_side(start_idx: int) -> str | None:
         for j in range(start_idx + 1, len(indexed_plays)):
             nxt = indexed_plays[j][1]
-            if nxt.get("is_no_play"):
+            if nxt.get("is_no_play") or _is_transition_play(nxt):
                 continue
             nxt_off = str(nxt.get("offense") or "").upper()
             if nxt_off in team_aliases:
@@ -1176,6 +1235,7 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
                     "recovered_by": recovered_by_default or "?",
                     "drive_result": drive_result,
                     "points_scored": points_scored,
+                    "side": turnover_side,
                     "turnover_description": play.get("description") or "",
                 }
             )
@@ -1185,9 +1245,9 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
         start_idx: int | None = None
         for j in range(idx + 1, len(indexed_plays)):
             nxt = indexed_plays[j][1]
-            nxt_off = str(nxt.get("offense") or "").upper()
-            if nxt.get("is_no_play"):
+            if nxt.get("is_no_play") or _is_transition_play(nxt):
                 continue
+            nxt_off = str(nxt.get("offense") or "").upper()
             if nxt_off in recovered_aliases:
                 start_idx = j
                 break
@@ -1198,11 +1258,17 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
         if start_idx is None:
             continue
 
+        # Skip turnovers at end of Q2 when next drive starts in Q3 (halftime reset).
+        start_quarter = indexed_plays[start_idx][0]
+        if quarter_num == 2 and start_quarter == 3:
+            continue
+
         drive_plays: list[dict] = []
         recovered_by = ""
-        start_quarter = indexed_plays[start_idx][0]
         for j in range(start_idx, len(indexed_plays)):
             nxt = indexed_plays[j][1]
+            if _is_transition_play(nxt):
+                continue
             nxt_off = str(nxt.get("offense") or "").upper()
             if not recovered_by and nxt_off in recovered_aliases:
                 recovered_by = nxt_off
@@ -1225,15 +1291,12 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
                 "recovered_by": recovered_by or recovered_by_default or "?",
                 "drive_result": drive_result,
                 "points_scored": points_scored,
+                "side": turnover_side,
                 "num_plays": len(drive_plays),
                 "total_yards": total_yards,
                 "turnover_description": play.get("description") or "",
             }
         )
-
-    shared_pot = _compute_points_off_turnovers_from_play_tree(play_tree, team_aliases, opp_aliases)
-    if shared_pot is not None:
-        points_off_turnovers_for, points_off_turnovers_against = shared_pot
 
     return {
         "post_turnover_drives": post_turnover_drives,

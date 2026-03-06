@@ -478,12 +478,14 @@ def _team_html(team: dict) -> str:
         elif isinstance(l3_ppg, (int, float)) and isinstance(season_ppg, (int, float)) and l3_ppg > season_ppg:
             ppg_arrow = " <span style=\"color: #b3261e;\">↑</span>"
 
-        l3_off = float(
+        l3_off_pg = float(
             stats_row.get("last_3_offensive_penalties_pg", last_n.get("penalties_offense", 0)) or 0
         )
-        l3_def = float(
+        l3_def_pg = float(
             stats_row.get("last_3_defensive_penalties_pg", last_n.get("penalties_defense", 0)) or 0
         )
+        l3_st_total = int(last_n.get("penalties_special_teams", 0) or 0)
+        l3_st_avg = l3_st_total / actual_n if actual_n else 0
         l3_proc = stats_row.get("last_3_procedural_penalties_pg")
         l3_live = stats_row.get("last_3_live_ball_penalties_pg")
         l3_pi_drawn = stats_row.get("last_3_pass_interference_drawn_pg")
@@ -491,22 +493,33 @@ def _team_html(team: dict) -> str:
         l3_off_holding = stats_row.get("last_3_offensive_holding_pg")
         l3_def_holding = stats_row.get("last_3_defensive_holding_pg")
 
+        def _l3(pg: float | None) -> str:
+            if pg is None or not actual_n:
+                return "N/A"
+            total = round(pg * actual_n)
+            return f"{total} ({pg:.1f}/g)"
+
+        l3_pen_total = round(l3_ppg * actual_n) if isinstance(l3_ppg, (int, float)) and actual_n else None
+        pen_total_str = f"{l3_pen_total}" if l3_pen_total is not None else "N/A"
+        pen_avg_str = f"{l3_ppg:.1f}/g" if isinstance(l3_ppg, (int, float)) else "N/A"
+        season_avg_str = f"{season_ppg:.1f}/g" if isinstance(season_ppg, (int, float)) else "N/A"
+
         proc_live_line = ""
         if show_group and l3_proc is not None and l3_live is not None:
-            proc_live_line = f"<li>Procedural: {l3_proc:.1f} / Live-ball: {l3_live:.1f}</li>"
+            proc_live_line = f"<li>Procedural: {_l3(l3_proc)} / Live-ball: {_l3(l3_live)}</li>"
         pi_line = ""
         if show_pi and l3_pi_drawn is not None and l3_pi_allowed is not None:
-            pi_line = f"<li>PI Drawn: {l3_pi_drawn:.1f} / PI Allowed: {l3_pi_allowed:.1f}</li>"
+            pi_line = f"<li>PI Drawn: {_l3(l3_pi_drawn)} / PI Allowed: {_l3(l3_pi_allowed)}</li>"
         holding_line = ""
         if show_holding and l3_off_holding is not None and l3_def_holding is not None:
-            holding_line = f"<li>Off. Holding: {l3_off_holding:.1f} / Def. Holding: {l3_def_holding:.1f}</li>"
+            holding_line = f"<li>Off. Holding: {_l3(l3_off_holding)} / Def. Holding: {_l3(l3_def_holding)}</li>"
 
         last_n_html = f"""
       <div class=\"block\">
         <h4>Last {actual_n} Trending</h4>
         <ul>
-          <li>Penalties/Game: {f"{l3_ppg:.1f}" if isinstance(l3_ppg, (int, float)) else 'N/A'} (Season: {f"{season_ppg:.1f}" if isinstance(season_ppg, (int, float)) else 'N/A'}){ppg_arrow}</li>
-          <li>Offense: {l3_off:.1f} / Defense: {l3_def:.1f} / ST: {last_n.get('penalties_special_teams', 0):.1f}</li>
+          <li>Penalties: {pen_total_str} ({pen_avg_str}) — Season: {season_avg_str}{ppg_arrow}</li>
+          <li>Offense: {_l3(l3_off_pg)} / Defense: {_l3(l3_def_pg)} / ST: {l3_st_total} ({l3_st_avg:.1f}/g)</li>
           {proc_live_line}
           {pi_line}
           {holding_line}
@@ -535,10 +548,6 @@ def _team_html(team: dict) -> str:
       <div class=\"block\">
         <h4>Top Types (Count)</h4>
         <ul>{common_html}</ul>
-      </div>
-      <div class=\"block\">
-        <h4>Top Types (Yards)</h4>
-        <ul>{yards_html}</ul>
       </div>
       <div class=\"block\">
         <h4>Per-Game Breakdown</h4>

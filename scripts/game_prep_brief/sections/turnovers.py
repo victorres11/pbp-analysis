@@ -43,30 +43,35 @@ def _live_turnover_split(team: dict) -> dict:
     return split if isinstance(split, dict) else {}
 
 
-def _post_turnover_drives(games: list[dict]) -> list[dict]:
-    items = []
+def _post_turnover_drives(games: list[dict]) -> dict:
+    """Return drives split by side: 'offense' (after takeaway) and 'defense' (after giveaway)."""
+    offense_items: list[dict] = []
+    defense_items: list[dict] = []
     for g in sorted(games, key=lambda x: x.get("game_number", 0))[-3:]:
         opp = g.get("opponent", "?")
         drives = g.get("post_turnover_drives", []) or []
         if not drives:
             continue
-        drive_details = []
-        for i, d in enumerate(drives, 1):
-            result = d.get("drive_result", "?")
-            yards = d.get("total_yards", "?")
-            num_plays = d.get("num_plays", "?")
-            drive_details.append({
-                "drive_num": i,
-                "result": result,
-                "yards": yards,
-                "num_plays": num_plays,
-            })
-        items.append({
-            "game_label": f"G{g.get('game_number', '?')} vs {opp}",
-            "count": len(drives),
-            "drives": drive_details,
-        })
-    return items
+        game_label = f"G{g.get('game_number', '?')} vs {opp}"
+        off_drives: list[dict] = []
+        def_drives: list[dict] = []
+        for d in drives:
+            detail = {
+                "result": d.get("drive_result", "?"),
+                "yards": d.get("total_yards", "?"),
+                "num_plays": d.get("num_plays", "?"),
+                "points": d.get("points_scored", 0),
+                "turnover_type": d.get("turnover_type", "?"),
+            }
+            if d.get("side") == "team_gained":
+                off_drives.append(detail)
+            else:
+                def_drives.append(detail)
+        if off_drives:
+            offense_items.append({"game_label": game_label, "drives": off_drives})
+        if def_drives:
+            defense_items.append({"game_label": game_label, "drives": def_drives})
+    return {"offense": offense_items, "defense": defense_items}
 
 
 def _avg_pts_after_turnover(games: list[dict]) -> float | None:
@@ -120,20 +125,29 @@ def _team_html(team: dict) -> str:
     season_off_pg = _pg(totals["pts_for"], games)
     season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
-    drives_list = _post_turnover_drives(games)
-    drives_html_parts = []
-    for game_entry in drives_list:
-        drives_html_parts.append(f"<li><strong>{game_entry['game_label']}: {game_entry['count']} drives</strong>")
-        if game_entry["drives"]:
-            inner = "".join(
-                f"<li>Drive {d['drive_num']}: {d['result']}, {d['yards']} yds, {d['num_plays']} plays</li>"
-                for d in game_entry["drives"]
-            )
-            drives_html_parts.append(f"<ul>{inner}</ul>")
-        drives_html_parts.append("</li>")
-    drives_html = "".join(drives_html_parts) or "<li>N/A</li>"
+    drives_split = _post_turnover_drives(games)
     avg_pts_post_to = _avg_pts_after_turnover(games)
     avg_pts_text = f"{avg_pts_post_to}" if isinstance(avg_pts_post_to, (int, float)) else "N/A"
+
+    def _drives_html_block(label: str, items: list[dict]) -> str:
+        if not items:
+            return ""
+        parts = [f"<h4>{label}</h4><ul>"]
+        for game_entry in items:
+            drives = game_entry["drives"]
+            total_pts = sum(d.get("points", 0) or 0 for d in drives)
+            parts.append(f"<li><strong>{game_entry['game_label']}: {len(drives)} drive{'s' if len(drives) != 1 else ''} ({total_pts} pts)</strong>")
+            def _drive_line(d: dict) -> str:
+                pts = d.get("points", 0) or 0
+                pts_str = f", {pts} pts" if pts else ""
+                return (
+                    f"<li>{d['turnover_type']} \u2192 {d['result']}"
+                    f"{pts_str}, {d['yards']} yds, {d['num_plays']} plays</li>"
+                )
+            inner = "".join(_drive_line(d) for d in drives)
+            parts.append(f"<ul>{inner}</ul></li>")
+        parts.append("</ul>")
+        return "".join(parts)
 
     last_n_html = ""
     if _should_show_last_n(team):
@@ -206,8 +220,8 @@ def _team_html(team: dict) -> str:
         </ul>
       </div>
       <div class="block">
-        <h4>Post-Turnover Drives (Recent)</h4>
-        <ul>{drives_html}</ul>
+        {_drives_html_block("After Takeaway (Recent)", drives_split["offense"])}
+        {_drives_html_block("After Giveaway (Recent)", drives_split["defense"])}
       </div>
     </div>
     """

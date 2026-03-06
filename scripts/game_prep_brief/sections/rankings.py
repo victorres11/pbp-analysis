@@ -215,13 +215,31 @@ def _verification_md(team: dict) -> str:
     return "\n".join(lines)
 
 
+def _has_distinct_scope(team1: dict, team2: dict, scope: str) -> bool:
+    """Check if a scope has data that differs from 'all'."""
+    for team in (team1, team2):
+        all_r = (team.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get("all", {})
+        scope_r = (team.get("pbp_entry") or {}).get("cfbstats", {}).get("rankings", {}).get(scope, {})
+        if not scope_r or not all_r:
+            continue
+        for key in CATEGORIES:
+            a = all_r.get(key, {}).get("rank")
+            s = scope_r.get(key, {}).get("rank")
+            if a is not None and s is not None and a != s:
+                return True
+    return False
+
+
 def build(team1: dict, team2: dict) -> dict:
-    """Full rankings section with all/conf/nonconf splits."""
+    """Full rankings section — shows conf/nonconf only if data differs from all."""
+    extra_tables = ""
+    for scope in ("conf", "nonconf"):
+        if _has_distinct_scope(team1, team2, scope):
+            extra_tables += _table_html(team1, team2, scope)
     html_content = (
         f"{_table_html(team1, team2, 'all')}"
         f"<div class='section-grid'>{_verification_html(team1)}{_verification_html(team2)}</div>"
-        f"{_table_html(team1, team2, 'conf')}"
-        f"{_table_html(team1, team2, 'nonconf')}"
+        f"{extra_tables}"
     )
 
     md_content = "\n\n".join([
