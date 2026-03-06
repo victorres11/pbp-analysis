@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 
+from ._sources import SRC_PBP, SRC_CFB
+
 PROCEDURAL_TERMS = (
     "false start",
     "offside",
@@ -518,15 +520,15 @@ def _team_html(team: dict) -> str:
       <div class=\"block\">
         <h4>Totals</h4>
         <ul>
-          <li>Penalties/Game: {f"{pen_per_game:.1f}" if isinstance(pen_per_game, (int, float)) else 'N/A'} | Yards/Game: {f"{yds_per_game:.1f}" if isinstance(yds_per_game, (int, float)) else 'N/A'}</li>
-          <li>Penalties: {agg['total']} for {agg['yards']} yards</li>
-          <li>Offense: {offense['count']} / {offense['yards']} yds</li>
-          <li>Defense: {defense['count']} / {defense['yards']} yds</li>
-          <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}</li>
-          <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}</li>
-          <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}</li>
-          <li>Offensive Holding: {f"{agg['off_holding']} / {agg['off_holding_yards']} yds" if show_holding else 'N/A'} | Defensive Holding: {f"{agg['def_holding']} / {agg['def_holding_yards']} yds" if show_holding else 'N/A'}</li>
-          <li>CFBStats Rank: {_penalties_rank(team)}</li>
+          <li>Penalties/Game: {f"{pen_per_game:.1f}" if isinstance(pen_per_game, (int, float)) else 'N/A'} | Yards/Game: {f"{yds_per_game:.1f}" if isinstance(yds_per_game, (int, float)) else 'N/A'}{SRC_PBP}</li>
+          <li>Penalties: {agg['total']} for {agg['yards']} yards{SRC_PBP}</li>
+          <li>Offense: {offense['count']} / {offense['yards']} yds{SRC_PBP}</li>
+          <li>Defense: {defense['count']} / {defense['yards']} yds{SRC_PBP}</li>
+          <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}{SRC_PBP}</li>
+          <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}{SRC_PBP}</li>
+          <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}{SRC_PBP}</li>
+          <li>Offensive Holding: {f"{agg['off_holding']} / {agg['off_holding_yards']} yds" if show_holding else 'N/A'} | Defensive Holding: {f"{agg['def_holding']} / {agg['def_holding_yards']} yds" if show_holding else 'N/A'}{SRC_PBP}</li>
+          <li>CFBStats Rank: {_penalties_rank(team)}{SRC_CFB}</li>
         </ul>
       </div>
       {last_n_html}

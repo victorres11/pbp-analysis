@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from ._sources import SRC_PBP
+
 
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {})
@@ -39,8 +41,8 @@ def _season_summary(team: dict) -> list[str]:
             f"L{actual_n}: {l_ppg_str} for / {l_opp_ppg_str} against"
         )
     return [
-        f"Record: {record_line}",
-        ppg_line,
+        f"Record: {record_line}{SRC_PBP}",
+        f"{ppg_line}{SRC_PBP}",
     ]
 
 
@@ -54,7 +56,7 @@ def _team_html(team: dict) -> str:
     recent = _recent_results(team)
 
     summary_html = "".join(f"<li>{l}</li>" for l in summary)
-    recent_html = "".join(f"<li>{r}</li>" for r in recent) if recent else "<li>N/A</li>"
+    recent_html = "".join(f"<li>{r}{SRC_PBP}</li>" for r in recent) if recent else "<li>N/A</li>"
 
     return f"""
     <div class="team-card">

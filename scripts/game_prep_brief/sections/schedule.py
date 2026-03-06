@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._sources import SRC_PBP
+
 
 def _safe_float(value: object) -> float | None:
     try:
@@ -229,6 +231,7 @@ def build(team1: dict, team2: dict) -> dict:
       {_team_table_html(team1)}
       {_team_table_html(team2)}
     </div>
+    <div class="section-note">All schedule data sourced from play-by-play parser.{SRC_PBP}</div>
     """
     md_content = "\n\n".join([
         "*Schedule Snapshot*",
