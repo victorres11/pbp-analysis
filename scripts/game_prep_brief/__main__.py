@@ -142,7 +142,7 @@ def main():
             overview.build(team1, team2, args.week, args.season, bundle_meta=bundle_meta),
             matchups.build(team1, team2),
             schedule.build(team1, team2),
-            rankings.build(team1, team2),
+            rankings.build(team1, team2, show_alerts=not args.no_alerts),
             explosives.build(team1, team2),
             zones.build(team1, team2),
             turnovers.build(team1, team2),

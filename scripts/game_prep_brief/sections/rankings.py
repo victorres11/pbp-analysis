@@ -230,25 +230,30 @@ def _has_distinct_scope(team1: dict, team2: dict, scope: str) -> bool:
     return False
 
 
-def build(team1: dict, team2: dict) -> dict:
+def build(team1: dict, team2: dict, *, show_alerts: bool = True) -> dict:
     """Full rankings section — shows conf/nonconf only if data differs from all."""
     extra_tables = ""
     for scope in ("conf", "nonconf"):
         if _has_distinct_scope(team1, team2, scope):
             extra_tables += _table_html(team1, team2, scope)
+    verification_block = (
+        f"<div class='section-grid'>{_verification_html(team1)}{_verification_html(team2)}</div>"
+        if show_alerts else ""
+    )
     html_content = (
         f"{_table_html(team1, team2, 'all')}"
-        f"<div class='section-grid'>{_verification_html(team1)}{_verification_html(team2)}</div>"
+        f"{verification_block}"
         f"{extra_tables}"
     )
 
-    md_content = "\n\n".join([
+    md_parts = [
         "*Rankings Highlights*",
         _top_bottom_md(team1),
         _top_bottom_md(team2),
-        _verification_md(team1),
-        _verification_md(team2),
-    ])
+    ]
+    if show_alerts:
+        md_parts.extend([_verification_md(team1), _verification_md(team2)])
+    md_content = "\n\n".join(md_parts)
 
     return {
         "title": "Rankings",
