@@ -74,6 +74,11 @@ def parse_args():
         action="store_true",
         help="Allow live enrichment fetch during render if enrichment file is missing/stale.",
     )
+    p.add_argument(
+        "--legacy-page-breaks",
+        action="store_true",
+        help="Keep forcing each section onto a new print page (older whitespace-heavy behavior).",
+    )
     return p.parse_args()
 
 
@@ -157,7 +162,14 @@ def main():
             print(md)
 
     if args.format in ("html", "both"):
-        html = html_renderer.render(section_list, team1, team2, args.week, args.season)
+        html = html_renderer.render(
+            section_list,
+            team1,
+            team2,
+            args.week,
+            args.season,
+            compact_print=not args.legacy_page_breaks,
+        )
         path = args.output_dir / f"{base_name}.html"
         path.write_text(html)
         print(f"[ok] HTML → {path}", file=sys.stderr)
