@@ -150,7 +150,15 @@ def _section_verification_alert(section_key: str, team1: dict, team2: dict) -> s
     return " | ".join(team_notices)
 
 
-def render(sections: list[dict], team1: dict, team2: dict, week: int | None, season: int) -> str:
+def render(
+    sections: list[dict],
+    team1: dict,
+    team2: dict,
+    week: int | None,
+    season: int,
+    *,
+    compact_print: bool = True,
+) -> str:
     """Render full HTML with page breaks between sections."""
     now = datetime.now().strftime("%B %d, %Y %H:%M")
     week_str = f"Week {week} · " if week else ""
@@ -283,10 +291,42 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
     .page-break:first-child {{ page-break-before: auto; }}
 
     @media print {{
-      body {{ background: white; padding: 12px; }}
-      .section {{ box-shadow: none; border: 1px solid #ddd; }}
-      .header {{ box-shadow: none; }}
-      @page {{ margin: 1cm; }}
+      body {{
+        background: white;
+        padding: 0;
+        font-size: 11px;
+      }}
+      .section {{
+        box-shadow: none;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 12px 12px;
+        margin-bottom: 8px;
+      }}
+      .header {{
+        box-shadow: none;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+      }}
+      .header h1 {{ font-size: 18px; }}
+      .header .subtitle {{ font-size: 12px; margin-top: 4px; }}
+      .section-header {{
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        font-size: 12px;
+      }}
+      .rankings-table {{ margin-bottom: 8px; }}
+      .rankings-table th,
+      .rankings-table td {{
+        padding: 4px 6px;
+        font-size: 10.5px;
+      }}
+      .block h4 {{ margin: 7px 0 4px; }}
+      .block li {{ margin: 1px 0; font-size: 10.5px; }}
+      .warning {{ margin-top: 6px; padding: 6px 8px; font-size: 10.5px; }}
+      .metric-compare {{ margin: 6px 0 8px; }}
+      @page {{ margin: 0.45in; }}
+      {" .page-break { page-break-before: auto !important; break-before: auto !important; }" if compact_print else ""}
     }}
     @media (max-width: 900px) {{
       .section-grid {{ grid-template-columns: 1fr; }}
