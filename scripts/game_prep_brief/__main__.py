@@ -79,6 +79,11 @@ def parse_args():
         action="store_true",
         help="Keep forcing each section onto a new print page (older whitespace-heavy behavior).",
     )
+    p.add_argument(
+        "--no-alerts",
+        action="store_true",
+        help="Suppress section alert and data notice warnings in HTML output.",
+    )
     return p.parse_args()
 
 
@@ -137,7 +142,7 @@ def main():
             overview.build(team1, team2, args.week, args.season, bundle_meta=bundle_meta),
             matchups.build(team1, team2),
             schedule.build(team1, team2),
-            rankings.build(team1, team2),
+            rankings.build(team1, team2, show_alerts=not args.no_alerts),
             explosives.build(team1, team2),
             zones.build(team1, team2),
             turnovers.build(team1, team2),
@@ -169,6 +174,7 @@ def main():
             args.week,
             args.season,
             compact_print=not args.legacy_page_breaks,
+            show_alerts=not args.no_alerts,
         )
         path = args.output_dir / f"{base_name}.html"
         path.write_text(html)

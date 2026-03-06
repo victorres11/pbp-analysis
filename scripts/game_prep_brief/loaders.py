@@ -2153,11 +2153,14 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     else:
         rz_pct = "N/A"
 
+    # Sort games by date before assigning week numbers so the monotonic
+    # guard doesn't misfire when the bundle stores games in file-load order.
+    raw_games = [g for g in (payload.get("games") or []) if isinstance(g, dict)]
+    raw_games.sort(key=lambda g: str(g.get("game_date") or g.get("date") or ""))
+
     normalized_games: list[tuple[int, int, dict]] = []
     last_week = 0
-    for idx, g in enumerate(payload.get("games") or [], start=1):
-        if not isinstance(g, dict):
-            continue
+    for idx, g in enumerate(raw_games, start=1):
         game_number = g.get("game_number") if isinstance(g.get("game_number"), int) else idx
         raw_week = g.get("week")
         if isinstance(raw_week, int) and raw_week > 0:
