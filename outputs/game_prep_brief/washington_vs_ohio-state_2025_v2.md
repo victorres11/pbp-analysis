@@ -247,7 +247,7 @@ Recent Results (last 5):
 - Penalty Yards/Game: 55.4
 - Procedural vs Live-ball: 22 / 50
 - PI Drawn / Allowed: 4 / 9
-- Off. Holding / Def. Holding: N/A / N/A
+- Off. Holding / Def. Holding: 8 / 6
 - Top Penalty Type: False Start
 
 *Ohio State*
@@ -255,11 +255,11 @@ Recent Results (last 5):
 - Penalty Yards/Game: 38.5
 - Procedural vs Live-ball: 15 / 40
 - PI Drawn / Allowed: 4 / 9
-- Off. Holding / Def. Holding: N/A / N/A
+- Off. Holding / Def. Holding: 8 / 2
 - Top Penalty Type: Pass Interference
 
 ━━━━━━━━━━━━━━━━━━
 📡 *Data Sources*
 • PBP Analysis (cfbstats + play-by-play aggregates)
 • Matchup overlay (optional matchups/<slug>/data.json)
-• Generated: Mar 05, 2026 21:05
+• Generated: Mar 05, 2026 21:24

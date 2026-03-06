@@ -3479,6 +3479,9 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
     # Only turnover counts determine sync — POT deltas are expected because we
     # derive POT from the play tree while StatBroadcast pre-bakes values that
     # are internally inconsistent with their own play data.
+    # Season-level cfb_totals uses int_lost/fum_lost (from XML rollups which
+    # only provide the "lost" perspective); game-level uses int_gained/fum_gained
+    # (from opponent-keyed XML rows inverted to team perspective).
     count_keys = {"gained", "lost", "int_lost", "fum_lost"}
     in_sync = all(deltas[k] == 0 for k in count_keys)
     return {"pbp": pbp_totals, "cfbstats": cfb_totals, "delta": deltas, "in_sync": in_sync}
