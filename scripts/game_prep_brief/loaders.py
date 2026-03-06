@@ -1179,6 +1179,14 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
         else:
             continue
 
+        # Detect special-teams turnovers (punt/kickoff return fumbles).
+        # StatBroadcast excludes these from POT — no ensuing drive is counted.
+        is_special_teams_turnover = bool(
+            turnover_type == "FUM"
+            and ("PUNT" in desc_up or "KICKOFF" in desc_up)
+            and "RETURN" in desc_up
+        )
+
         offense_side = "team" if offense in team_aliases else ("opp" if offense in opp_aliases else None)
         if offense_side is None:
             continue
@@ -1222,10 +1230,11 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
         # Turnover return score (e.g., pick-six/fumble return TD) counts immediately.
         if play.get("is_scoring"):
             drive_result, points_scored = _turnover_return_points(play)
-            if turnover_side == "team_gained":
-                points_off_turnovers_for += points_scored
-            else:
-                points_off_turnovers_against += points_scored
+            if not is_special_teams_turnover:
+                if turnover_side == "team_gained":
+                    points_off_turnovers_for += points_scored
+                else:
+                    points_off_turnovers_against += points_scored
             post_turnover_drives.append(
                 {
                     "quarter": quarter_num,
@@ -1277,10 +1286,11 @@ def _derive_turnover_drive_stats(play_tree: object, team_abbr: object, opp_abbr:
             drive_plays.append(nxt)
 
         drive_result, points_scored = _drive_points_result(drive_plays)
-        if turnover_side == "team_gained":
-            points_off_turnovers_for += points_scored
-        else:
-            points_off_turnovers_against += points_scored
+        if not is_special_teams_turnover:
+            if turnover_side == "team_gained":
+                points_off_turnovers_for += points_scored
+            else:
+                points_off_turnovers_against += points_scored
         total_yards = sum(p.get("yards", 0) or 0 for p in drive_plays if isinstance(p.get("yards"), (int, float)))
         post_turnover_drives.append(
             {
@@ -3466,7 +3476,14 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
         "pot_for": pbp_totals["pot_for"] - cfb_totals["pot_for"],
         "pot_against": pbp_totals["pot_against"] - cfb_totals["pot_against"],
     }
-    in_sync = all(v == 0 for v in deltas.values())
+    # Only turnover counts determine sync — POT deltas are expected because we
+    # derive POT from the play tree while StatBroadcast pre-bakes values that
+    # are internally inconsistent with their own play data.
+    # Season-level cfb_totals uses int_lost/fum_lost (from XML rollups which
+    # only provide the "lost" perspective); game-level uses int_gained/fum_gained
+    # (from opponent-keyed XML rows inverted to team perspective).
+    count_keys = {"gained", "lost", "int_lost", "fum_lost"}
+    in_sync = all(deltas[k] == 0 for k in count_keys)
     return {"pbp": pbp_totals, "cfbstats": cfb_totals, "delta": deltas, "in_sync": in_sync}
 
 
@@ -3509,7 +3526,8 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             "pot_against": int(pot_row.get("points_off_turnovers") or 0),
         }
         delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
-        in_sync = all(v == 0 for v in delta.values())
+        count_keys = {"gained", "lost", "int_gained", "fum_gained"}
+        in_sync = all(delta[k] == 0 for k in count_keys)
         report.append(
             {
                 "game_number": game.get("game_number"),

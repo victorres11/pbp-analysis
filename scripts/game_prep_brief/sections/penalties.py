@@ -279,6 +279,12 @@ def _aggregate(team: dict) -> dict:
                             ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
                         y_val = int(y_match.group(1)) if y_match else 0
+                        if ptype == "Offensive Holding":
+                            off_holding += 1
+                            off_holding_yards += y_val
+                        elif ptype == "Defensive Holding":
+                            def_holding += 1
+                            def_holding_yards += y_val
                         by_type_count[ptype] += 1
                         by_type_yards[ptype] += y_val
                         group = _penalty_group(pen_obj)
@@ -486,12 +492,34 @@ def _team_html(team: dict) -> str:
         )
         l3_st_total = int(last_n.get("penalties_special_teams", 0) or 0)
         l3_st_avg = l3_st_total / actual_n if actual_n else 0
-        l3_proc = stats_row.get("last_3_procedural_penalties_pg")
-        l3_live = stats_row.get("last_3_live_ball_penalties_pg")
-        l3_pi_drawn = stats_row.get("last_3_pass_interference_drawn_pg")
-        l3_pi_allowed = stats_row.get("last_3_pass_interference_allowed_pg")
-        l3_off_holding = stats_row.get("last_3_offensive_holding_pg")
-        l3_def_holding = stats_row.get("last_3_defensive_holding_pg")
+        l3_proc = stats_row.get("last_3_procedural_penalties_pg") if stats_row else None
+        l3_live = stats_row.get("last_3_live_ball_penalties_pg") if stats_row else None
+        l3_pi_drawn = stats_row.get("last_3_pass_interference_drawn_pg") if stats_row else None
+        l3_pi_allowed = stats_row.get("last_3_pass_interference_allowed_pg") if stats_row else None
+        l3_off_holding = stats_row.get("last_3_offensive_holding_pg") if stats_row else None
+        l3_def_holding = stats_row.get("last_3_defensive_holding_pg") if stats_row else None
+
+        # When bundle stats_row has zeroed L3 breakdowns but season play-tree
+        # data has non-zero values, derive L3 from the last N per-game rows.
+        last_n_games = per_game_rows[-actual_n:] if per_game_rows else []
+        if (
+            show_group
+            and actual_n
+            and last_n_games
+            and (l3_proc == 0 or l3_proc is None)
+            and (l3_live == 0 or l3_live is None)
+            and (procedural["count"] > 0 or live_ball["count"] > 0)
+        ):
+            l3_proc = round(sum(r["procedural_count"] for r in last_n_games) / actual_n, 1)
+            l3_live = round(sum(r["live_ball_count"] for r in last_n_games) / actual_n, 1)
+        if (
+            not show_holding
+            and actual_n
+            and (agg["off_holding"] > 0 or agg["def_holding"] > 0)
+        ):
+            # Season holding data exists from play-tree derivation; enable the
+            # breakdown even though the bundle didn't provide these fields.
+            show_holding = True
 
         def _l3(pg: float | None) -> str:
             if pg is None or not actual_n:
