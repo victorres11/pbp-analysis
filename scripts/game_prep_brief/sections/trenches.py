@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .delta import metric_delta_html, metric_delta_md
+from ._sources import SRC_PBP, SRC_CFB
 
 
 def _games(team: dict) -> list[dict]:
@@ -123,15 +124,15 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Sacks (CFBStats)</h4>
         <ul>
-          <li>Sacks Allowed/Game: {_fmt(t['sacks_allowed_pg'])} (total {_fmt(t['sacks_allowed_total'])}, rank #{t['sacks_off_rank'] or 'N/A'})</li>
-          <li>Sacks Made/Game: {_fmt(t['sacks_for_pg'])} (total {_fmt(t['sacks_for_total'])}, rank #{t['sacks_def_rank'] or 'N/A'})</li>
+          <li>Sacks Allowed/Game: {_fmt(t['sacks_allowed_pg'])} (total {_fmt(t['sacks_allowed_total'])}, rank #{t['sacks_off_rank'] or 'N/A'}){SRC_CFB}</li>
+          <li>Sacks Made/Game: {_fmt(t['sacks_for_pg'])} (total {_fmt(t['sacks_for_total'])}, rank #{t['sacks_def_rank'] or 'N/A'}){SRC_CFB}</li>
         </ul>
       </div>
       <div class="block">
         <h4>TFL (Off CFBStats + Def PBP)</h4>
         <ul>
-          <li>TFL Allowed/Game: {_fmt(t['tfl_allowed_pg'])} (total {_fmt(t['tfl_allowed_total'])}, rank #{t['tfl_off_rank'] or 'N/A'})</li>
-          <li>Rush TFL Made/Game (PBP): {_fmt(t['rush_tfl_for_pg'])} (total {_fmt(t['rush_tfl_for_total'])})</li>
+          <li>TFL Allowed/Game: {_fmt(t['tfl_allowed_pg'])} (total {_fmt(t['tfl_allowed_total'])}, rank #{t['tfl_off_rank'] or 'N/A'}){SRC_CFB}</li>
+          <li>Rush TFL Made/Game (PBP): {_fmt(t['rush_tfl_for_pg'])} (total {_fmt(t['rush_tfl_for_total'])}){SRC_PBP}</li>
         </ul>
       </div>
     </div>

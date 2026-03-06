@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .delta import metric_delta_html, metric_delta_md
+from ._sources import SRC_PBP
 
 
 def _games(team: dict) -> list[dict]:
@@ -75,15 +76,15 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Season Totals</h4>
         <ul>
-          <li>Offense: {t['off_conv']}/{t['off_att']} ({off_pct})</li>
-          <li>Defense Allowed: {t['def_conv']}/{t['def_att']} ({def_pct})</li>
+          <li>Offense: {t['off_conv']}/{t['off_att']} ({off_pct}){SRC_PBP}</li>
+          <li>Defense Allowed: {t['def_conv']}/{t['def_att']} ({def_pct}){SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Offense Split</h4>
         <ul>
-          <li>Rush: {t['off_rush_conv']}/{t['off_rush_att']}</li>
-          <li>Pass: {t['off_pass_conv']}/{t['off_pass_att']}</li>
+          <li>Rush: {t['off_rush_conv']}/{t['off_rush_att']}{SRC_PBP}</li>
+          <li>Pass: {t['off_pass_conv']}/{t['off_pass_att']}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">

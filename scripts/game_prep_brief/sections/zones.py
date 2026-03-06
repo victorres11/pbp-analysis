@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 
+from ._sources import SRC_PBP, SRC_CFB
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -191,30 +193,30 @@ def _team_html(team: dict, stats: dict) -> str:
       <div class="block">
         <h4>Green Zone (Inside 30)</h4>
         <ul>
-          <li>Trips: {stats['gz_trips']}{_last_n_compare(stats['gz_trips'], l3_gz_trips)}</li>
-          <li>TDs: {stats['gz_tds']}{_last_n_compare(stats['gz_tds'], l3_gz_tds)}</li>
-          <li>FGs: {stats['gz_fgs']}</li>
-          <li>Success: {stats['gz_success']}%{_last_n_compare(stats['gz_success'], l3_gz_success, suffix="%", show_arrow=True)}</li>
+          <li>Trips: {stats['gz_trips']}{_last_n_compare(stats['gz_trips'], l3_gz_trips)}{SRC_PBP}</li>
+          <li>TDs: {stats['gz_tds']}{_last_n_compare(stats['gz_tds'], l3_gz_tds)}{SRC_PBP}</li>
+          <li>FGs: {stats['gz_fgs']}{SRC_PBP}</li>
+          <li>Success: {stats['gz_success']}%{_last_n_compare(stats['gz_success'], l3_gz_success, suffix="%", show_arrow=True)}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Red Zone</h4>
         <ul>
-          <li>Trips: {stats['rz_trips']}{_last_n_compare(stats['rz_trips'], l3_rz_trips)}</li>
-          <li>TDs: {stats['rz_tds']}{_last_n_compare(stats['rz_tds'], l3_rz_tds)}</li>
-          <li>FGs: {stats['rz_fgs']}{_last_n_compare(stats['rz_fgs'], l3_rz_fgs)}</li>
-          <li>TD%: {stats['rz_td_pct']}%{_last_n_compare(stats['rz_td_pct'], l3_rz_td_pct, suffix="%", show_arrow=True)}</li>
-          <li>Efficiency: {stats['rz_eff']}%</li>
-          <li>CFBStats Rank: {rz_rank}</li>
+          <li>Trips: {stats['rz_trips']}{_last_n_compare(stats['rz_trips'], l3_rz_trips)}{SRC_PBP}</li>
+          <li>TDs: {stats['rz_tds']}{_last_n_compare(stats['rz_tds'], l3_rz_tds)}{SRC_PBP}</li>
+          <li>FGs: {stats['rz_fgs']}{_last_n_compare(stats['rz_fgs'], l3_rz_fgs)}{SRC_PBP}</li>
+          <li>TD%: {stats['rz_td_pct']}%{_last_n_compare(stats['rz_td_pct'], l3_rz_td_pct, suffix="%", show_arrow=True)}{SRC_PBP}</li>
+          <li>Efficiency: {stats['rz_eff']}%{SRC_PBP}</li>
+          <li>CFBStats Rank: {rz_rank}{SRC_CFB}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Tight Red Zone (Inside 10)</h4>
         <ul>
-          <li>Trips: {stats['trz_trips']}{_last_n_compare(stats['trz_trips'], l3_trz_trips)}</li>
-          <li>TDs: {stats['trz_tds']}{_last_n_compare(stats['trz_tds'], l3_trz_tds)}</li>
-          <li>FGs: {stats['trz_fgs']}{_last_n_compare(stats['trz_fgs'], l3_trz_fgs)}</li>
-          <li>TD%: {stats['trz_td_pct']}%{_last_n_compare(stats['trz_td_pct'], l3_trz_td_pct, suffix="%", show_arrow=True)}</li>
+          <li>Trips: {stats['trz_trips']}{_last_n_compare(stats['trz_trips'], l3_trz_trips)}{SRC_PBP}</li>
+          <li>TDs: {stats['trz_tds']}{_last_n_compare(stats['trz_tds'], l3_trz_tds)}{SRC_PBP}</li>
+          <li>FGs: {stats['trz_fgs']}{_last_n_compare(stats['trz_fgs'], l3_trz_fgs)}{SRC_PBP}</li>
+          <li>TD%: {stats['trz_td_pct']}%{_last_n_compare(stats['trz_td_pct'], l3_trz_td_pct, suffix="%", show_arrow=True)}{SRC_PBP}</li>
         </ul>
       </div>
     </div>

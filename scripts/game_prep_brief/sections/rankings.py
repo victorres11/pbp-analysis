@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+from ._sources import SRC_CFB
+
 CATEGORIES = [
     "scoring_offense",
     "scoring_defense",
@@ -72,7 +74,7 @@ def _table_html(team1: dict, team2: dict, scope: str) -> str:
     rows = []
     for key in CATEGORIES:
         rows.append(
-            f"<tr><td>{LABELS.get(key, key)}</td><td>{_fmt(_rank(r1, key))}</td><td>{_fmt(_rank(r2, key))}</td></tr>"
+            f"<tr><td>{LABELS.get(key, key)}</td><td>{_fmt(_rank(r1, key))}{SRC_CFB}</td><td>{_fmt(_rank(r2, key))}{SRC_CFB}</td></tr>"
         )
     rows_html = "".join(rows)
     return f"""

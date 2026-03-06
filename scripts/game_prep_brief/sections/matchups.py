@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._sources import SRC_CFB
+
 
 MATCHUP_KEYS = [
     ("scoring_offense", "scoring_defense", "Scoring"),
@@ -110,8 +112,8 @@ def build(team1: dict, team2: dict) -> dict:
         table_rows += (
             f"<tr>"
             f"<td>{r['label']}</td>"
-            f"<td>{r['offense']} OFF #{r['off_rank']}</td>"
-            f"<td>{r['defense']} DEF #{r['def_rank']}</td>"
+            f"<td>{r['offense']} OFF #{r['off_rank']}{SRC_CFB}</td>"
+            f"<td>{r['defense']} DEF #{r['def_rank']}{SRC_CFB}</td>"
             f"<td>{tag}</td>"
             f"</tr>"
         )

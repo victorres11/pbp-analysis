@@ -276,6 +276,9 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
 
     .metric-compare {{ margin: 8px 0 12px; }}
 
+    sup.src {{ font-size: 9px; color: #94a3b8; font-weight: 400; vertical-align: super; margin-left: 2px; }}
+    .source-legend {{ font-size: 11px; color: #94a3b8; margin-top: 8px; }}
+
     .page-break {{ page-break-before: always; }}
     .page-break:first-child {{ page-break-before: auto; }}
 
@@ -296,6 +299,7 @@ def render(sections: list[dict], team1: dict, team2: dict, week: int | None, sea
       <h1>Game Prep Brief v2</h1>
       <div class="subtitle">{week_str}{season} Season · {team1['display_name']} vs {team2['display_name']} · Generated {now}</div>
       {"<div class='warning'><strong>Data Notice:</strong> " + warning_text + "</div>" if warning_text else ""}
+      <div class="source-legend"><sup class="src">pbp</sup> Play-by-Play Parser · <sup class="src">cfb</sup> CFBStats · <sup class="src">pff</sup> PFF/API</div>
     </div>
   </header>
 

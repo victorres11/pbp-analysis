@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 
 from ._names import format_player_name
+from ._sources import SRC_PBP
 
 _NAME_COMMA_RE = r"([A-Z][A-Za-z]+(?:\s+(?:Jr|Jr\.|Sr|Sr\.|II|III|IV|V|[A-Z]+))?,\s*[A-Za-z]+)"
 
@@ -341,8 +342,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Season Totals</h4>
         <ul>
-          <li>Points For / Against: {pts_for} / {pts_against}</li>
-          <li>Margin: {margin}</li>
+          <li>Points For / Against: {pts_for} / {pts_against}{SRC_PBP}</li>
+          <li>Margin: {margin}{SRC_PBP}</li>
         </ul>
       </div>
       {last_n_html}

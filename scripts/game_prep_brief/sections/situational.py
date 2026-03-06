@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 
 from ._names import format_player_name
+from ._sources import SRC_PBP, SRC_CFB, SRC_PFF
 
 
 def _abbr_set(value: object) -> set[str]:
@@ -310,14 +311,15 @@ def _team_html(team: dict) -> str:
             last_n_line = f"<li>{l3_display}</li>"
 
     trenches_unavailable = all(_is_na(v) for v in (sacks_allowed_pg, sacks_pg, tfl_pg, tfl_allowed, mt_pg, fmt_pg))
+    _trench_src = SRC_PFF if not _is_na(stats.get("pff_sacks_pg")) else SRC_PBP
     trenches_html = (
         "<li>XML source currently does not include blitz/missed-tackle charting.</li>"
         if trenches_unavailable
         else (
-            f"<li>Sacks Allowed/G: {_num_display(sacks_allowed_pg)}</li>"
-            f"<li>Sacks (Def)/G: {_num_display(sacks_pg)} | TFL/G: {_num_display(tfl_pg)}</li>"
-            f"<li>TFL Allowed (season): {tfl_allowed}</li>"
-            f"<li>Missed Tackles/G: {_num_display(mt_pg)} | FMT/G: {_num_display(fmt_pg)}</li>"
+            f"<li>Sacks Allowed/G: {_num_display(sacks_allowed_pg)}{_trench_src}</li>"
+            f"<li>Sacks (Def)/G: {_num_display(sacks_pg)} | TFL/G: {_num_display(tfl_pg)}{_trench_src}</li>"
+            f"<li>TFL Allowed (season): {tfl_allowed}{SRC_CFB}</li>"
+            f"<li>Missed Tackles/G: {_num_display(mt_pg)} | FMT/G: {_num_display(fmt_pg)}{SRC_PFF}</li>"
         )
     )
 
@@ -327,32 +329,32 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>3rd Down</h4>
         <ul>
-          <li>CFBStats: {third_down}</li>
-          <li>Conversions / Attempts (PBP): {third_conv} / {third_att} ({f"{third_pct_derived}%" if isinstance(third_pct_derived, (int, float)) else "N/A"})</li>
+          <li>CFBStats: {third_down}{SRC_CFB}</li>
+          <li>Conversions / Attempts (PBP): {third_conv} / {third_att} ({f"{third_pct_derived}%" if isinstance(third_pct_derived, (int, float)) else "N/A"}){SRC_PBP}</li>
           {third_down_l3_line}
         </ul>
       </div>
       <div class="block">
         <h4>Blitz Rate</h4>
         <ul>
-          <li>Season: {_display_or_unavailable(blitz_pct, '%')}</li>
-          <li>Last 3: {_display_or_unavailable(blitz_pct_last3, '%')}</li>
+          <li>Season: {_display_or_unavailable(blitz_pct, '%')}{SRC_PFF}</li>
+          <li>Last 3: {_display_or_unavailable(blitz_pct_last3, '%')}{SRC_PFF}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Negative Plays</h4>
         <ul>
-          <li>Offense (Season / L3): {_num_display(neg_off, '/gm')} / {_num_display(neg_off_l3, '/gm')}</li>
-          <li>Defense Forced (Season / L3): {_num_display(neg_def, '/gm')} / {_num_display(neg_def_l3, '/gm')}</li>
+          <li>Offense (Season / L3): {_num_display(neg_off, '/gm')} / {_num_display(neg_off_l3, '/gm')}{SRC_PBP}</li>
+          <li>Defense Forced (Season / L3): {_num_display(neg_def, '/gm')} / {_num_display(neg_def_l3, '/gm')}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Tempo</h4>
         <ul>
-          <li>Avg Time to Snap: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')}</li>
-          <li>Hurry-Up Rate (≤10s): {_display_or_unavailable(stats.get('pff_hurry_up_pct'))}</li>
-          <li>Plays/Game Offense (Season / L3): {_num_display(off_plays_pg)} / {_num_display(off_plays_l3)}</li>
-          <li>Plays/Game Defense Allowed (Season / L3): {_num_display(def_plays_pg)} / {_num_display(def_plays_l3)}</li>
+          <li>Avg Time to Snap: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')}{SRC_PFF}</li>
+          <li>Hurry-Up Rate (≤10s): {_display_or_unavailable(stats.get('pff_hurry_up_pct'))}{SRC_PFF}</li>
+          <li>Plays/Game Offense (Season / L3): {_num_display(off_plays_pg)} / {_num_display(off_plays_l3)}{SRC_PBP}</li>
+          <li>Plays/Game Defense Allowed (Season / L3): {_num_display(def_plays_pg)} / {_num_display(def_plays_l3)}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
@@ -372,10 +374,10 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>4th Down</h4>
         <ul>
-          <li>Attempts / Conversions: {attempts if attempts is not None else 'N/A'} / {conversions if conversions is not None else 'N/A'}</li>
-          <li>Conversion %: {f"{pct}%" if isinstance(pct, (int, float)) else "N/A"}</li>
+          <li>Attempts / Conversions: {attempts if attempts is not None else 'N/A'} / {conversions if conversions is not None else 'N/A'}{SRC_PBP}</li>
+          <li>Conversion %: {f"{pct}%" if isinstance(pct, (int, float)) else "N/A"}{SRC_PBP}</li>
           {last_n_line}
-          <li>CFBStats: {_fourth_down_rank(team)}</li>
+          <li>CFBStats: {_fourth_down_rank(team)}{SRC_CFB}</li>
         </ul>
       </div>
       <div class="block">

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._sources import SRC_PBP
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -272,40 +274,40 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Field Goals</h4>
         <ul>
-          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({_fmt_num(stats['fg_pct'], '%')})</li>
-          <li>Long: {stats['fg_long']}</li>
+          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({_fmt_num(stats['fg_pct'], '%')}){SRC_PBP}</li>
+          <li>Long: {stats['fg_long']}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Punting</h4>
         <ul>
-          <li>Avg / Net: {_fmt_num(stats['punt_avg'])} / {_fmt_num(stats['punt_net_avg'])}</li>
-          <li>Long: {stats['punt_long']}</li>
-          <li>Inside 20: {stats['punts_inside_20']} · TB: {stats['punt_touchbacks']}</li>
+          <li>Avg / Net: {_fmt_num(stats['punt_avg'])} / {_fmt_num(stats['punt_net_avg'])}{SRC_PBP}</li>
+          <li>Long: {stats['punt_long']}{SRC_PBP}</li>
+          <li>Inside 20: {stats['punts_inside_20']} · TB: {stats['punt_touchbacks']}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Returns</h4>
         <ul>
-          <li>Punt Return Avg/Long: {_fmt_num(stats['punt_return_avg'])} / {stats['punt_return_long']} (20+ {stats['punt_20_plus']})</li>
-          <li>Punt Return Allowed Avg/Long: {_fmt_num(stats['punt_return_allowed_avg'])} / {stats['punt_return_long_allowed']} (20+ {stats['punt_20_plus_allowed']})</li>
-          <li>KO Return Avg/Long: {_fmt_num(stats['kick_return_avg'])} / {stats['kick_return_long']} (30+ {stats['kick_30_plus']})</li>
+          <li>Punt Return Avg/Long: {_fmt_num(stats['punt_return_avg'])} / {stats['punt_return_long']} (20+ {stats['punt_20_plus']}){SRC_PBP}</li>
+          <li>Punt Return Allowed Avg/Long: {_fmt_num(stats['punt_return_allowed_avg'])} / {stats['punt_return_long_allowed']} (20+ {stats['punt_20_plus_allowed']}){SRC_PBP}</li>
+          <li>KO Return Avg/Long: {_fmt_num(stats['kick_return_avg'])} / {stats['kick_return_long']} (30+ {stats['kick_30_plus']}){SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Impact Plays</h4>
         <ul>
-          <li>ST TDs: {_fmt_int(stats['special_teams_tds'])}</li>
-          <li>FG Blocks: {_fmt_int(stats['fg_blocks'])} · Punt Blocks: {_fmt_int(stats['punt_blocks'])}</li>
-          <li>Onside: {_fmt_int(stats['onside_recovered'])} / {_fmt_int(stats['onside_attempts'])}</li>
+          <li>ST TDs: {_fmt_int(stats['special_teams_tds'])}{SRC_PBP}</li>
+          <li>FG Blocks: {_fmt_int(stats['fg_blocks'])} · Punt Blocks: {_fmt_int(stats['punt_blocks'])}{SRC_PBP}</li>
+          <li>Onside: {_fmt_int(stats['onside_recovered'])} / {_fmt_int(stats['onside_attempts'])}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Two-Point Conversions</h4>
         <ul>
-          <li>Offense: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])}</li>
-          <li>Defense Allowed: {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}</li>
-          <li>Last 3 O/D: {_fmt_two_pt(stats['l3_two_pt_conv'], stats['l3_two_pt_att'])} · {_fmt_two_pt(stats['l3_two_pt_allowed_conv'], stats['l3_two_pt_allowed_att'])}</li>
+          <li>Offense: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])}{SRC_PBP}</li>
+          <li>Defense Allowed: {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}{SRC_PBP}</li>
+          <li>Last 3 O/D: {_fmt_two_pt(stats['l3_two_pt_conv'], stats['l3_two_pt_att'])} · {_fmt_two_pt(stats['l3_two_pt_allowed_conv'], stats['l3_two_pt_allowed_att'])}{SRC_PBP}</li>
         </ul>
       </div>
     </div>

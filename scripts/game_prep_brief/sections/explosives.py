@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 
 from ._names import format_player_name
+from ._sources import SRC_PBP, SRC_CFB
 
 
 def _abbr_set(value: object) -> set[str]:
@@ -375,9 +376,9 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Last {actual_n} Trending</h4>
         <ul>
-          <li>Explosives/Game: {l3_epg:.1f} (Season: {season_epg:.1f}){epg_arrow}</li>
-          <li>Pass/Game: {l3_ppg:.1f} / Rush/Game: {l3_rpg:.1f}</li>
-          <li>Non-Explosive Avg (Run/Pass): {ne_last_n['rush_avg']:.2f} / {ne_last_n['pass_avg']:.2f}</li>
+          <li>Explosives/Game: {l3_epg:.1f} (Season: {season_epg:.1f}){epg_arrow}{SRC_PBP}</li>
+          <li>Pass/Game: {l3_ppg:.1f} / Rush/Game: {l3_rpg:.1f}{SRC_PBP}</li>
+          <li>Non-Explosive Avg (Run/Pass): {ne_last_n['rush_avg']:.2f} / {ne_last_n['pass_avg']:.2f}{SRC_PBP}</li>
         </ul>
       </div>
         """
@@ -388,11 +389,11 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Totals</h4>
         <ul>
-          <li>CFBStats Explosives (20+): {cfb_expl_raw if cfb_expl_raw not in (None, '') else 'N/A'}{f' (#{cfb_expl_rank})' if cfb_expl_rank not in (None, '') else ''}</li>
-          <li>PBP Explosives: {totals['explosives']} (Pass {totals['explosive_passes']}, Rush {totals['explosive_rushes']})</li>
+          <li>CFBStats Explosives (20+): {cfb_expl_raw if cfb_expl_raw not in (None, '') else 'N/A'}{f' (#{cfb_expl_rank})' if cfb_expl_rank not in (None, '') else ''}{SRC_CFB}</li>
+          <li>PBP Explosives: {totals['explosives']} (Pass {totals['explosive_passes']}, Rush {totals['explosive_rushes']}){SRC_PBP}</li>
           <li>Delta (PBP-CFBStats): {delta_text} · {delta_status}</li>
-          <li>15-19y Rushes (PBP only): {defs['rush_15_19']} (expected definition delta)</li>
-          <li>PBP 20+ (pass/rush): {defs['pbp_20_total']} (Pass {defs['pass_20_plus']}, Rush {defs['rush_20_plus']})</li>
+          <li>15-19y Rushes (PBP only): {defs['rush_15_19']} (expected definition delta){SRC_PBP}</li>
+          <li>PBP 20+ (pass/rush): {defs['pbp_20_total']} (Pass {defs['pass_20_plus']}, Rush {defs['rush_20_plus']}){SRC_PBP}</li>
           <li>Delta using PBP 20+ vs CFBStats: {threshold_delta_text} (residual {residual_text})</li>
         </ul>
       </div>
@@ -404,8 +405,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Without Explosives</h4>
         <ul>
-          <li>Run Avg (&lt;15y): {ne_season['rush_avg']:.2f} ({ne_season['rush_att']} att)</li>
-          <li>Pass Avg (&lt;20y): {ne_season['pass_avg']:.2f} ({ne_season['pass_att']} att)</li>
+          <li>Run Avg (&lt;15y): {ne_season['rush_avg']:.2f} ({ne_season['rush_att']} att){SRC_PBP}</li>
+          <li>Pass Avg (&lt;20y): {ne_season['pass_avg']:.2f} ({ne_season['pass_att']} att){SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">

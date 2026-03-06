@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ._sources import SRC_PBP
+
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
@@ -183,24 +185,24 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Season Totals</h4>
         <ul>
-          <li>Turnovers Gained/Lost: {totals['gained']} / {totals['lost']}</li>
-          <li>Margin: {margin if margin is not None else 'N/A'}</li>
+          <li>Turnovers Gained/Lost: {totals['gained']} / {totals['lost']}{SRC_PBP}</li>
+          <li>Margin: {margin if margin is not None else 'N/A'}{SRC_PBP}</li>
         </ul>
       </div>
       {last_n_html}
       <div class="block">
         <h4>Breakdown</h4>
         <ul>
-          <li>INT Gained/Lost: {totals['int_gained']} / {totals['int_lost']}</li>
-          <li>Fumbles Gained/Lost: {totals['fum_gained']} / {totals['fum_lost']}</li>
+          <li>INT Gained/Lost: {totals['int_gained']} / {totals['int_lost']}{SRC_PBP}</li>
+          <li>Fumbles Gained/Lost: {totals['fum_gained']} / {totals['fum_lost']}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
         <h4>Points Off Turnovers</h4>
         <ul>
-          <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm)</li>
-          <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm)</li>
-          <li>Avg Points per Post-TO Drive: {avg_pts_text}</li>
+          <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm){SRC_PBP}</li>
+          <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm){SRC_PBP}</li>
+          <li>Avg Points per Post-TO Drive: {avg_pts_text}{SRC_PBP}</li>
         </ul>
       </div>
       <div class="block">
