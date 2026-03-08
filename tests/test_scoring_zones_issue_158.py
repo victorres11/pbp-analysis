@@ -1,43 +1,33 @@
-from scripts.game_prep_brief import loaders
 from scripts.game_prep_brief.sections import zones
 
 
-def test_derive_game_detail_stats_green_zone_is_inside_30() -> None:
-    play_tree = [
-        {
-            "drives": [
+def test_team_zone_stats_uses_bundle_game_row_fields_without_play_tree_derivation() -> None:
+    team = {
+        "pbp_entry": {
+            "games": [
                 {
-                    "plays": [
-                        {
-                            "offense": "TEAM",
-                            "is_scrimmage_play": True,
-                            "is_no_play": False,
-                            "spot": "OPP35",
-                            "description": "Rush for 5 yards",
-                            "down_distance": "1st and 10",
-                        }
-                    ]
-                },
-                {
-                    "plays": [
-                        {
-                            "offense": "TEAM",
-                            "is_scrimmage_play": True,
-                            "is_no_play": False,
-                            "spot": "OPP20",
-                            "description": "Pass complete for touchdown",
-                            "down_distance": "1st and 10",
-                        }
-                    ]
-                },
+                    "green_zone_trips": 1,
+                    "green_zone_tds": 1,
+                    "green_zone_fgs": 0,
+                    "green_zone_failed": 0,
+                    "red_zone_trips": 1,
+                    "red_zone_tds": 1,
+                    "red_zone_fgs": 0,
+                    "tight_red_zone_trips": 0,
+                    "tight_red_zone_tds": 0,
+                    "tight_red_zone_fgs": 0,
+                    # The play tree intentionally lacks enough context to derive
+                    # the same zone counts. Section output should trust bundle rows.
+                    "play_tree": [],
+                }
             ]
         }
-    ]
+    }
 
-    stats = loaders._derive_game_detail_stats(play_tree, "TEAM", "OPP")
-    assert stats["green_zone_trips"] == 1
-    assert stats["red_zone_trips"] == 1
-    assert stats["tight_red_zone_trips"] == 0
+    stats = zones._team_zone_stats(team)
+    assert stats["gz_trips"] == 1
+    assert stats["rz_trips"] == 1
+    assert stats["trz_trips"] == 0
 
 
 def test_team_zone_stats_xml_efficiency_uses_displayed_counts() -> None:

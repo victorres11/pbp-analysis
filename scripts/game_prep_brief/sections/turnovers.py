@@ -12,35 +12,9 @@ def _sum(games: list[dict], key: str) -> int:
     return sum(g.get(key, 0) or 0 for g in games)
 
 
-def _xml_row(team: dict, category: str) -> dict:
-    pbp = team.get("pbp_entry") or {}
-    rollups = pbp.get("xml_rollups") or {}
-    rolled = rollups.get(category)
-    if isinstance(rolled, dict) and rolled:
-        return rolled
-    if not pbp.get("xml_source"):
-        return {}
-    stats = pbp.get("xml_stats") or {}
-    cat = stats.get(category) or {}
-    if not isinstance(cat, dict):
-        return {}
-    if cat:
-        _, row = max(cat.items(), key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0))
-        if isinstance(row, dict):
-            return row
-    return {}
-
-
 def _should_show_last_n(team: dict) -> bool:
     last_n = team.get("last_n", {}) or {}
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
-
-
-def _live_turnover_split(team: dict) -> dict:
-    pbp = team.get("pbp_entry") or {}
-    cfb = pbp.get("cfbstats") or {}
-    split = cfb.get("turnover_split")
-    return split if isinstance(split, dict) else {}
 
 
 def _post_turnover_drives(games: list[dict]) -> dict:
@@ -104,26 +78,13 @@ def _team_html(team: dict) -> str:
         "pts_for": _sum(games, "points_off_turnovers_for"),
         "pts_against": _sum(games, "points_off_turnovers_against"),
     }
-    xml_tov = _xml_row(team, "turnovers")
-    xml_pot = _xml_row(team, "points_off_turnovers")
-    live_tov = _live_turnover_split(team)
-    if xml_tov:
-        totals["lost"] = xml_tov.get("turnovers", totals["lost"])
-        totals["gained"] = xml_tov.get("turnovers_forced", totals["gained"])
-        totals["int_lost"] = xml_tov.get("interceptions", totals["int_lost"])
-        totals["fum_lost"] = xml_tov.get("fumbles_lost", totals["fum_lost"])
-    if live_tov:
-        totals["lost"] = live_tov.get("turnovers_lost", totals["lost"])
-        totals["gained"] = live_tov.get("turnovers_gained", totals["gained"])
-        totals["int_lost"] = live_tov.get("interceptions_lost", totals["int_lost"])
-        totals["int_gained"] = live_tov.get("interceptions_gained", totals["int_gained"])
-        totals["fum_lost"] = live_tov.get("fumbles_lost", totals["fum_lost"])
-        totals["fum_gained"] = live_tov.get("fumbles_gained", totals["fum_gained"])
     # POT: use play-by-play derived values (not pre-baked StatBroadcast
     # aggregates, which are internally inconsistent with their own play tree).
     season_off_pg = _pg(totals["pts_for"], games)
     season_def_pg = _pg(totals["pts_against"], games)
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
+    if not isinstance(margin, (int, float)):
+        margin = totals["gained"] - totals["lost"]
     drives_split = _post_turnover_drives(games)
     avg_pts_post_to = _avg_pts_after_turnover(games)
     avg_pts_text = f"{avg_pts_post_to}" if isinstance(avg_pts_post_to, (int, float)) else "N/A"
@@ -233,17 +194,10 @@ def _team_md(team: dict) -> str:
     gained = _sum(games, "turnovers_gained")
     lost = _sum(games, "turnovers_lost")
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin", "N/A")
+    if not isinstance(margin, (int, float)):
+        margin = gained - lost
     pts_for = _sum(games, "points_off_turnovers_for")
     pts_against = _sum(games, "points_off_turnovers_against")
-    xml_tov = _xml_row(team, "turnovers")
-    xml_pot = _xml_row(team, "points_off_turnovers")
-    live_tov = _live_turnover_split(team)
-    if xml_tov:
-        lost = xml_tov.get("turnovers", lost)
-        gained = xml_tov.get("turnovers_forced", gained)
-    if live_tov:
-        lost = live_tov.get("turnovers_lost", lost)
-        gained = live_tov.get("turnovers_gained", gained)
     # POT: use play-by-play derived values (see _team_html comment).
     season_off_pg = _pg(pts_for, games)
     season_def_pg = _pg(pts_against, games)

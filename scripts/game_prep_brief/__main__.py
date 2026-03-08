@@ -15,6 +15,8 @@ from .loaders import (
     slugify,
     build_enrichment_payload,
     merge_enrichment_payload,
+    load_cfbstats_snapshot,
+    load_cfbstats_verification_report,
     load_enrichment_file,
     write_enrichment_file,
     gather_team_data,
@@ -80,6 +82,18 @@ def parse_args():
         help="Keep forcing each section onto a new print page (older whitespace-heavy behavior).",
     )
     p.add_argument(
+        "--cfbstats-snapshot",
+        type=Path,
+        default=None,
+        help="Optional path to the offline CFBStats snapshot artifact.",
+    )
+    p.add_argument(
+        "--cfbstats-verification-report",
+        type=Path,
+        default=None,
+        help="Optional path to the offline CFBStats verification report artifact.",
+    )
+    p.add_argument(
         "--no-alerts",
         action="store_true",
         help="Suppress section alert and data notice warnings in HTML output.",
@@ -111,6 +125,12 @@ def main():
         else:
             print(f"[warn] Enrichment fetch returned empty payload; continuing.", file=sys.stderr)
 
+    cfbstats_snapshot = load_cfbstats_snapshot(args.season, args.cfbstats_snapshot)
+    cfbstats_verification_report = load_cfbstats_verification_report(
+        args.season,
+        args.cfbstats_verification_report,
+    )
+
     team1 = gather_team_data(
         pbp_teams,
         args.team1,
@@ -118,6 +138,8 @@ def main():
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
         allow_live_enrichment=args.allow_live_enrichment,
+        cfbstats_snapshot=cfbstats_snapshot,
+        cfbstats_verification_report=cfbstats_verification_report,
     )
     team2 = gather_team_data(
         pbp_teams,
@@ -126,6 +148,8 @@ def main():
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
         allow_live_enrichment=args.allow_live_enrichment,
+        cfbstats_snapshot=cfbstats_snapshot,
+        cfbstats_verification_report=cfbstats_verification_report,
     )
 
     if args.week:
