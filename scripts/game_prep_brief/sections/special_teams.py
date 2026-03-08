@@ -59,19 +59,10 @@ def _sum_optional_game_metric(games: list[dict], key: str) -> int | None:
 
 
 def _cfbstats_two_point(team: dict) -> dict:
-    """Extract cfbstats two-point source values from the verification report."""
-    verification = team.get("cfbstats_verification") or {}
-    metrics = verification.get("metrics") or []
-    out = {}
-    for m in metrics:
-        key = m.get("key", "")
-        source = m.get("source")
-        if key.startswith("two_point") and source is not None:
-            try:
-                out[key] = int(source)
-            except (TypeError, ValueError):
-                pass
-    return out
+    pbp = team.get("pbp_entry") or {}
+    cfbstats = pbp.get("cfbstats") or {}
+    totals = cfbstats.get("two_point_totals")
+    return totals if isinstance(totals, dict) else {}
 
 
 def _team_stats(team: dict) -> dict:
@@ -225,7 +216,7 @@ def _team_stats(team: dict) -> dict:
         out["l3_two_pt_conv"] = "N/A"
         out["l3_two_pt_allowed_att"] = "N/A"
         out["l3_two_pt_allowed_conv"] = "N/A"
-    # Prefer cfbstats season totals when available (more widely cited source).
+    # Prefer offline CFBStats season totals when available.
     if cfb_tp.get("two_point_attempts") is not None:
         out["two_pt_att"] = cfb_tp["two_point_attempts"]
     if cfb_tp.get("two_point_conversions") is not None:

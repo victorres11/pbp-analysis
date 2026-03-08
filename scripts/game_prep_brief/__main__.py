@@ -15,6 +15,8 @@ from .loaders import (
     slugify,
     build_enrichment_payload,
     merge_enrichment_payload,
+    load_cfbstats_snapshot,
+    load_cfbstats_verification_report,
     load_enrichment_file,
     write_enrichment_file,
     gather_team_data,
@@ -79,6 +81,23 @@ def parse_args():
         action="store_true",
         help="Keep forcing each section onto a new print page (older whitespace-heavy behavior).",
     )
+    p.add_argument(
+        "--cfbstats-snapshot",
+        type=Path,
+        default=None,
+        help="Optional path to the offline CFBStats snapshot artifact.",
+    )
+    p.add_argument(
+        "--cfbstats-verification-report",
+        type=Path,
+        default=None,
+        help="Optional path to the offline CFBStats verification report artifact.",
+    )
+    p.add_argument(
+        "--no-alerts",
+        action="store_true",
+        help="Suppress section alert and data notice warnings in HTML output.",
+    )
     return p.parse_args()
 
 
@@ -106,6 +125,12 @@ def main():
         else:
             print(f"[warn] Enrichment fetch returned empty payload; continuing.", file=sys.stderr)
 
+    cfbstats_snapshot = load_cfbstats_snapshot(args.season, args.cfbstats_snapshot)
+    cfbstats_verification_report = load_cfbstats_verification_report(
+        args.season,
+        args.cfbstats_verification_report,
+    )
+
     team1 = gather_team_data(
         pbp_teams,
         args.team1,
@@ -113,6 +138,8 @@ def main():
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
         allow_live_enrichment=args.allow_live_enrichment,
+        cfbstats_snapshot=cfbstats_snapshot,
+        cfbstats_verification_report=cfbstats_verification_report,
     )
     team2 = gather_team_data(
         pbp_teams,
@@ -121,6 +148,8 @@ def main():
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
         allow_live_enrichment=args.allow_live_enrichment,
+        cfbstats_snapshot=cfbstats_snapshot,
+        cfbstats_verification_report=cfbstats_verification_report,
     )
 
     if args.week:
@@ -137,7 +166,7 @@ def main():
             overview.build(team1, team2, args.week, args.season, bundle_meta=bundle_meta),
             matchups.build(team1, team2),
             schedule.build(team1, team2),
-            rankings.build(team1, team2),
+            rankings.build(team1, team2, show_alerts=not args.no_alerts),
             explosives.build(team1, team2),
             zones.build(team1, team2),
             turnovers.build(team1, team2),
@@ -169,6 +198,7 @@ def main():
             args.week,
             args.season,
             compact_print=not args.legacy_page_breaks,
+            show_alerts=not args.no_alerts,
         )
         path = args.output_dir / f"{base_name}.html"
         path.write_text(html)
