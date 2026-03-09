@@ -8,6 +8,8 @@ This document defines the production artifact contract for the game prep brief r
 
 The machine-readable source of truth for the contract is the pipeline summary JSON written by `scripts/refresh-game-prep-pipeline.sh`.
 
+The local `yr-data-api/data/pbp_stats_bundle.json` handoff path is documented separately in [yr-data-api-bundle-role.md](./yr-data-api-bundle-role.md). It is not part of the official published artifact set.
+
 ## Published Artifact Set
 
 The official published artifact set is the season-scoped core output required by downstream consumers:
@@ -18,6 +20,12 @@ The official published artifact set is the season-scoped core output required by
 - `pipeline_summary`: `published/<season>/game_prep_pipeline_summary_<season>.json`
 
 These are the only artifacts that should be treated as stable production inputs.
+
+Specifically, the sibling local path:
+
+- `yr-data-api/data/pbp_stats_bundle.json`
+
+is **not** a published production artifact. It remains a local handoff path for direct brief workflows.
 
 ## Scratch Outputs
 

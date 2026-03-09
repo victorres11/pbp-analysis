@@ -42,6 +42,8 @@ Default live-refresh behavior:
 - writes a machine-readable summary JSON when `--summary-json` is provided
 - expects the CFBStats stages to be network-bound and potentially slower than offline validation
 
+Important: the `yr-data-api/data/pbp_stats_bundle.json` write is a **local handoff convenience**, not the official published bundle contract. The published bundle contract is the season-scoped `published/<season>/pbp_stats_bundle_<season>.json` artifact layout used by the workflow-backed live-refresh path.
+
 ### GitHub Actions Live Refresh
 
 The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
@@ -68,6 +70,8 @@ The published artifact upload contains the season-scoped core set:
 - verification report
 - pipeline summary JSON
 
+This is the official published contract. It is distinct from the local `yr-data-api/data/pbp_stats_bundle.json` handoff path.
+
 The scratch artifact upload contains run-scoped helper outputs:
 
 - enrichment file
@@ -76,12 +80,14 @@ The scratch artifact upload contains run-scoped helper outputs:
 ### Published Contract
 
 The published artifact contract is documented in [published-artifact-contract.md](./published-artifact-contract.md).
+The specific role of the `yr-data-api` bundle handoff path is documented in [yr-data-api-bundle-role.md](./yr-data-api-bundle-role.md).
 
 Short version:
 
 - published production inputs live under `published/<season>/`
 - enrichment and smoke brief outputs are `scratch` artifacts, not part of the published contract
 - `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
+- `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff path, not a published artifact path
 
 ### Offline Validate
 
