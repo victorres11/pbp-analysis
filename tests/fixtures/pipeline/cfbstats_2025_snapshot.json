@@ -1,0 +1,362 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "artifact": "cfbstats_snapshot",
+    "season": 2025,
+    "generated_at": "2026-03-09T00:26:21.516747Z",
+    "generator": "pbp_parser.cfbstats.snapshot",
+    "team_count": 2,
+    "team_filter": [
+      "ohio-state",
+      "washington"
+    ],
+    "ranking_scopes": [
+      "all",
+      "conf",
+      "nonconf"
+    ],
+    "ranking_metrics": [
+      "scoring_offense",
+      "scoring_defense",
+      "total_offense",
+      "total_defense",
+      "rushing_offense",
+      "rushing_defense",
+      "passing_offense",
+      "passing_defense",
+      "scoring_margin",
+      "turnover_margin",
+      "red_zone",
+      "third_down",
+      "fourth_down",
+      "explosives",
+      "penalties",
+      "time_of_possession",
+      "sacks_offense",
+      "sacks_defense",
+      "tfl_offense",
+      "tfl_defense"
+    ],
+    "notes": {
+      "rankings": "Ranking scopes preserve the current brief semantics: values are conference-relative, 'all' means all games, 'conf' means conference games, and 'nonconf' means nonconference games.",
+      "turnovers": "Turnover split data is intentionally excluded. Bundle game rows and bundle aggregates are the canonical turnover source after Steps 1 and 2.",
+      "two_point": "Two-point totals remain raw cfbstats source values because the brief still uses them as cited season totals."
+    }
+  },
+  "teams": {
+    "washington": {
+      "team_name": "Washington",
+      "team_slug": "washington",
+      "conference": "Big Ten",
+      "rankings": {
+        "all": {
+          "scoring_offense": {
+            "rank": 4,
+            "total": 18,
+            "value": "34.1 PPG",
+            "conference": "Big Ten",
+            "label": "scoring offense"
+          },
+          "scoring_defense": {
+            "rank": 5,
+            "total": 18,
+            "value": "18.7 PPG",
+            "conference": "Big Ten",
+            "label": "scoring defense"
+          },
+          "total_offense": {
+            "rank": 5,
+            "total": 18,
+            "value": "409.9",
+            "conference": "Big Ten",
+            "label": "total offense"
+          },
+          "total_defense": {
+            "rank": 5,
+            "total": 18,
+            "value": "311.4",
+            "conference": "Big Ten",
+            "label": "total defense"
+          },
+          "rushing_offense": {
+            "rank": 7,
+            "total": 18,
+            "value": "165.46",
+            "conference": "Big Ten",
+            "label": "rushing offense"
+          },
+          "rushing_defense": {
+            "rank": 3,
+            "total": 18,
+            "value": "100.08",
+            "conference": "Big Ten",
+            "label": "rushing defense"
+          },
+          "passing_offense": {
+            "rank": 6,
+            "total": 18,
+            "value": "244.5",
+            "conference": "Big Ten",
+            "label": "passing offense"
+          },
+          "passing_defense": {
+            "rank": 11,
+            "total": 18,
+            "value": "211.3",
+            "conference": "Big Ten",
+            "label": "passing defense"
+          },
+          "scoring_margin": {
+            "rank": 4,
+            "total": 18,
+            "value": "+15.4",
+            "conference": "Big Ten",
+            "label": "scoring margin"
+          },
+          "turnover_margin": {
+            "rank": 5,
+            "total": 18,
+            "value": "+5",
+            "conference": "Big Ten",
+            "label": "turnover margin"
+          },
+          "red_zone": {
+            "rank": 2,
+            "total": 18,
+            "value": "75.93%",
+            "conference": "Big Ten",
+            "label": "red zone TD%"
+          },
+          "third_down": {
+            "rank": 4,
+            "total": 18,
+            "value": "50.65%",
+            "conference": "Big Ten",
+            "label": "third down %"
+          },
+          "fourth_down": {
+            "rank": 12,
+            "total": 18,
+            "value": "55.00%",
+            "conference": "Big Ten",
+            "label": "4th down conversion %"
+          },
+          "explosives": {
+            "rank": 5,
+            "total": 18,
+            "value": "73",
+            "conference": "Big Ten",
+            "label": "explosive plays (20+)"
+          },
+          "penalties": {
+            "rank": 16,
+            "total": 18,
+            "value": "55.3",
+            "conference": "Big Ten",
+            "label": "penalty yards/game"
+          },
+          "time_of_possession": {
+            "rank": 13,
+            "total": 18,
+            "value": "29:34.54",
+            "conference": "Big Ten",
+            "label": "time of possession"
+          },
+          "sacks_offense": {
+            "rank": 16,
+            "total": 18,
+            "value": "2.62",
+            "conference": "Big Ten",
+            "label": "sacks allowed"
+          },
+          "sacks_defense": {
+            "rank": 12,
+            "total": 18,
+            "value": "1.85",
+            "conference": "Big Ten",
+            "label": "sacks"
+          },
+          "tfl_offense": {
+            "rank": 16,
+            "total": 18,
+            "value": "71.0",
+            "conference": "Big Ten",
+            "label": "TFL allowed"
+          },
+          "tfl_defense": {
+            "rank": 14,
+            "total": 18,
+            "value": "55.0",
+            "conference": "Big Ten",
+            "label": "TFL"
+          }
+        },
+        "conf": {},
+        "nonconf": {}
+      },
+      "two_point_totals": {
+        "two_point_attempts": 0,
+        "two_point_conversions": 0,
+        "two_point_allowed_attempts": 2,
+        "two_point_allowed_conversions": 1
+      }
+    },
+    "ohio-state": {
+      "team_name": "Ohio State",
+      "team_slug": "ohio-state",
+      "conference": "Big Ten",
+      "rankings": {
+        "all": {
+          "scoring_offense": {
+            "rank": 5,
+            "total": 18,
+            "value": "33.4 PPG",
+            "conference": "Big Ten",
+            "label": "scoring offense"
+          },
+          "scoring_defense": {
+            "rank": 1,
+            "total": 18,
+            "value": "9.3 PPG",
+            "conference": "Big Ten",
+            "label": "scoring defense"
+          },
+          "total_offense": {
+            "rank": 4,
+            "total": 18,
+            "value": "422.6",
+            "conference": "Big Ten",
+            "label": "total offense"
+          },
+          "total_defense": {
+            "rank": 1,
+            "total": 18,
+            "value": "219.1",
+            "conference": "Big Ten",
+            "label": "total defense"
+          },
+          "rushing_offense": {
+            "rank": 9,
+            "total": 18,
+            "value": "154.36",
+            "conference": "Big Ten",
+            "label": "rushing offense"
+          },
+          "rushing_defense": {
+            "rank": 2,
+            "total": 18,
+            "value": "89.36",
+            "conference": "Big Ten",
+            "label": "rushing defense"
+          },
+          "passing_offense": {
+            "rank": 2,
+            "total": 18,
+            "value": "268.2",
+            "conference": "Big Ten",
+            "label": "passing offense"
+          },
+          "passing_defense": {
+            "rank": 1,
+            "total": 18,
+            "value": "129.7",
+            "conference": "Big Ten",
+            "label": "passing defense"
+          },
+          "scoring_margin": {
+            "rank": 2,
+            "total": 18,
+            "value": "+24.1",
+            "conference": "Big Ten",
+            "label": "scoring margin"
+          },
+          "turnover_margin": {
+            "rank": 7,
+            "total": 18,
+            "value": "+4",
+            "conference": "Big Ten",
+            "label": "turnover margin"
+          },
+          "red_zone": {
+            "rank": 9,
+            "total": 18,
+            "value": "66.67%",
+            "conference": "Big Ten",
+            "label": "red zone TD%"
+          },
+          "third_down": {
+            "rank": 2,
+            "total": 18,
+            "value": "53.29%",
+            "conference": "Big Ten",
+            "label": "third down %"
+          },
+          "fourth_down": {
+            "rank": 1,
+            "total": 18,
+            "value": "70.59%",
+            "conference": "Big Ten",
+            "label": "4th down conversion %"
+          },
+          "explosives": {
+            "rank": 4,
+            "total": 18,
+            "value": "57",
+            "conference": "Big Ten",
+            "label": "explosive plays (20+)"
+          },
+          "penalties": {
+            "rank": 8,
+            "total": 18,
+            "value": "38.9",
+            "conference": "Big Ten",
+            "label": "penalty yards/game"
+          },
+          "time_of_possession": {
+            "rank": 1,
+            "total": 18,
+            "value": "33:07.00",
+            "conference": "Big Ten",
+            "label": "time of possession"
+          },
+          "sacks_offense": {
+            "rank": 3,
+            "total": 18,
+            "value": "1.14",
+            "conference": "Big Ten",
+            "label": "sacks allowed"
+          },
+          "sacks_defense": {
+            "rank": 3,
+            "total": 18,
+            "value": "2.50",
+            "conference": "Big Ten",
+            "label": "sacks"
+          },
+          "tfl_offense": {
+            "rank": 6,
+            "total": 18,
+            "value": "56.0",
+            "conference": "Big Ten",
+            "label": "TFL allowed"
+          },
+          "tfl_defense": {
+            "rank": 4,
+            "total": 18,
+            "value": "78.0",
+            "conference": "Big Ten",
+            "label": "TFL"
+          }
+        },
+        "conf": {},
+        "nonconf": {}
+      },
+      "two_point_totals": {
+        "two_point_attempts": 0,
+        "two_point_conversions": 0,
+        "two_point_allowed_attempts": 2,
+        "two_point_allowed_conversions": 0
+      }
+    }
+  }
+}

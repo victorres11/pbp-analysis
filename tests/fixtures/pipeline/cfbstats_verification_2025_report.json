@@ -1,0 +1,480 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "artifact": "cfbstats_bundle_verification_report",
+    "season": 2025,
+    "generated_at": "2026-03-09T00:26:21.946637Z",
+    "generator": "pbp_parser.cfbstats.bundle_verifier",
+    "metric_keys": [
+      "red_zone_td_pct",
+      "third_down_pct",
+      "fourth_down_pct",
+      "penalty_yards_pg",
+      "turnover_margin",
+      "total_offense_ypg",
+      "total_defense_ypg",
+      "scoring_offense_ppg",
+      "scoring_defense_ppg",
+      "scoring_margin_pg",
+      "rushing_offense_ypg",
+      "rushing_defense_ypg",
+      "passing_offense_ypg",
+      "passing_defense_ypg",
+      "sacks_allowed_pg",
+      "sacks_defense_pg",
+      "two_point_attempts",
+      "two_point_conversions",
+      "two_point_allowed_attempts",
+      "two_point_allowed_conversions"
+    ],
+    "team_count": 2,
+    "notes": {
+      "result_mapping": "Raw verifier statuses map to pass/warning/fail. Matches are pass; special cases and source-side unavailability are warning; mismatches and bundle-side missing values are fail.",
+      "special_cases": "reason_id is the stable machine-readable classification for known verifier edge cases; note preserves the existing human-readable reasoning text."
+    }
+  },
+  "summary": {
+    "teams_checked": 2,
+    "metrics_checked": 10,
+    "metric_matches": 4,
+    "metric_mismatches": 0,
+    "metric_special_cases": 4,
+    "metric_missing": 2,
+    "metric_results": {
+      "pass": 4,
+      "warning": 6,
+      "fail": 0
+    },
+    "team_results": {
+      "pass": 0,
+      "warning": 2,
+      "fail": 0
+    },
+    "metric_status_counts": {
+      "match": 4,
+      "special_case": 4,
+      "missing_cfbstats_team": 2
+    },
+    "team_status_counts": {
+      "ok": 2
+    },
+    "abs_tolerance": 0.11,
+    "has_failures": false,
+    "invalid_bundle_row": 0,
+    "invalid_cfbstats_value": 0,
+    "match": 4,
+    "mismatch": 0,
+    "missing_bundle_category": 0,
+    "missing_bundle_value": 0,
+    "missing_cfbstats_team": 2,
+    "special_case": 4
+  },
+  "known_gaps": {
+    "missing_cfbstats_team": {
+      "id": "missing_cfbstats_team",
+      "title": "Missing CFBStats team row",
+      "result": "warning",
+      "description": "The verifier could not locate the team in the expected CFBStats leaderboard or team-page source.",
+      "count": 72,
+      "metric_keys": [
+        "two_point_allowed_attempts",
+        "two_point_allowed_conversions",
+        "two_point_attempts",
+        "two_point_conversions"
+      ],
+      "team_slugs": [
+        "illinois",
+        "indiana",
+        "iowa",
+        "maryland",
+        "michigan",
+        "michigan-state",
+        "minnesota",
+        "nebraska",
+        "notre-dame",
+        "ohio-state",
+        "oregon",
+        "penn-state",
+        "purdue",
+        "rutgers",
+        "ucla",
+        "usc",
+        "washington",
+        "wisconsin"
+      ]
+    },
+    "source_total_minor_cfbstats_drift": {
+      "id": "source_total_minor_cfbstats_drift",
+      "title": "Minor season-total source drift",
+      "result": "warning",
+      "description": "The normalized source season total differs only slightly from the CFBStats season total, so the verifier classifies the mismatch as source drift.",
+      "count": 92,
+      "metric_keys": [
+        "passing_defense_ypg",
+        "passing_offense_ypg",
+        "penalty_yards_pg",
+        "rushing_defense_ypg",
+        "rushing_offense_ypg",
+        "sacks_allowed_pg",
+        "total_defense_ypg",
+        "total_offense_ypg"
+      ],
+      "team_slugs": [
+        "illinois",
+        "indiana",
+        "iowa",
+        "maryland",
+        "michigan",
+        "michigan-state",
+        "minnesota",
+        "nebraska",
+        "notre-dame",
+        "ohio-state",
+        "oregon",
+        "penn-state",
+        "purdue",
+        "rutgers",
+        "ucla",
+        "usc",
+        "washington",
+        "wisconsin"
+      ]
+    },
+    "turnover_on_downs_definition_gap": {
+      "id": "turnover_on_downs_definition_gap",
+      "title": "Turnover-on-downs definition gap",
+      "result": "warning",
+      "description": "The bundle includes turnover-on-downs events in season turnover totals, while the corresponding CFBStats turnover margin definition does not align cleanly with that source interpretation.",
+      "count": 4,
+      "metric_keys": [
+        "turnover_margin"
+      ],
+      "team_slugs": [
+        "ohio-state",
+        "penn-state",
+        "ucla",
+        "washington"
+      ]
+    }
+  },
+  "teams": {
+    "washington": {
+      "team_slug": "washington",
+      "team_name": "washington",
+      "conference": "Big Ten",
+      "verifier_status": "ok",
+      "result": "warning",
+      "reason_id": null,
+      "summary": {
+        "metrics_checked": 5,
+        "metric_results": {
+          "pass": 2,
+          "warning": 3,
+          "fail": 0
+        },
+        "status_counts": {
+          "match": 2,
+          "special_case": 2,
+          "missing_cfbstats_team": 1
+        },
+        "result": "warning"
+      },
+      "flagged_metrics": [
+        "turnover_margin",
+        "rushing_offense_ypg",
+        "two_point_attempts"
+      ],
+      "metrics": {
+        "red_zone_td_pct": {
+          "key": "red_zone_td_pct",
+          "label": "Red Zone TD%",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "note": null,
+          "comparison": {
+            "parser_value": 75.9,
+            "cfbstats_value": 75.93,
+            "delta": -0.03,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "UW",
+            "category": "red_zone",
+            "field": "rz_conversion_rate"
+          },
+          "cfbstats": {
+            "category_id": 27,
+            "side": "offense",
+            "rank": "2",
+            "conference": "Big Ten",
+            "value": 75.93
+          }
+        },
+        "third_down_pct": {
+          "key": "third_down_pct",
+          "label": "3rd Down %",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "note": null,
+          "comparison": {
+            "parser_value": 50.6,
+            "cfbstats_value": 50.65,
+            "delta": -0.05,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "UW",
+            "category": "third_down",
+            "field": "third_down_conversion_rate"
+          },
+          "cfbstats": {
+            "category_id": 25,
+            "side": "offense",
+            "rank": "4",
+            "conference": "Big Ten",
+            "value": 50.65
+          }
+        },
+        "turnover_margin": {
+          "key": "turnover_margin",
+          "label": "Turnover Margin",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "turnover_on_downs_definition_gap",
+          "note": "turnover-on-downs present in season totals; cfbstats turnover margin does not align cleanly with XML team_stats turnover definitions",
+          "comparison": {
+            "parser_value": 6.0,
+            "cfbstats_value": 5.0,
+            "delta": 1.0,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "UW",
+            "category": "turnovers",
+            "field": "turnover_margin"
+          },
+          "cfbstats": {
+            "category_id": 12,
+            "side": "offense",
+            "rank": "5",
+            "conference": "Big Ten",
+            "value": 5.0
+          }
+        },
+        "rushing_offense_ypg": {
+          "key": "rushing_offense_ypg",
+          "label": "Rushing Offense YPG",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "source_total_minor_cfbstats_drift",
+          "note": "normalized source season total differs slightly from cfbstats (2155 vs 2151, delta +4)",
+          "comparison": {
+            "parser_value": 167.7,
+            "cfbstats_value": 165.46,
+            "delta": 2.24,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "UW",
+            "category": "source_team_stats",
+            "field": "rushing_offense_yards_pg"
+          },
+          "cfbstats": {
+            "category_id": 1,
+            "side": "offense",
+            "rank": "7",
+            "conference": "Big Ten",
+            "value": 165.46
+          }
+        },
+        "two_point_attempts": {
+          "key": "two_point_attempts",
+          "label": "Two-Point Attempts",
+          "status": "missing_cfbstats_team",
+          "result": "warning",
+          "reason_id": "missing_cfbstats_team",
+          "note": null,
+          "comparison": {
+            "parser_value": 0.0,
+            "cfbstats_value": null,
+            "delta": null,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "UW",
+            "category": "two_point",
+            "field": "two_point_attempts"
+          },
+          "cfbstats": {
+            "category_id": null,
+            "side": "offense",
+            "rank": "",
+            "conference": "Big Ten",
+            "value": null
+          }
+        }
+      }
+    },
+    "ohio-state": {
+      "team_slug": "ohio-state",
+      "team_name": "ohio-state",
+      "conference": "Big Ten",
+      "verifier_status": "ok",
+      "result": "warning",
+      "reason_id": null,
+      "summary": {
+        "metrics_checked": 5,
+        "metric_results": {
+          "pass": 2,
+          "warning": 3,
+          "fail": 0
+        },
+        "status_counts": {
+          "match": 2,
+          "special_case": 2,
+          "missing_cfbstats_team": 1
+        },
+        "result": "warning"
+      },
+      "flagged_metrics": [
+        "turnover_margin",
+        "passing_offense_ypg",
+        "two_point_allowed_attempts"
+      ],
+      "metrics": {
+        "red_zone_td_pct": {
+          "key": "red_zone_td_pct",
+          "label": "Red Zone TD%",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "note": null,
+          "comparison": {
+            "parser_value": 66.7,
+            "cfbstats_value": 66.67,
+            "delta": 0.03,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "OSU",
+            "category": "red_zone",
+            "field": "rz_conversion_rate"
+          },
+          "cfbstats": {
+            "category_id": 27,
+            "side": "offense",
+            "rank": "9",
+            "conference": "Big Ten",
+            "value": 66.67
+          }
+        },
+        "fourth_down_pct": {
+          "key": "fourth_down_pct",
+          "label": "4th Down %",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "note": null,
+          "comparison": {
+            "parser_value": 70.6,
+            "cfbstats_value": 70.59,
+            "delta": 0.01,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "OSU",
+            "category": "fourth_down",
+            "field": "conversion_rate"
+          },
+          "cfbstats": {
+            "category_id": 26,
+            "side": "offense",
+            "rank": "1",
+            "conference": "Big Ten",
+            "value": 70.59
+          }
+        },
+        "turnover_margin": {
+          "key": "turnover_margin",
+          "label": "Turnover Margin",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "turnover_on_downs_definition_gap",
+          "note": "turnover-on-downs present in season totals; cfbstats turnover margin does not align cleanly with XML team_stats turnover definitions",
+          "comparison": {
+            "parser_value": 3.0,
+            "cfbstats_value": 4.0,
+            "delta": -1.0,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "OSU",
+            "category": "turnovers",
+            "field": "turnover_margin"
+          },
+          "cfbstats": {
+            "category_id": 12,
+            "side": "offense",
+            "rank": "7",
+            "conference": "Big Ten",
+            "value": 4.0
+          }
+        },
+        "passing_offense_ypg": {
+          "key": "passing_offense_ypg",
+          "label": "Passing Offense YPG",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "source_total_minor_cfbstats_drift",
+          "note": "normalized source season total differs slightly from cfbstats (3755 vs 3755, delta +0)",
+          "comparison": {
+            "parser_value": 268.8,
+            "cfbstats_value": 268.2,
+            "delta": 0.6,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "OSU",
+            "category": "source_team_stats",
+            "field": "passing_offense_yards_pg"
+          },
+          "cfbstats": {
+            "category_id": 2,
+            "side": "offense",
+            "rank": "2",
+            "conference": "Big Ten",
+            "value": 268.2
+          }
+        },
+        "two_point_allowed_attempts": {
+          "key": "two_point_allowed_attempts",
+          "label": "Two-Point Allowed Attempts",
+          "status": "missing_cfbstats_team",
+          "result": "warning",
+          "reason_id": "missing_cfbstats_team",
+          "note": null,
+          "comparison": {
+            "parser_value": 2.0,
+            "cfbstats_value": null,
+            "delta": null,
+            "tolerance": 0.11
+          },
+          "bundle": {
+            "team_abbr": "OSU",
+            "category": "two_point",
+            "field": "two_point_allowed_attempts"
+          },
+          "cfbstats": {
+            "category_id": null,
+            "side": "defense",
+            "rank": "",
+            "conference": "Big Ten",
+            "value": null
+          }
+        }
+      }
+    }
+  }
+}
