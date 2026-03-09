@@ -54,6 +54,8 @@ def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> 
 
     summary = json.loads(summary_json.read_text(encoding="utf-8"))
     contract = summary["artifact_contract"]
+    run_state = summary["run_state"]
+    observability = summary["observability"]
 
     assert contract["version"] == 1
     assert contract["published_root_relative_path"] == "published/2025/"
@@ -80,3 +82,19 @@ def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> 
 
     markdown = contract["scratch_artifacts"]["smoke_brief_markdown"]
     assert markdown["relative_path"] == "scratch/brief/washington_vs_ohio-state_2025_v2.md"
+
+    assert run_state == {
+        "completed": True,
+        "interrupted": False,
+        "interrupted_stages": [],
+    }
+    assert observability["heartbeat_interval_seconds"] == 60
+    assert observability["slow_stages"] == []
+
+    bundle_validation = next(stage for stage in summary["stages"] if stage["name"] == "bundle_validation")
+    assert bundle_validation["status"] == "passed"
+    assert bundle_validation["started_at"] is not None
+    assert bundle_validation["finished_at"] is not None
+    assert bundle_validation["heartbeat_count"] == 0
+    assert bundle_validation["expected_duration_seconds"] == 60
+    assert bundle_validation["exceeded_expected_duration"] is False
