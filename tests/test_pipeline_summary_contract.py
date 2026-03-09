@@ -54,6 +54,7 @@ def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> 
 
     summary = json.loads(summary_json.read_text(encoding="utf-8"))
     contract = summary["artifact_contract"]
+    enrichment_contract = summary["enrichment_contract"]
     run_state = summary["run_state"]
     observability = summary["observability"]
 
@@ -79,6 +80,11 @@ def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> 
     assert enrichment["tier"] == "scratch"
     assert enrichment["required"] is False
     assert enrichment["relative_path"] == "scratch/game_prep_enrichment_2025.json"
+    assert enrichment_contract["policy"] == "disabled"
+    assert enrichment_contract["artifact_status"] == "disabled"
+    assert enrichment_contract["runtime_live_fetch_allowed"] is False
+    assert summary["validation"]["enrichment_artifact_validated"] is None
+    assert "enrichment_disabled" in contract["non_publishable_reasons"]
 
     markdown = contract["scratch_artifacts"]["smoke_brief_markdown"]
     assert markdown["relative_path"] == "scratch/brief/washington_vs_ohio-state_2025_v2.md"
@@ -98,3 +104,66 @@ def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> 
     assert bundle_validation["heartbeat_count"] == 0
     assert bundle_validation["expected_duration_seconds"] == 60
     assert bundle_validation["exceeded_expected_duration"] is False
+
+
+def test_offline_pipeline_summary_records_required_enrichment_contract(tmp_path: Path) -> None:
+    summary_json = tmp_path / "game_prep_pipeline_summary.json"
+    output_dir = tmp_path / "brief"
+    enrichment_path = tmp_path / "enrichment.json"
+    bundle_path = FIXTURES / "pbp_stats_bundle_2025.json"
+    snapshot_path = FIXTURES / "cfbstats_2025_snapshot.json"
+    verification_path = FIXTURES / "cfbstats_verification_2025_report.json"
+
+    enrichment_path.write_text(
+        json.dumps(
+            {
+                "washington": {"_status": "ok", "_source": "test"},
+                "ohio-state": {"_status": "ok", "_source": "test"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    env["PBP_PIPELINE_PYTHON"] = sys.executable
+
+    subprocess.run(
+        [
+            str(PIPELINE_SCRIPT),
+            "Washington",
+            "Ohio State",
+            "--season",
+            "2025",
+            "--mode",
+            "offline-validate",
+            "--bundle-path",
+            str(bundle_path),
+            "--reuse-bundle",
+            "--cfbstats-snapshot",
+            str(snapshot_path),
+            "--cfbstats-verification-report",
+            str(verification_path),
+            "--enrichment-file",
+            str(enrichment_path),
+            "--skip-tests",
+            "--brief-format",
+            "markdown",
+            "--output-dir",
+            str(output_dir),
+            "--summary-json",
+            str(summary_json),
+        ],
+        check=True,
+        cwd=ROOT,
+        env=env,
+    )
+
+    summary = json.loads(summary_json.read_text(encoding="utf-8"))
+    contract = summary["artifact_contract"]
+    enrichment_contract = summary["enrichment_contract"]
+
+    assert contract["scratch_artifacts"]["enrichment"]["required"] is True
+    assert summary["validation"]["enrichment_artifact_validated"] is True
+    assert enrichment_contract["policy"] == "required"
+    assert enrichment_contract["artifact_status"] == "validated"
+    assert enrichment_contract["offline_validate_behavior"] == "require_existing_artifact"

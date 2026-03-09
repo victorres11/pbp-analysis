@@ -1,3 +1,5 @@
+import inspect
+
 from scripts.game_prep_brief import loaders
 
 
@@ -105,6 +107,7 @@ def test_gather_team_data_uses_offline_cfbstats_artifacts() -> None:
     assert not hasattr(loaders, "_rollup_game_from_play_tree")
     assert not hasattr(loaders, "_derive_game_detail_stats")
     assert not hasattr(loaders, "_derive_turnover_drive_stats")
+    assert "allow_live_enrichment" not in inspect.signature(loaders.gather_team_data).parameters
 
     pbp_teams = {
         "washington": {
