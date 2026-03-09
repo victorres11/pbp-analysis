@@ -44,7 +44,7 @@ Options:
   --output-dir <path>                    Brief output directory
   --summary-json <path>                  Write machine-readable pipeline summary JSON
   --scan-dir <path>                      StatBroadcast game brief scan directory
-  --bundle-path <path>                   Output bundle path
+  --bundle-path <path>                   Output bundle path (defaults to local yr-data-api handoff in live-refresh when available)
   --reuse-bundle                        Reuse an existing bundle at --bundle-path instead of regenerating it
   --cfbstats-snapshot <path>             Snapshot artifact path (generated or reused)
   --cfbstats-verification-report <path>  Verification report path (generated or reused)
@@ -221,6 +221,8 @@ OUTPUT_DIR=$(abs_path "${OUTPUT_DIR}")
 
 if [[ -z "${BUNDLE_PATH}" ]]; then
   if [[ "${MODE}" == "live-refresh" && -d "${YR_DATA_API_ROOT}" ]]; then
+    # Keep the sibling local default bundle path warm for direct brief runs.
+    # This is a convenience handoff, not the published artifact contract.
     BUNDLE_PATH="${YR_DATA_API_ROOT}/data/pbp_stats_bundle.json"
   else
     BUNDLE_PATH="${OUTPUT_DIR}/pbp_stats_bundle.json"

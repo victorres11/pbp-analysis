@@ -8,6 +8,7 @@ on:
       - "docs/demo-runbook.md"
       - "docs/enrichment-artifact-contract.md"
       - "docs/published-artifact-contract.md"
+      - "docs/yr-data-api-bundle-role.md"
       - "scripts/refresh-game-prep-pipeline.sh"
       - "scripts/game_prep_brief/**"
       - "tests/**"

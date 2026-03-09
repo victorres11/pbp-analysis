@@ -43,6 +43,8 @@ Default live-refresh behavior:
 - expects the CFBStats stages to be network-bound and potentially slower than offline validation
 - treats enrichment as required for a publishable run unless you explicitly pass `--no-enrichment`
 
+Important: the `yr-data-api/data/pbp_stats_bundle.json` write is a **local handoff convenience**, not the official published bundle contract. The published bundle contract is the season-scoped `published/<season>/pbp_stats_bundle_<season>.json` artifact layout used by the workflow-backed live-refresh path.
+
 ### GitHub Actions Live Refresh
 
 The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
@@ -69,6 +71,8 @@ The published artifact upload contains the season-scoped core set:
 - verification report
 - pipeline summary JSON
 
+This is the official published contract. It is distinct from the local `yr-data-api/data/pbp_stats_bundle.json` handoff path.
+
 The scratch artifact upload contains run-scoped helper outputs:
 
 - enrichment file
@@ -79,6 +83,7 @@ By default the workflow refreshes and requires enrichment. If an operator intent
 ### Published Contract
 
 The published artifact contract is documented in [published-artifact-contract.md](./published-artifact-contract.md).
+The specific role of the `yr-data-api` bundle handoff path is documented in [yr-data-api-bundle-role.md](./yr-data-api-bundle-role.md).
 
 Short version:
 
@@ -86,6 +91,7 @@ Short version:
 - enrichment is a first-class run-scoped artifact, but not part of the published season-core set
 - smoke brief outputs remain scratch validation outputs
 - `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
+- `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff path, not a published artifact path
 - `enrichment_contract` inside the summary JSON is the machine-readable source of truth for enrichment policy and status
 
 The enrichment-specific contract is documented in [enrichment-artifact-contract.md](./enrichment-artifact-contract.md).
