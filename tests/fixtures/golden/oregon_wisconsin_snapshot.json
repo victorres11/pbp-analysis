@@ -1,0 +1,125 @@
+{
+  "meta": {
+    "artifact": "cfbstats_snapshot"
+  },
+  "teams": {
+    "oregon": {
+      "team_name": "Oregon",
+      "team_slug": "oregon",
+      "conference": "Big Ten",
+      "rankings": {
+        "all": {
+          "scoring_offense": {
+            "rank": 3,
+            "value": "35.3",
+            "conference": "Big Ten",
+            "label": "scoring offense",
+            "total": 18
+          },
+          "scoring_defense": {
+            "rank": 6,
+            "value": "20.3",
+            "conference": "Big Ten",
+            "label": "scoring defense",
+            "total": 18
+          },
+          "turnover_margin": {
+            "rank": 2,
+            "value": "+2.0",
+            "conference": "Big Ten",
+            "label": "turnover margin",
+            "total": 18
+          },
+          "red_zone": {
+            "rank": 4,
+            "value": "66.7%",
+            "conference": "Big Ten",
+            "label": "red zone",
+            "total": 18
+          },
+          "penalties": {
+            "rank": 12,
+            "value": "42.3",
+            "conference": "Big Ten",
+            "label": "penalties",
+            "total": 18
+          },
+          "tfl_defense": {
+            "rank": 9,
+            "value": "6.0",
+            "conference": "Big Ten",
+            "label": "tfl defense",
+            "total": 18
+          }
+        },
+        "conf": {},
+        "nonconf": {}
+      },
+      "two_point_totals": {
+        "two_point_attempts": 2,
+        "two_point_conversions": 1,
+        "two_point_allowed_attempts": 1,
+        "two_point_allowed_conversions": 1
+      }
+    },
+    "wisconsin": {
+      "team_name": "Wisconsin",
+      "team_slug": "wisconsin",
+      "conference": "Big Ten",
+      "rankings": {
+        "all": {
+          "scoring_offense": {
+            "rank": 13,
+            "value": "20.3",
+            "conference": "Big Ten",
+            "label": "scoring offense",
+            "total": 18
+          },
+          "scoring_defense": {
+            "rank": 10,
+            "value": "20.7",
+            "conference": "Big Ten",
+            "label": "scoring defense",
+            "total": 18
+          },
+          "turnover_margin": {
+            "rank": 11,
+            "value": "0.0",
+            "conference": "Big Ten",
+            "label": "turnover margin",
+            "total": 18
+          },
+          "red_zone": {
+            "rank": 14,
+            "value": "44.4%",
+            "conference": "Big Ten",
+            "label": "red zone",
+            "total": 18
+          },
+          "penalties": {
+            "rank": 17,
+            "value": "63.3",
+            "conference": "Big Ten",
+            "label": "penalties",
+            "total": 18
+          },
+          "tfl_defense": {
+            "rank": 8,
+            "value": "6.4",
+            "conference": "Big Ten",
+            "label": "tfl defense",
+            "total": 18
+          }
+        },
+        "conf": {},
+        "nonconf": {}
+      },
+      "two_point_totals": {
+        "two_point_attempts": 1,
+        "two_point_conversions": 0,
+        "two_point_allowed_attempts": 2,
+        "two_point_allowed_conversions": 1
+      }
+    }
+  }
+}

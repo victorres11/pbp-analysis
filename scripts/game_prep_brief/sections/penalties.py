@@ -83,21 +83,39 @@ def _extract_penalized_team_token(desc: str) -> str:
     return ""
 
 
-def _expand_aliases(base_set: set[str]) -> set[str]:
-    """Expand a team abbreviation set with known raw-text aliases.
+def _expand_aliases(base_set: set[str], *, game: dict | None = None, opp_aliases: set[str] | None = None) -> set[str]:
+    """Expand team abbreviations with raw-text aliases inferred from the game.
 
-    The adapter normalizes abbreviations (e.g. WASH→UW), but play-text still
-    uses the raw form.  Import the normalization table to reverse-map.
+    Bundle play descriptions can use a different raw token than the normalized
+    team abbreviation carried elsewhere in the payload (e.g. `WASH` vs `UW`).
+    Keep this inference local to pbp-analysis so the brief path stays
+    deterministic without importing parser internals.
     """
-    try:
-        from pbp_parser.statbroadcast.adapter import _TEAM_ABBR_NORMALIZATION
-    except ImportError:
-        return base_set
     expanded = set(base_set)
-    for raw, canonical in _TEAM_ABBR_NORMALIZATION.items():
-        norm = re.sub(r"[^A-Z0-9]", "", canonical.upper())
-        if norm in base_set:
-            expanded.add(re.sub(r"[^A-Z0-9]", "", raw.upper()))
+    if not game or not opp_aliases:
+        return expanded
+
+    inferred = Counter()
+    patterns = (
+        r"RECOVERED BY ([A-Z0-9]{2,6})\b",
+        r"TOUCHDOWN ([A-Z0-9]{2,6})\b",
+        r"([A-Z0-9]{2,6}) BALL ON\b",
+        r"\bPENALTY(?: ON)? ([A-Z0-9]{2,6})\b",
+    )
+    for q in game.get("play_tree") or []:
+        for drive in q.get("drives") or []:
+            for play in drive.get("plays") or []:
+                token = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
+                if token and token not in expanded and token not in opp_aliases:
+                    inferred[token] += 1
+                desc_up = str(play.get("description") or "").upper()
+                for pattern in patterns:
+                    for match in re.finditer(pattern, desc_up):
+                        token = match.group(1)
+                        if token and token not in expanded and token not in opp_aliases:
+                            inferred[token] += 1
+
+    expanded.update(token for token, count in inferred.items() if count >= 2)
     return expanded
 
 
@@ -170,7 +188,7 @@ def _aggregate(team: dict) -> dict:
     stats_row = _penalty_stats_row(team)
     games = _games(team)
     pbp = team.get("pbp_entry") or {}
-    team_aliases = _expand_aliases(_abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr")))
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
     total = 0
     yards = 0
     by_side = defaultdict(lambda: {"count": 0, "yards": 0})
@@ -198,6 +216,7 @@ def _aggregate(team: dict) -> dict:
             "live_ball_count": 0,
             "live_ball_yards": 0,
         }
+        game_team_aliases = _expand_aliases(team_aliases, game=g, opp_aliases=opp_aliases)
         details = g.get("penalty_details", []) or []
         for p in details:
             if not p.get("accepted", False):
@@ -246,21 +265,21 @@ def _aggregate(team: dict) -> dict:
                         desc_up = desc.upper()
                         pen_tok = _extract_penalized_team_token(desc_up)
                         play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                        is_team_penalty = pen_tok and pen_tok in team_aliases
+                        is_team_penalty = pen_tok and pen_tok in game_team_aliases
 
                         # PI drawn/allowed tracking requires both teams' penalties.
                         if "PASS INTERFERENCE" in desc_up:
-                            if pen_tok and pen_tok in team_aliases:
+                            if pen_tok and pen_tok in game_team_aliases:
                                 pi_allowed += 1
                             elif pen_tok and pen_tok in opp_aliases:
                                 pi_drawn += 1
                             elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
-                                if play_off and play_off in team_aliases:
+                                if play_off and play_off in game_team_aliases:
                                     pi_drawn += 1
                                 elif play_off and play_off in opp_aliases:
                                     pi_allowed += 1
                             elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
-                                if play_off and play_off in team_aliases:
+                                if play_off and play_off in game_team_aliases:
                                     pi_allowed += 1
                                 elif play_off and play_off in opp_aliases:
                                     pi_drawn += 1
@@ -274,7 +293,7 @@ def _aggregate(team: dict) -> dict:
                         if ptype == "Holding" and pen_tok and play_off:
                             pen_is_offense = (
                                 pen_tok == play_off
-                                or (pen_tok in team_aliases and play_off in team_aliases)
+                                or (pen_tok in game_team_aliases and play_off in game_team_aliases)
                             )
                             ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
                         y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)

@@ -38,7 +38,9 @@ jobs:
       - name: Run brief-specific tests
         run: |
           python -m pytest -q \
+            tests/test_game_prep_brief_golden.py \
             tests/test_game_prep_loader_artifacts.py \
+            tests/test_pipeline_summary_contract.py \
             tests/test_scoring_zones_issue_158.py
 
       - name: Run offline pipeline validation
