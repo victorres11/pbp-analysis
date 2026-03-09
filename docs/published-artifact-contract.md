@@ -4,7 +4,11 @@ This document defines the production artifact contract for the game prep brief r
 
 ## Contract Version
 
-- `artifact_contract.version = 1`
+- `artifact_contract.version = 2`
+
+Version 2 adds the enrichment policy contract. The main schema change is that
+`artifact_contract.scratch_artifacts.enrichment.required` is now policy-driven
+instead of always `false`.
 
 The machine-readable source of truth for the contract is the pipeline summary JSON written by `scripts/refresh-game-prep-pipeline.sh`.
 

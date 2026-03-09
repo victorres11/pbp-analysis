@@ -1895,10 +1895,16 @@ def gather_team_data(
     season: int,
     last_n: int = 3,
     enrichment_by_slug: dict | None = None,
+    allow_live_enrichment: bool | None = None,
     cfbstats_snapshot: dict | None = None,
     cfbstats_verification_report: dict | None = None,
 ) -> dict:
     school_slug = slugify(team_name)
+    if allow_live_enrichment:
+        print(
+            "[warn] allow_live_enrichment is deprecated and ignored; use an enrichment artifact or --refresh-enrichment.",
+            file=sys.stderr,
+        )
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)

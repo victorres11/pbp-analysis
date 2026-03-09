@@ -867,6 +867,32 @@ def _read_counts(path: Path) -> dict:
     }
 
 
+def _read_enrichment_team_statuses(path: Path, required_team_slugs: list[str]) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    statuses: dict[str, str] = {}
+    for slug in required_team_slugs:
+        team_payload = payload.get(slug)
+        if isinstance(team_payload, dict):
+            status = team_payload.get("_status")
+            if status:
+                statuses[slug] = str(status)
+                continue
+            has_signal = any(
+                value not in ("N/A", None, "")
+                for key, value in team_payload.items()
+                if not str(key).startswith("_")
+            )
+            statuses[slug] = "ok" if has_signal else "unavailable"
+    return statuses
+
+
 def _path_or_none(value: str | None) -> str | None:
     if not value:
         return None
@@ -936,10 +962,17 @@ brief_html_relative = (
 )
 enrichment_required = os.environ.get("NO_ENRICHMENT") != "1"
 enrichment_stage_status = _stage_status(stages, "enrichment_artifact")
+enrichment_team_statuses = _read_enrichment_team_statuses(
+    Path(os.environ["ENRICHMENT_FILE"]).expanduser(),
+    [team1_slug, team2_slug],
+)
 if not enrichment_required:
     enrichment_artifact_status = "disabled"
 elif enrichment_stage_status == "passed":
-    enrichment_artifact_status = "validated"
+    if any(status == "unavailable" for status in enrichment_team_statuses.values()):
+        enrichment_artifact_status = "validated_with_unavailable_teams"
+    else:
+        enrichment_artifact_status = "validated"
 elif enrichment_stage_status == "failed":
     enrichment_artifact_status = "invalid"
 elif enrichment_stage_status == "interrupted":
@@ -1091,12 +1124,13 @@ summary = {
         "required_for_publishable_run": enrichment_required,
         "runtime_live_fetch_allowed": False,
         "artifact_status": enrichment_artifact_status,
+        "team_statuses": enrichment_team_statuses,
         "artifact_path": _path_or_none(os.environ.get("ENRICHMENT_FILE")),
         "live_refresh_behavior": "refresh_artifact_before_brief" if enrichment_required else "disabled",
         "offline_validate_behavior": "require_existing_artifact" if enrichment_required else "disabled",
     },
     "artifact_contract": {
-        "version": 1,
+        "version": 2,
         "artifact_set_id": artifact_set_id,
         "published_root_relative_path": f"published/{season}/",
         "scratch_root_relative_path": "scratch/",

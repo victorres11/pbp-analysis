@@ -96,6 +96,14 @@ The pipeline summary records this under:
 - `artifact_contract.scratch_artifacts.enrichment.required`
 - `artifact_contract.non_publishable_reasons`
 
+`_status: "unavailable"` is still considered a valid artifact entry. The
+artifact contract requires explicit team entries for both matchup teams; it
+does not currently require every enrichment source to have signal. When one or
+more required teams are present but marked `unavailable`, the summary reports:
+
+- `enrichment_contract.artifact_status = "validated_with_unavailable_teams"`
+- `enrichment_contract.team_statuses`
+
 ## Summary Contract
 
 The pipeline summary JSON exposes enrichment state through:
@@ -106,7 +114,8 @@ The pipeline summary JSON exposes enrichment state through:
 - `enrichment_contract.runtime_live_fetch_allowed`
   - always `false`
 - `enrichment_contract.artifact_status`
-  - `validated`, `disabled`, `invalid`, `interrupted`, or `missing`
+  - `validated`, `validated_with_unavailable_teams`, `disabled`, `invalid`, `interrupted`, or `missing`
+- `enrichment_contract.team_statuses`
 - `enrichment_contract.live_refresh_behavior`
 - `enrichment_contract.offline_validate_behavior`
 
