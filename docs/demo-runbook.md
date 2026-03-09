@@ -115,10 +115,48 @@ The summary artifact is the machine-readable run contract for CI and operators. 
 
 - mode, season, teams, and git refs
 - artifact paths for bundle, snapshot, verification report, enrichment, and smoke brief outputs
-- per-stage status with `duration_seconds`
+- per-stage status with `duration_seconds`, `started_at`, `finished_at`, `heartbeat_count`, and `expected_duration_seconds`
 - smoke/test pass flags
 - verification fail/warning counts
 - collected `[warn]` lines from the run
+
+### Live Stage Observability
+
+Long-running stages now emit periodic heartbeat lines while they are still running:
+
+```text
+[heartbeat] cfbstats_snapshot still running (elapsed=60s, expected<=1200s)
+```
+
+The pipeline also assigns expected-duration budgets to each stage. Current defaults:
+
+- `parser_tests`: 1200s
+- `analysis_tests`: 900s
+- `bundle_generation`: 900s
+- `cfbstats_snapshot`: 1200s
+- `cfbstats_verification_report`: 900s
+- `enrichment_refresh`: 600s
+- `smoke_brief`: 300s
+
+These budgets are observability thresholds, not hard kills. If a stage runs long, the pipeline logs:
+
+```text
+[warn] cfbstats_snapshot exceeded expected duration budget (1200s); waiting for completion
+```
+
+Interpretation:
+
+- heartbeat lines mean the stage is still alive, not stalled silently
+- an exceeded-duration warning means upstream latency or markup drift is more likely than a total hang
+- `run_state.interrupted` in the summary JSON means the run exited while a stage was still active
+- `observability.slow_stages` lists stages that exceeded their expected duration budget
+
+The GitHub Actions live-refresh workflow still enforces the outer hard cap with `timeout-minutes: 90`. If a run is canceled or terminated mid-stage, the pipeline summary should record that stage as `interrupted` when cleanup runs.
+
+Optional overrides:
+
+- `PBP_PIPELINE_STAGE_HEARTBEAT_SECONDS=<seconds>` changes the heartbeat cadence
+- `PBP_PIPELINE_STAGE_BUDGET_OVERRIDES=cfbstats_snapshot=1800,cfbstats_verification_report=1200` overrides expected-duration budgets for specific stages
 
 ## Outputs
 

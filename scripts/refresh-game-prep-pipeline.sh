@@ -277,7 +277,17 @@ TMP_DIR=$(mktemp -d)
 STAGE_FILE="${TMP_DIR}/stages.tsv"
 WARNINGS_FILE="${TMP_DIR}/warnings.log"
 VERIFICATION_COUNTS_FILE="${TMP_DIR}/verification_counts.json"
+CURRENT_STAGE_FILE="${TMP_DIR}/current_stage.tsv"
 touch "${STAGE_FILE}" "${WARNINGS_FILE}"
+
+STAGE_HEARTBEAT_SECONDS=${PBP_PIPELINE_STAGE_HEARTBEAT_SECONDS:-60}
+STAGE_BUDGET_OVERRIDES=${PBP_PIPELINE_STAGE_BUDGET_OVERRIDES:-}
+PIPELINE_SIGNAL=""
+
+if ! [[ "${STAGE_HEARTBEAT_SECONDS}" =~ ^[0-9]+$ ]]; then
+  echo "PBP_PIPELINE_STAGE_HEARTBEAT_SECONDS must be an integer (got '${STAGE_HEARTBEAT_SECONDS}')." >&2
+  exit 2
+fi
 
 BRIEF_MARKDOWN_PATH=""
 BRIEF_HTML_PATH=""
@@ -302,7 +312,9 @@ contains_exit_code() {
 }
 
 record_stage() {
-  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "${STAGE_FILE}"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$1" "${2}" "${3}" "${4:-}" "${5:-}" "${6:-}" "${7:-0}" "${8:-}" "${9:-0}" >> "${STAGE_FILE}"
+  rm -f "${CURRENT_STAGE_FILE}"
 }
 
 record_skipped() {
@@ -310,6 +322,90 @@ record_skipped() {
   local detail=${2:-}
   echo "[skip] ${stage_name}${detail:+ (${detail})}"
   record_stage "${stage_name}" "skipped" "0" "${detail}"
+}
+
+stage_expected_duration_seconds() {
+  local stage_name=$1
+  local expected=""
+  case "${stage_name}" in
+    parser_tests) expected=1200 ;;
+    analysis_tests) expected=900 ;;
+    bundle_generation) expected=900 ;;
+    bundle_validation|offline_artifact_validation|verification_gate) expected=60 ;;
+    cfbstats_snapshot) expected=1200 ;;
+    cfbstats_verification_report) expected=900 ;;
+    enrichment_refresh) expected=600 ;;
+    smoke_brief) expected=300 ;;
+  esac
+
+  if [[ -n "${STAGE_BUDGET_OVERRIDES}" ]]; then
+    local IFS=,
+    read -r -a override_pairs <<< "${STAGE_BUDGET_OVERRIDES}"
+    for pair in "${override_pairs[@]}"; do
+      local override_stage=${pair%%=*}
+      local override_value=${pair#*=}
+      if [[ "${override_stage}" == "${stage_name}" && "${override_value}" =~ ^[0-9]+$ ]]; then
+        expected=${override_value}
+      fi
+    done
+  fi
+
+  echo "${expected}"
+}
+
+write_current_stage() {
+  local stage_name=$1
+  local start_epoch=$2
+  local start_iso=$3
+  local expected_duration=$4
+  local heartbeat_count=$5
+  local exceeded_budget=$6
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${stage_name}" "${start_epoch}" "${start_iso}" "${expected_duration}" "${heartbeat_count}" "${exceeded_budget}" \
+    > "${CURRENT_STAGE_FILE}"
+}
+
+record_interrupted_stage_if_needed() {
+  local exit_code=$1
+  if [[ ! -f "${CURRENT_STAGE_FILE}" ]]; then
+    return 0
+  fi
+
+  local stage_name=""
+  local start_epoch=""
+  local start_iso=""
+  local expected_duration=""
+  local heartbeat_count=""
+  local exceeded_budget=""
+  IFS=$'\t' read -r stage_name start_epoch start_iso expected_duration heartbeat_count exceeded_budget < "${CURRENT_STAGE_FILE}"
+  [[ -n "${stage_name}" ]] || return 0
+
+  local finish_epoch
+  finish_epoch=$(date +%s)
+  local finish_iso
+  finish_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local duration=0
+  if [[ "${start_epoch}" =~ ^[0-9]+$ ]]; then
+    duration=$((finish_epoch - start_epoch))
+  fi
+  if [[ -n "${expected_duration}" && "${expected_duration}" =~ ^[0-9]+$ && "${expected_duration}" -gt 0 && "${duration}" -ge "${expected_duration}" ]]; then
+    exceeded_budget=1
+  fi
+
+  local detail="interrupted_exit_code=${exit_code}"
+  if [[ -n "${PIPELINE_SIGNAL}" ]]; then
+    detail="${detail};signal=${PIPELINE_SIGNAL}"
+  fi
+  record_stage \
+    "${stage_name}" \
+    "interrupted" \
+    "${duration}" \
+    "${detail}" \
+    "${start_iso}" \
+    "${finish_iso}" \
+    "${heartbeat_count:-0}" \
+    "${expected_duration}" \
+    "${exceeded_budget:-0}"
 }
 
 append_warnings_from_log() {
@@ -326,14 +422,71 @@ run_stage_impl() {
 
   local stage_log="${TMP_DIR}/${stage_name}.log"
   local start_seconds=${SECONDS}
+  local start_epoch
+  start_epoch=$(date +%s)
+  local start_iso
+  start_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local expected_duration
+  expected_duration=$(stage_expected_duration_seconds "${stage_name}")
+  local heartbeat_count=0
+  local exceeded_budget=0
 
-  echo "[stage] ${stage_name}"
+  if [[ -n "${expected_duration}" ]]; then
+    echo "[stage] ${stage_name} (expected<=${expected_duration}s, heartbeat=${STAGE_HEARTBEAT_SECONDS}s)"
+  else
+    echo "[stage] ${stage_name} (heartbeat=${STAGE_HEARTBEAT_SECONDS}s)"
+  fi
+  write_current_stage "${stage_name}" "${start_epoch}" "${start_iso}" "${expected_duration}" "${heartbeat_count}" "${exceeded_budget}"
   set +e
-  "$@" 2>&1 | tee "${stage_log}"
-  local stage_exit=${PIPESTATUS[0]}
+  (
+    set -o pipefail
+    "$@" 2>&1 | tee "${stage_log}"
+  ) &
+  local stage_pid=$!
+  if [[ "${STAGE_HEARTBEAT_SECONDS}" -gt 0 ]]; then
+    local next_heartbeat=${STAGE_HEARTBEAT_SECONDS}
+    while kill -0 "${stage_pid}" 2>/dev/null; do
+      sleep 1
+      if ! kill -0 "${stage_pid}" 2>/dev/null; then
+        break
+      fi
+
+      local elapsed=$((SECONDS - start_seconds))
+      if [[ "${elapsed}" -lt "${next_heartbeat}" ]]; then
+        continue
+      fi
+
+      heartbeat_count=$((heartbeat_count + 1))
+      next_heartbeat=$((next_heartbeat + STAGE_HEARTBEAT_SECONDS))
+      local heartbeat_msg="[heartbeat] ${stage_name} still running (elapsed=${elapsed}s"
+      if [[ -n "${expected_duration}" ]]; then
+        heartbeat_msg="${heartbeat_msg}, expected<=${expected_duration}s"
+      fi
+      heartbeat_msg="${heartbeat_msg})"
+      echo "${heartbeat_msg}" | tee -a "${stage_log}"
+
+      if [[ -n "${expected_duration}" && "${expected_duration}" -gt 0 && "${elapsed}" -ge "${expected_duration}" && "${exceeded_budget}" -eq 0 ]]; then
+        exceeded_budget=1
+        echo "[warn] ${stage_name} exceeded expected duration budget (${expected_duration}s); waiting for completion" \
+          | tee -a "${stage_log}"
+      fi
+
+      write_current_stage \
+        "${stage_name}" \
+        "${start_epoch}" \
+        "${start_iso}" \
+        "${expected_duration}" \
+        "${heartbeat_count}" \
+        "${exceeded_budget}"
+    done
+  fi
+  wait "${stage_pid}"
+  local stage_exit=$?
   set -e
 
   local duration=$((SECONDS - start_seconds))
+  local finish_iso
+  finish_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   append_warnings_from_log "${stage_log}"
 
   if contains_exit_code "${stage_exit}" "${allowed_codes}"; then
@@ -341,11 +494,36 @@ run_stage_impl() {
     if [[ "${stage_exit}" != "0" ]]; then
       detail="allowed_exit_code=${stage_exit}"
     fi
-    record_stage "${stage_name}" "passed" "${duration}" "${detail}"
+    if [[ "${exceeded_budget}" -eq 1 ]]; then
+      detail="${detail:+${detail};}expected_duration_exceeded"
+    fi
+    record_stage \
+      "${stage_name}" \
+      "passed" \
+      "${duration}" \
+      "${detail}" \
+      "${start_iso}" \
+      "${finish_iso}" \
+      "${heartbeat_count}" \
+      "${expected_duration}" \
+      "${exceeded_budget}"
     return 0
   fi
 
-  record_stage "${stage_name}" "failed" "${duration}" "exit_code=${stage_exit}"
+  local detail="exit_code=${stage_exit}"
+  if [[ "${exceeded_budget}" -eq 1 ]]; then
+    detail="${detail};expected_duration_exceeded"
+  fi
+  record_stage \
+    "${stage_name}" \
+    "failed" \
+    "${duration}" \
+    "${detail}" \
+    "${start_iso}" \
+    "${finish_iso}" \
+    "${heartbeat_count}" \
+    "${expected_duration}" \
+    "${exceeded_budget}"
   return "${stage_exit}"
 }
 
@@ -593,6 +771,7 @@ write_summary_json() {
   STAGE_FILE="${STAGE_FILE}" \
   WARNINGS_FILE="${WARNINGS_FILE}" \
   VERIFICATION_COUNTS_FILE="${VERIFICATION_COUNTS_FILE}" \
+  STAGE_HEARTBEAT_SECONDS="${STAGE_HEARTBEAT_SECONDS}" \
   MODE="${MODE}" \
   SEASON="${SEASON}" \
   TEAM1="${TEAM1}" \
@@ -627,13 +806,28 @@ def _read_stage_rows(path: Path) -> list[dict]:
     for raw in path.read_text(encoding="utf-8").splitlines():
         if not raw.strip():
             continue
-        stage, status, duration, detail = (raw.split("\t", 3) + [""])[:4]
+        (
+            stage,
+            status,
+            duration,
+            detail,
+            started_at,
+            finished_at,
+            heartbeat_count,
+            expected_duration,
+            exceeded_expected,
+        ) = (raw.split("\t") + [""] * 9)[:9]
         rows.append(
             {
                 "name": stage,
                 "status": status,
                 "duration_seconds": int(duration),
                 "detail": detail or None,
+                "started_at": started_at or None,
+                "finished_at": finished_at or None,
+                "heartbeat_count": int(heartbeat_count or 0),
+                "expected_duration_seconds": int(expected_duration) if expected_duration else None,
+                "exceeded_expected_duration": exceeded_expected == "1",
             }
         )
     return rows
@@ -822,6 +1016,8 @@ if not published_set_complete:
     non_publishable_reasons.append("published_artifact_set_incomplete")
 publishable = not non_publishable_reasons
 artifact_set_id = f"{season}-{generated_tag}-{(analysis_ref or 'unknown')[:12]}"
+interrupted_stages = [row["name"] for row in stages if row["status"] == "interrupted"]
+slow_stages = [row["name"] for row in stages if row.get("exceeded_expected_duration")]
 
 summary = {
     "season": season,
@@ -853,6 +1049,15 @@ summary = {
         "verification_fail_count": verification_counts["fail"],
         "verification_warning_count": verification_counts["warning"],
     },
+    "run_state": {
+        "completed": not interrupted_stages,
+        "interrupted": bool(interrupted_stages),
+        "interrupted_stages": interrupted_stages,
+    },
+    "observability": {
+        "heartbeat_interval_seconds": int(os.environ.get("STAGE_HEARTBEAT_SECONDS") or 0),
+        "slow_stages": slow_stages,
+    },
     "stages": stages,
     "warnings": warnings,
     "strict_verification": os.environ.get("STRICT_VERIFICATION", "1") == "1",
@@ -878,11 +1083,21 @@ PY
 
 cleanup() {
   local exit_code=$1
+  record_interrupted_stage_if_needed "${exit_code}" || true
   write_summary_json "${exit_code}" || true
   rm -rf "${TMP_DIR}"
 }
 
+handle_interrupt() {
+  local signal_name=$1
+  local exit_code=$2
+  PIPELINE_SIGNAL="${signal_name}"
+  exit "${exit_code}"
+}
+
 trap 'cleanup $?' EXIT
+trap 'handle_interrupt INT 130' INT
+trap 'handle_interrupt TERM 143' TERM
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
   if [[ -d "${PARSER_ROOT}" ]]; then

@@ -181,12 +181,19 @@ jobs:
                       f"- Teams: `{', '.join(summary.get('teams') or [])}`",
                       f"- Season: `{summary.get('season')}`",
                       f"- Exit code: `{summary.get('exit_code')}`",
+                      f"- Heartbeat interval: `{(summary.get('observability') or {}).get('heartbeat_interval_seconds')}`s",
                       f"- Verification fails: `{validation.get('verification_fail_count')}`",
                       f"- Verification warnings: `{validation.get('verification_warning_count')}`",
                       f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
                       f"- Publishable: `{(summary.get('artifact_contract') or {}).get('publishable')}`",
                   ]
               )
+              interrupted = (summary.get("run_state") or {}).get("interrupted_stages") or []
+              slow_stages = (summary.get("observability") or {}).get("slow_stages") or []
+              if interrupted:
+                  summary_lines.append(f"- Interrupted stages: `{', '.join(interrupted)}`")
+              if slow_stages:
+                  summary_lines.append(f"- Exceeded expected duration: `{', '.join(slow_stages)}`")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
               handle.write("\n".join(summary_lines) + "\n")
           PY
