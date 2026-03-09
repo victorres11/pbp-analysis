@@ -55,13 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      ARTIFACT_ROOT: ${{ runner.temp }}/brief_live_refresh
-      BUNDLE_PATH: ${{ runner.temp }}/brief_live_refresh/bundle/pbp_stats_bundle_${{ inputs.season }}.json
-      SNAPSHOT_PATH: ${{ runner.temp }}/brief_live_refresh/cfbstats/cfbstats_${{ inputs.season }}.json
-      VERIFICATION_REPORT_PATH: ${{ runner.temp }}/brief_live_refresh/cfbstats/cfbstats_verification_${{ inputs.season }}.json
-      ENRICHMENT_FILE: ${{ runner.temp }}/brief_live_refresh/enrichment/game_prep_enrichment_${{ inputs.season }}.json
-      BRIEF_OUTPUT_DIR: ${{ runner.temp }}/brief_live_refresh/brief
-      SUMMARY_JSON: ${{ runner.temp }}/brief_live_refresh/summary/game_prep_pipeline_summary.json
+      PUBLISHED_ROOT: ${{ runner.temp }}/brief_live_refresh/published/${{ inputs.season }}
+      SCRATCH_ROOT: ${{ runner.temp }}/brief_live_refresh/scratch
+      BUNDLE_PATH: ${{ runner.temp }}/brief_live_refresh/published/${{ inputs.season }}/pbp_stats_bundle_${{ inputs.season }}.json
+      SNAPSHOT_PATH: ${{ runner.temp }}/brief_live_refresh/published/${{ inputs.season }}/cfbstats_${{ inputs.season }}.json
+      VERIFICATION_REPORT_PATH: ${{ runner.temp }}/brief_live_refresh/published/${{ inputs.season }}/cfbstats_verification_${{ inputs.season }}.json
+      ENRICHMENT_FILE: ${{ runner.temp }}/brief_live_refresh/scratch/game_prep_enrichment_${{ inputs.season }}.json
+      BRIEF_OUTPUT_DIR: ${{ runner.temp }}/brief_live_refresh/scratch/brief
+      SUMMARY_JSON: ${{ runner.temp }}/brief_live_refresh/published/${{ inputs.season }}/game_prep_pipeline_summary_${{ inputs.season }}.json
     defaults:
       run:
         working-directory: pbp-analysis
@@ -111,11 +112,9 @@ jobs:
       - name: Prepare artifact paths
         run: |
           mkdir -p \
-            "${ARTIFACT_ROOT}/bundle" \
-            "${ARTIFACT_ROOT}/cfbstats" \
-            "${ARTIFACT_ROOT}/enrichment" \
-            "${ARTIFACT_ROOT}/brief" \
-            "${ARTIFACT_ROOT}/summary"
+            "${PUBLISHED_ROOT}" \
+            "${SCRATCH_ROOT}" \
+            "${BRIEF_OUTPUT_DIR}"
 
       - name: Run live refresh pipeline
         env:
@@ -185,6 +184,7 @@ jobs:
                       f"- Verification fails: `{validation.get('verification_fail_count')}`",
                       f"- Verification warnings: `{validation.get('verification_warning_count')}`",
                       f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
+                      f"- Publishable: `{(summary.get('artifact_contract') or {}).get('publishable')}`",
                   ]
               )
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
@@ -207,10 +207,18 @@ jobs:
           path: ${{ env.BRIEF_OUTPUT_DIR }}
           if-no-files-found: warn
 
-      - name: Upload full live-refresh artifacts
+      - name: Upload published artifact set
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: brief-live-refresh-artifacts
-          path: ${{ env.ARTIFACT_ROOT }}
+          name: brief-live-refresh-published-artifacts
+          path: ${{ env.PUBLISHED_ROOT }}
+          if-no-files-found: warn
+
+      - name: Upload scratch artifact set
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-live-refresh-scratch-artifacts
+          path: ${{ env.SCRATCH_ROOT }}
           if-no-files-found: warn

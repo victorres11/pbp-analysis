@@ -597,6 +597,8 @@ write_summary_json() {
   SEASON="${SEASON}" \
   TEAM1="${TEAM1}" \
   TEAM2="${TEAM2}" \
+  TEAM1_SLUG="${TEAM1_SLUG}" \
+  TEAM2_SLUG="${TEAM2_SLUG}" \
   BUNDLE_PATH="${BUNDLE_PATH}" \
   SNAPSHOT_PATH="${SNAPSHOT_PATH}" \
   VERIFICATION_REPORT_PATH="${VERIFICATION_REPORT_PATH}" \
@@ -673,6 +675,36 @@ def _path_or_none(value: str | None) -> str | None:
     return str(Path(value).expanduser().resolve(strict=False))
 
 
+def _path_exists(value: str | None, *, assume_exists: bool = False) -> bool:
+    if assume_exists:
+        return True
+    if not value:
+        return False
+    return Path(value).exists()
+
+
+def _artifact_entry(
+    *,
+    logical_name: str,
+    path_value: str | None,
+    tier: str,
+    required: bool,
+    relative_path: str | None,
+    scope: str,
+    assume_exists: bool = False,
+) -> dict:
+    path = _path_or_none(path_value)
+    return {
+        "logical_name": logical_name,
+        "path": path,
+        "exists": _path_exists(path, assume_exists=assume_exists),
+        "tier": tier,
+        "scope": scope,
+        "required": required,
+        "relative_path": relative_path,
+    }
+
+
 def _stage_status(rows: list[dict], name: str) -> str | None:
     for row in rows:
         if row["name"] == name:
@@ -683,12 +715,119 @@ def _stage_status(rows: list[dict], name: str) -> str | None:
 stages = _read_stage_rows(Path(os.environ["STAGE_FILE"]))
 warnings = _read_warning_lines(Path(os.environ["WARNINGS_FILE"]))
 verification_counts = _read_counts(Path(os.environ["VERIFICATION_COUNTS_FILE"]))
+season = int(os.environ["SEASON"])
+team1 = os.environ["TEAM1"]
+team2 = os.environ["TEAM2"]
+team1_slug = os.environ["TEAM1_SLUG"]
+team2_slug = os.environ["TEAM2_SLUG"]
+analysis_ref = os.environ.get("ANALYSIS_REF") or None
+parser_ref = os.environ.get("PARSER_REF") or None
+summary_path = _path_or_none(os.environ.get("SUMMARY_JSON"))
+generated_timestamp = datetime.now(timezone.utc)
+generated_at = generated_timestamp.isoformat()
+generated_tag = generated_timestamp.strftime("%Y%m%dT%H%M%SZ")
+brief_markdown_relative = (
+    f"scratch/brief/{team1_slug}_vs_{team2_slug}_{season}_v2.md"
+    if os.environ.get("BRIEF_MARKDOWN_PATH")
+    else None
+)
+brief_html_relative = (
+    f"scratch/brief/{team1_slug}_vs_{team2_slug}_{season}_v2.html"
+    if os.environ.get("BRIEF_HTML_PATH")
+    else None
+)
+
+published_artifacts = {
+    "bundle": _artifact_entry(
+        logical_name="bundle",
+        path_value=os.environ.get("BUNDLE_PATH"),
+        tier="published",
+        scope="season",
+        required=True,
+        relative_path=f"published/{season}/pbp_stats_bundle_{season}.json",
+    ),
+    "cfbstats_snapshot": _artifact_entry(
+        logical_name="cfbstats_snapshot",
+        path_value=os.environ.get("SNAPSHOT_PATH"),
+        tier="published",
+        scope="season",
+        required=True,
+        relative_path=f"published/{season}/cfbstats_{season}.json",
+    ),
+    "cfbstats_verification_report": _artifact_entry(
+        logical_name="cfbstats_verification_report",
+        path_value=os.environ.get("VERIFICATION_REPORT_PATH"),
+        tier="published",
+        scope="season",
+        required=True,
+        relative_path=f"published/{season}/cfbstats_verification_{season}.json",
+    ),
+    "pipeline_summary": _artifact_entry(
+        logical_name="pipeline_summary",
+        path_value=os.environ.get("SUMMARY_JSON"),
+        tier="published",
+        scope="run",
+        required=True,
+        relative_path=f"published/{season}/game_prep_pipeline_summary_{season}.json",
+        assume_exists=True,
+    ),
+}
+
+scratch_artifacts = {
+    "enrichment": _artifact_entry(
+        logical_name="enrichment",
+        path_value=os.environ.get("ENRICHMENT_FILE"),
+        tier="scratch",
+        scope="run",
+        required=False,
+        relative_path=f"scratch/game_prep_enrichment_{season}.json",
+    ),
+    "smoke_brief_output_dir": _artifact_entry(
+        logical_name="smoke_brief_output_dir",
+        path_value=os.environ.get("OUTPUT_DIR"),
+        tier="scratch",
+        scope="run",
+        required=False,
+        relative_path="scratch/brief/",
+    ),
+    "smoke_brief_markdown": _artifact_entry(
+        logical_name="smoke_brief_markdown",
+        path_value=os.environ.get("BRIEF_MARKDOWN_PATH"),
+        tier="scratch",
+        scope="run",
+        required=False,
+        relative_path=brief_markdown_relative,
+    ),
+    "smoke_brief_html": _artifact_entry(
+        logical_name="smoke_brief_html",
+        path_value=os.environ.get("BRIEF_HTML_PATH"),
+        tier="scratch",
+        scope="run",
+        required=False,
+        relative_path=brief_html_relative,
+    ),
+}
+
+published_set_complete = all(entry["exists"] for entry in published_artifacts.values())
+non_publishable_reasons: list[str] = []
+if os.environ["MODE"] != "live-refresh":
+    non_publishable_reasons.append("mode_must_be_live_refresh")
+if int(os.environ["FINAL_EXIT_CODE"]) != 0:
+    non_publishable_reasons.append("pipeline_exit_nonzero")
+if verification_counts["fail"] > 0:
+    non_publishable_reasons.append("verification_fail_metrics_present")
+if _stage_status(stages, "smoke_brief") != "passed":
+    non_publishable_reasons.append("smoke_brief_failed")
+if not published_set_complete:
+    non_publishable_reasons.append("published_artifact_set_incomplete")
+publishable = not non_publishable_reasons
+artifact_set_id = f"{season}-{generated_tag}-{(analysis_ref or 'unknown')[:12]}"
 
 summary = {
-    "season": int(os.environ["SEASON"]),
-    "teams": [os.environ["TEAM1"], os.environ["TEAM2"]],
+    "season": season,
+    "teams": [team1, team2],
     "mode": os.environ["MODE"],
-    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "generated_at": generated_at,
     "artifacts": {
         "bundle": _path_or_none(os.environ.get("BUNDLE_PATH")),
         "snapshot": _path_or_none(os.environ.get("SNAPSHOT_PATH")),
@@ -697,10 +836,11 @@ summary = {
         "brief_output_dir": _path_or_none(os.environ.get("OUTPUT_DIR")),
         "brief_markdown": _path_or_none(os.environ.get("BRIEF_MARKDOWN_PATH")),
         "brief_html": _path_or_none(os.environ.get("BRIEF_HTML_PATH")),
+        "summary_json": summary_path,
     },
     "git": {
-        "pbp_analysis_ref": os.environ.get("ANALYSIS_REF") or None,
-        "pbp_parser_ref": os.environ.get("PARSER_REF") or None,
+        "pbp_analysis_ref": analysis_ref,
+        "pbp_parser_ref": parser_ref,
     },
     "validation": {
         "parser_tests_passed": _stage_status(stages, "parser_tests") == "passed"
@@ -718,6 +858,17 @@ summary = {
     "strict_verification": os.environ.get("STRICT_VERIFICATION", "1") == "1",
     "brief_format": os.environ.get("BRIEF_FORMAT"),
     "exit_code": int(os.environ["FINAL_EXIT_CODE"]),
+    "artifact_contract": {
+        "version": 1,
+        "artifact_set_id": artifact_set_id,
+        "published_root_relative_path": f"published/{season}/",
+        "scratch_root_relative_path": "scratch/",
+        "published_set_complete": published_set_complete,
+        "publishable": publishable,
+        "non_publishable_reasons": non_publishable_reasons,
+        "published_artifacts": published_artifacts,
+        "scratch_artifacts": scratch_artifacts,
+    },
 }
 
 Path(os.environ["SUMMARY_JSON"]).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

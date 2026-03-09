@@ -58,9 +58,30 @@ Workflow behavior:
 - uploads:
   - `brief-live-refresh-summary`
   - `brief-live-refresh-smoke-brief`
-  - `brief-live-refresh-artifacts`
+  - `brief-live-refresh-published-artifacts`
+  - `brief-live-refresh-scratch-artifacts`
 
-The full artifact upload contains the generated bundle, CFBStats snapshot, verification report, enrichment file, smoke brief outputs, and the summary JSON for that run.
+The published artifact upload contains the season-scoped core set:
+
+- bundle
+- CFBStats snapshot
+- verification report
+- pipeline summary JSON
+
+The scratch artifact upload contains run-scoped helper outputs:
+
+- enrichment file
+- smoke brief outputs
+
+### Published Contract
+
+The published artifact contract is documented in [published-artifact-contract.md](./published-artifact-contract.md).
+
+Short version:
+
+- published production inputs live under `published/<season>/`
+- enrichment and smoke brief outputs are `scratch` artifacts, not part of the published contract
+- `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
 
 ### Offline Validate
 
