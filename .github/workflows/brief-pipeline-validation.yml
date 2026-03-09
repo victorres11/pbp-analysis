@@ -6,6 +6,7 @@ on:
       - ".github/workflows/brief-live-refresh.yml"
       - ".github/workflows/brief-pipeline-validation.yml"
       - "docs/demo-runbook.md"
+      - "docs/published-artifact-contract.md"
       - "scripts/refresh-game-prep-pipeline.sh"
       - "scripts/game_prep_brief/**"
       - "tests/**"

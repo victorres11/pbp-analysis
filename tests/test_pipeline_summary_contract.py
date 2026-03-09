@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PIPELINE_SCRIPT = ROOT / "scripts" / "refresh-game-prep-pipeline.sh"
+FIXTURES = ROOT / "tests" / "fixtures" / "pipeline"
+
+
+def test_offline_pipeline_summary_includes_artifact_contract(tmp_path: Path) -> None:
+    summary_json = tmp_path / "game_prep_pipeline_summary.json"
+    output_dir = tmp_path / "brief"
+    bundle_path = FIXTURES / "pbp_stats_bundle_2025.json"
+    snapshot_path = FIXTURES / "cfbstats_2025_snapshot.json"
+    verification_path = FIXTURES / "cfbstats_verification_2025_report.json"
+
+    env = os.environ.copy()
+    env["PBP_PIPELINE_PYTHON"] = sys.executable
+
+    subprocess.run(
+        [
+            str(PIPELINE_SCRIPT),
+            "Washington",
+            "Ohio State",
+            "--season",
+            "2025",
+            "--mode",
+            "offline-validate",
+            "--bundle-path",
+            str(bundle_path),
+            "--reuse-bundle",
+            "--cfbstats-snapshot",
+            str(snapshot_path),
+            "--cfbstats-verification-report",
+            str(verification_path),
+            "--no-enrichment",
+            "--skip-tests",
+            "--brief-format",
+            "markdown",
+            "--output-dir",
+            str(output_dir),
+            "--summary-json",
+            str(summary_json),
+        ],
+        check=True,
+        cwd=ROOT,
+        env=env,
+    )
+
+    summary = json.loads(summary_json.read_text(encoding="utf-8"))
+    contract = summary["artifact_contract"]
+
+    assert contract["version"] == 1
+    assert contract["published_root_relative_path"] == "published/2025/"
+    assert contract["scratch_root_relative_path"] == "scratch/"
+    assert contract["publishable"] is False
+    assert contract["published_set_complete"] is True
+    assert "mode_must_be_live_refresh" in contract["non_publishable_reasons"]
+
+    bundle = contract["published_artifacts"]["bundle"]
+    assert bundle["tier"] == "published"
+    assert bundle["required"] is True
+    assert bundle["relative_path"] == "published/2025/pbp_stats_bundle_2025.json"
+    assert bundle["exists"] is True
+
+    verification_report = contract["published_artifacts"]["cfbstats_verification_report"]
+    assert verification_report["relative_path"] == (
+        "published/2025/cfbstats_verification_2025.json"
+    )
+
+    enrichment = contract["scratch_artifacts"]["enrichment"]
+    assert enrichment["tier"] == "scratch"
+    assert enrichment["required"] is False
+    assert enrichment["relative_path"] == "scratch/game_prep_enrichment_2025.json"
+
+    markdown = contract["scratch_artifacts"]["smoke_brief_markdown"]
+    assert markdown["relative_path"] == "scratch/brief/washington_vs_ohio-state_2025_v2.md"
