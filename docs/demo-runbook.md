@@ -42,6 +42,26 @@ Default live-refresh behavior:
 - writes a machine-readable summary JSON when `--summary-json` is provided
 - expects the CFBStats stages to be network-bound and potentially slower than offline validation
 
+### GitHub Actions Live Refresh
+
+The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
+
+Requirements:
+
+- run it from `main`
+- configure a `PBP_REPO_ACCESS_TOKEN` repository secret with read access to `victorres11/pbp-parser`
+
+Workflow behavior:
+
+- checks out `pbp-analysis` and `pbp-parser`
+- runs `scripts/refresh-game-prep-pipeline.sh` in `live-refresh` mode
+- uploads:
+  - `brief-live-refresh-summary`
+  - `brief-live-refresh-smoke-brief`
+  - `brief-live-refresh-artifacts`
+
+The full artifact upload contains the generated bundle, CFBStats snapshot, verification report, enrichment file, smoke brief outputs, and the summary JSON for that run.
+
 ### Offline Validate
 
 This is the deterministic CI/check path. It reuses pinned artifacts, skips live CFBStats refreshes, and can skip enrichment entirely.

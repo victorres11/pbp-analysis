@@ -1,0 +1,216 @@
+name: Brief Live Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      team1:
+        description: Primary team for the smoke brief
+        required: true
+        type: string
+        default: Washington
+      team2:
+        description: Opponent for the smoke brief
+        required: true
+        type: string
+        default: Ohio State
+      season:
+        description: Season year
+        required: true
+        type: string
+        default: "2025"
+      last_n:
+        description: Last-N window for trend sections
+        required: true
+        type: string
+        default: "3"
+      brief_format:
+        description: Smoke brief format
+        required: true
+        type: choice
+        options:
+          - markdown
+          - html
+          - both
+        default: markdown
+      run_tests:
+        description: Run parser and analysis pytest suites before refresh
+        required: true
+        type: boolean
+        default: false
+      strict_verification:
+        description: Fail the workflow if verification report contains fail metrics
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brief-live-refresh
+  cancel-in-progress: false
+
+jobs:
+  live-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ARTIFACT_ROOT: ${{ runner.temp }}/brief_live_refresh
+      BUNDLE_PATH: ${{ runner.temp }}/brief_live_refresh/bundle/pbp_stats_bundle_${{ inputs.season }}.json
+      SNAPSHOT_PATH: ${{ runner.temp }}/brief_live_refresh/cfbstats/cfbstats_${{ inputs.season }}.json
+      VERIFICATION_REPORT_PATH: ${{ runner.temp }}/brief_live_refresh/cfbstats/cfbstats_verification_${{ inputs.season }}.json
+      ENRICHMENT_FILE: ${{ runner.temp }}/brief_live_refresh/enrichment/game_prep_enrichment_${{ inputs.season }}.json
+      BRIEF_OUTPUT_DIR: ${{ runner.temp }}/brief_live_refresh/brief
+      SUMMARY_JSON: ${{ runner.temp }}/brief_live_refresh/summary/game_prep_pipeline_summary.json
+    defaults:
+      run:
+        working-directory: pbp-analysis
+
+    steps:
+      - name: Checkout pbp-analysis
+        uses: actions/checkout@v4
+        with:
+          path: pbp-analysis
+
+      - name: Require main branch
+        run: |
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::Run Brief Live Refresh from main so the generated artifacts reflect the production branch."
+            exit 1
+          fi
+
+      - name: Validate parser checkout token
+        env:
+          PBP_REPO_ACCESS_TOKEN: ${{ secrets.PBP_REPO_ACCESS_TOKEN }}
+        run: |
+          if [[ -z "${PBP_REPO_ACCESS_TOKEN}" ]]; then
+            echo "::error::Missing PBP_REPO_ACCESS_TOKEN secret. This workflow needs read access to victorres11/pbp-parser."
+            exit 1
+          fi
+
+      - name: Checkout pbp-parser
+        uses: actions/checkout@v4
+        with:
+          repository: victorres11/pbp-parser
+          ref: main
+          token: ${{ secrets.PBP_REPO_ACCESS_TOKEN }}
+          path: pbp-parser
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install workflow dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # The brief refresh path in pbp-analysis uses stdlib modules plus parser-owned dependencies.
+          # pbp-analysis does not currently maintain a separate requirements file.
+          python -m pip install -r ../pbp-parser/requirements.txt -r ../pbp-parser/requirements-dev.txt
+
+      - name: Prepare artifact paths
+        run: |
+          mkdir -p \
+            "${ARTIFACT_ROOT}/bundle" \
+            "${ARTIFACT_ROOT}/cfbstats" \
+            "${ARTIFACT_ROOT}/enrichment" \
+            "${ARTIFACT_ROOT}/brief" \
+            "${ARTIFACT_ROOT}/summary"
+
+      - name: Run live refresh pipeline
+        env:
+          PBP_PARSER_ROOT: ${{ github.workspace }}/pbp-parser
+          PBP_PIPELINE_PYTHON: python
+          TEAM1: ${{ inputs.team1 }}
+          TEAM2: ${{ inputs.team2 }}
+          SEASON: ${{ inputs.season }}
+          LAST_N: ${{ inputs.last_n }}
+          BRIEF_FORMAT: ${{ inputs.brief_format }}
+          RUN_TESTS: ${{ inputs.run_tests }}
+          STRICT_VERIFICATION: ${{ inputs.strict_verification }}
+        run: |
+          args=(
+            "./scripts/refresh-game-prep-pipeline.sh"
+            "${TEAM1}"
+            "${TEAM2}"
+            --season "${SEASON}"
+            --last-n "${LAST_N}"
+            --mode live-refresh
+            --brief-format "${BRIEF_FORMAT}"
+            --bundle-path "${BUNDLE_PATH}"
+            --cfbstats-snapshot "${SNAPSHOT_PATH}"
+            --cfbstats-verification-report "${VERIFICATION_REPORT_PATH}"
+            --enrichment-file "${ENRICHMENT_FILE}"
+            --output-dir "${BRIEF_OUTPUT_DIR}"
+            --summary-json "${SUMMARY_JSON}"
+          )
+
+          if [[ "${RUN_TESTS}" == "true" ]]; then
+            args+=(--run-tests)
+          else
+            args+=(--skip-tests)
+          fi
+
+          if [[ "${STRICT_VERIFICATION}" == "true" ]]; then
+            args+=(--strict-verification)
+          else
+            args+=(--no-strict-verification)
+          fi
+
+          "${args[@]}"
+
+      - name: Add workflow summary
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import os
+
+          summary_path = Path(os.environ["SUMMARY_JSON"])
+          summary_lines = ["## Brief Live Refresh"]
+          if not summary_path.exists():
+              summary_lines.append("")
+              summary_lines.append("Pipeline summary JSON was not produced.")
+          else:
+              summary = json.loads(summary_path.read_text(encoding="utf-8"))
+              validation = summary.get("validation") or {}
+              summary_lines.extend(
+                  [
+                      "",
+                      f"- Mode: `{summary.get('mode')}`",
+                      f"- Teams: `{', '.join(summary.get('teams') or [])}`",
+                      f"- Season: `{summary.get('season')}`",
+                      f"- Exit code: `{summary.get('exit_code')}`",
+                      f"- Verification fails: `{validation.get('verification_fail_count')}`",
+                      f"- Verification warnings: `{validation.get('verification_warning_count')}`",
+                      f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
+                  ]
+              )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(summary_lines) + "\n")
+          PY
+
+      - name: Upload pipeline summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-live-refresh-summary
+          path: ${{ env.SUMMARY_JSON }}
+          if-no-files-found: warn
+
+      - name: Upload smoke brief
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-live-refresh-smoke-brief
+          path: ${{ env.BRIEF_OUTPUT_DIR }}
+          if-no-files-found: warn
+
+      - name: Upload full live-refresh artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-live-refresh-artifacts
+          path: ${{ env.ARTIFACT_ROOT }}
+          if-no-files-found: warn
