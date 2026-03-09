@@ -42,6 +42,11 @@ on:
         required: true
         type: boolean
         default: true
+      include_enrichment:
+        description: Refresh and require enrichment for the run
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -127,6 +132,7 @@ jobs:
           BRIEF_FORMAT: ${{ inputs.brief_format }}
           RUN_TESTS: ${{ inputs.run_tests }}
           STRICT_VERIFICATION: ${{ inputs.strict_verification }}
+          INCLUDE_ENRICHMENT: ${{ inputs.include_enrichment }}
         run: |
           args=(
             "./scripts/refresh-game-prep-pipeline.sh"
@@ -156,6 +162,10 @@ jobs:
             args+=(--no-strict-verification)
           fi
 
+          if [[ "${INCLUDE_ENRICHMENT}" != "true" ]]; then
+            args+=(--no-enrichment)
+          fi
+
           "${args[@]}"
 
       - name: Add workflow summary
@@ -182,6 +192,8 @@ jobs:
                       f"- Season: `{summary.get('season')}`",
                       f"- Exit code: `{summary.get('exit_code')}`",
                       f"- Heartbeat interval: `{(summary.get('observability') or {}).get('heartbeat_interval_seconds')}`s",
+                      f"- Enrichment policy: `{(summary.get('enrichment_contract') or {}).get('policy')}`",
+                      f"- Enrichment artifact status: `{(summary.get('enrichment_contract') or {}).get('artifact_status')}`",
                       f"- Verification fails: `{validation.get('verification_fail_count')}`",
                       f"- Verification warnings: `{validation.get('verification_warning_count')}`",
                       f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",

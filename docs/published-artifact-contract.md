@@ -4,7 +4,11 @@ This document defines the production artifact contract for the game prep brief r
 
 ## Contract Version
 
-- `artifact_contract.version = 1`
+- `artifact_contract.version = 2`
+
+Version 2 adds the enrichment policy contract. The main schema change is that
+`artifact_contract.scratch_artifacts.enrichment.required` is now policy-driven
+instead of always `false`.
 
 The machine-readable source of truth for the contract is the pipeline summary JSON written by `scripts/refresh-game-prep-pipeline.sh`.
 
@@ -31,8 +35,10 @@ These outputs are useful for operator validation, but they are not part of the p
 
 This distinction is intentional:
 
-- enrichment remains a run helper until issue `#189` defines it as a first-class artifact
+- enrichment is now a first-class run-scoped artifact, but not part of the published season-core set
 - smoke briefs are validation outputs, not canonical data inputs
+
+The enrichment-specific policy is documented in [enrichment-artifact-contract.md](./enrichment-artifact-contract.md).
 
 ## Publishable Run Criteria
 
@@ -58,6 +64,8 @@ Downstream consumers should:
 - resolve stable production inputs from the `published/<season>/` set
 - use `artifact_contract.published_artifacts` to discover the logical artifact names and expected relative paths
 - ignore `artifact_contract.scratch_artifacts` for production consumption
+
+The one exception is the brief pipeline itself, which may require the run-scoped enrichment artifact depending on `enrichment_contract.policy`.
 
 If a consumer needs to distinguish a scratch/local run from a publishable run, it should read:
 

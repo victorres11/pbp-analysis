@@ -18,6 +18,7 @@ from .loaders import (
     load_cfbstats_snapshot,
     load_cfbstats_verification_report,
     load_enrichment_file,
+    validate_enrichment_payload,
     write_enrichment_file,
     gather_team_data,
     load_pbp_data,
@@ -72,9 +73,9 @@ def parse_args():
         help="Refresh enrichment file from live API before rendering.",
     )
     p.add_argument(
-        "--allow-live-enrichment",
+        "--no-enrichment",
         action="store_true",
-        help="Allow live enrichment fetch during render if enrichment file is missing/stale.",
+        help="Skip enrichment consumption entirely for this brief run.",
     )
     p.add_argument(
         "--legacy-page-breaks",
@@ -101,6 +102,40 @@ def parse_args():
     return p.parse_args()
 
 
+def _resolve_enrichment_artifact(args, team_specs: list[dict]) -> tuple[Path, dict]:
+    enrichment_file = args.enrichment_file or (
+        args.output_dir
+        / f"{team_specs[0]['slug']}_vs_{team_specs[1]['slug']}_{args.season}_enrichment.json"
+    )
+    if args.no_enrichment:
+        return enrichment_file, {}
+
+    required_team_slugs = [spec["slug"] for spec in team_specs]
+    enrichment_by_slug = load_enrichment_file(enrichment_file)
+    if args.refresh_enrichment:
+        refreshed = build_enrichment_payload(team_specs)
+        enrichment_by_slug = merge_enrichment_payload(enrichment_by_slug, refreshed)
+        try:
+            enrichment_by_slug = validate_enrichment_payload(enrichment_by_slug, required_team_slugs)
+        except ValueError as exc:
+            raise SystemExit(
+                f"Enrichment refresh did not produce a usable artifact at {enrichment_file}: {exc}"
+            ) from exc
+        write_enrichment_file(enrichment_file, enrichment_by_slug)
+        print(f"[ok] Enrichment → {enrichment_file}", file=sys.stderr)
+        return enrichment_file, enrichment_by_slug
+
+    try:
+        enrichment_by_slug = validate_enrichment_payload(enrichment_by_slug, required_team_slugs)
+    except ValueError as exc:
+        raise SystemExit(
+            f"Missing enrichment artifact at {enrichment_file}: {exc}. "
+            "Run with --refresh-enrichment to create it or --no-enrichment to skip enrichment."
+        ) from exc
+
+    return enrichment_file, enrichment_by_slug
+
+
 def main():
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -111,19 +146,7 @@ def main():
         {"slug": slugify(args.team1), "display_name": args.team1},
         {"slug": slugify(args.team2), "display_name": args.team2},
     ]
-    enrichment_file = args.enrichment_file or (
-        args.output_dir
-        / f"{team_specs[0]['slug']}_vs_{team_specs[1]['slug']}_{args.season}_enrichment.json"
-    )
-    enrichment_by_slug = load_enrichment_file(enrichment_file)
-    if args.refresh_enrichment or not enrichment_by_slug:
-        refreshed = build_enrichment_payload(team_specs)
-        if refreshed:
-            enrichment_by_slug = merge_enrichment_payload(enrichment_by_slug, refreshed)
-            write_enrichment_file(enrichment_file, enrichment_by_slug)
-            print(f"[ok] Enrichment → {enrichment_file}", file=sys.stderr)
-        else:
-            print(f"[warn] Enrichment fetch returned empty payload; continuing.", file=sys.stderr)
+    enrichment_file, enrichment_by_slug = _resolve_enrichment_artifact(args, team_specs)
 
     cfbstats_snapshot = load_cfbstats_snapshot(args.season, args.cfbstats_snapshot)
     cfbstats_verification_report = load_cfbstats_verification_report(
@@ -137,7 +160,6 @@ def main():
         args.season,
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
-        allow_live_enrichment=args.allow_live_enrichment,
         cfbstats_snapshot=cfbstats_snapshot,
         cfbstats_verification_report=cfbstats_verification_report,
     )
@@ -147,7 +169,6 @@ def main():
         args.season,
         last_n=args.last_n,
         enrichment_by_slug=enrichment_by_slug,
-        allow_live_enrichment=args.allow_live_enrichment,
         cfbstats_snapshot=cfbstats_snapshot,
         cfbstats_verification_report=cfbstats_verification_report,
     )
