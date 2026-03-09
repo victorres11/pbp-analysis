@@ -1,0 +1,100 @@
+{
+  "meta": {
+    "artifact": "cfbstats_bundle_verification_report"
+  },
+  "known_gaps": {
+    "turnover_on_downs_definition_gap": {
+      "id": "turnover_on_downs_definition_gap",
+      "title": "Turnover-on-downs definition gap",
+      "description": "Parser includes turnover on downs in margin."
+    }
+  },
+  "teams": {
+    "oregon": {
+      "team_slug": "oregon",
+      "summary": {
+        "metric_results": {
+          "pass": 2,
+          "warning": 1,
+          "fail": 0
+        }
+      },
+      "metrics": {
+        "red_zone_td_pct": {
+          "label": "Red Zone TD%",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "comparison": {
+            "parser_value": 66.7,
+            "cfbstats_value": 66.7,
+            "delta": 0.0,
+            "tolerance": 0.11
+          }
+        },
+        "turnover_margin": {
+          "label": "Turnover Margin",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "turnover_on_downs_definition_gap",
+          "note": "turnover on downs present",
+          "comparison": {
+            "parser_value": 4.0,
+            "cfbstats_value": 4.0,
+            "delta": 0.0,
+            "tolerance": 0.11
+          }
+        },
+        "penalty_yards_pg": {
+          "label": "Penalty Yards/Game",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "comparison": {
+            "parser_value": 42.3,
+            "cfbstats_value": 42.3,
+            "delta": 0.0,
+            "tolerance": 0.11
+          }
+        }
+      }
+    },
+    "wisconsin": {
+      "team_slug": "wisconsin",
+      "summary": {
+        "metric_results": {
+          "pass": 1,
+          "warning": 1,
+          "fail": 0
+        }
+      },
+      "metrics": {
+        "red_zone_td_pct": {
+          "label": "Red Zone TD%",
+          "status": "match",
+          "result": "pass",
+          "reason_id": null,
+          "comparison": {
+            "parser_value": 44.4,
+            "cfbstats_value": 44.4,
+            "delta": 0.0,
+            "tolerance": 0.11
+          }
+        },
+        "turnover_margin": {
+          "label": "Turnover Margin",
+          "status": "special_case",
+          "result": "warning",
+          "reason_id": "turnover_on_downs_definition_gap",
+          "note": "turnover on downs present",
+          "comparison": {
+            "parser_value": 0.0,
+            "cfbstats_value": 0.0,
+            "delta": 0.0,
+            "tolerance": 0.11
+          }
+        }
+      }
+    }
+  }
+}
