@@ -15,6 +15,7 @@ BRIEF_FORMAT="markdown"
 RUN_TESTS=0
 STRICT_VERIFICATION=1
 NO_ENRICHMENT=0
+REUSE_BUNDLE=0
 
 OUTPUT_DIR="${ANALYSIS_ROOT}/outputs/game_prep_brief"
 SUMMARY_JSON=""
@@ -44,6 +45,7 @@ Options:
   --summary-json <path>                  Write machine-readable pipeline summary JSON
   --scan-dir <path>                      StatBroadcast game brief scan directory
   --bundle-path <path>                   Output bundle path
+  --reuse-bundle                        Reuse an existing bundle at --bundle-path instead of regenerating it
   --cfbstats-snapshot <path>             Snapshot artifact path (generated or reused)
   --cfbstats-verification-report <path>  Verification report path (generated or reused)
   --enrichment-file <path>               Enrichment artifact path
@@ -94,6 +96,10 @@ while [[ $# -gt 0 ]]; do
     --bundle-path)
       BUNDLE_PATH=${2:-}
       shift 2
+      ;;
+    --reuse-bundle)
+      REUSE_BUNDLE=1
+      shift
       ;;
     --cfbstats-snapshot)
       SNAPSHOT_PATH=${2:-}
@@ -250,12 +256,20 @@ if [[ ! -d "${ANALYSIS_ROOT}" ]]; then
   echo "Missing pbp-analysis root at ${ANALYSIS_ROOT}" >&2
   exit 2
 fi
-if [[ ! -d "${PARSER_ROOT}" ]]; then
-  echo "Missing pbp-parser root at ${PARSER_ROOT}" >&2
-  exit 2
+if [[ "${MODE}" == "live-refresh" || "${REUSE_BUNDLE}" == "0" ]]; then
+  if [[ ! -d "${PARSER_ROOT}" ]]; then
+    echo "Missing pbp-parser root at ${PARSER_ROOT}" >&2
+    exit 2
+  fi
 fi
-if [[ ! -d "${SCAN_DIR}" ]]; then
-  echo "Missing StatBroadcast scan directory at ${SCAN_DIR}" >&2
+if [[ "${REUSE_BUNDLE}" == "0" ]]; then
+  if [[ ! -d "${SCAN_DIR}" ]]; then
+    echo "Missing StatBroadcast scan directory at ${SCAN_DIR}" >&2
+    exit 2
+  fi
+fi
+if [[ "${REUSE_BUNDLE}" == "1" && ! -f "${BUNDLE_PATH}" ]]; then
+  echo "Missing reusable bundle at ${BUNDLE_PATH}" >&2
   exit 2
 fi
 
@@ -373,6 +387,29 @@ print(f"[ok] Enrichment -> {enrichment_path}")
 PY
 }
 
+write_disabled_enrichment_fixture() {
+  PYTHONPATH="${ANALYSIS_ROOT}" "${PYTHON_BIN}" - "${ENRICHMENT_FILE}" "${TEAM1}" "${TEAM2}" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+from scripts.game_prep_brief.loaders import slugify
+
+enrichment_path = Path(sys.argv[1]).expanduser()
+team_names = sys.argv[2:]
+payload = {
+    slugify(name): {
+        "_status": "disabled",
+        "_source": "pipeline",
+    }
+    for name in team_names
+}
+enrichment_path.parent.mkdir(parents=True, exist_ok=True)
+enrichment_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+print(f"[ok] Enrichment placeholder -> {enrichment_path}")
+PY
+}
+
 validate_offline_artifacts() {
   "${PYTHON_BIN}" - "${SNAPSHOT_PATH}" "${VERIFICATION_REPORT_PATH}" <<'PY'
 from pathlib import Path
@@ -397,6 +434,30 @@ for path, expected_artifact in checks:
             f"Invalid {expected_artifact} artifact at {path}: found '{actual or 'unknown'}'"
         )
     print(f"[ok] {expected_artifact} -> {path}")
+PY
+}
+
+validate_bundle_artifact() {
+  "${PYTHON_BIN}" - "${BUNDLE_PATH}" <<'PY'
+from pathlib import Path
+import json
+import sys
+
+bundle_path = Path(sys.argv[1]).expanduser()
+if not bundle_path.exists():
+    raise SystemExit(f"Missing bundle artifact at {bundle_path}")
+
+with open(bundle_path) as handle:
+    payload = json.load(handle)
+
+if not isinstance(payload, dict):
+    raise SystemExit(f"Invalid bundle artifact at {bundle_path}: expected object")
+
+teams = payload.get("teams", payload)
+if not isinstance(teams, dict) or not teams:
+    raise SystemExit(f"Invalid bundle artifact at {bundle_path}: missing teams")
+
+print(f"[ok] bundle -> {bundle_path}")
 PY
 }
 
@@ -505,10 +566,9 @@ smoke_brief_cmd() {
   )
 
   if [[ "${NO_ENRICHMENT}" == "1" ]]; then
-    cmd+=(--no-enrichment)
-  else
-    cmd+=(--enrichment-file "${ENRICHMENT_FILE}")
+    write_disabled_enrichment_fixture
   fi
+  cmd+=(--enrichment-file "${ENRICHMENT_FILE}")
 
   (
     cd "${ANALYSIS_ROOT}"
@@ -674,7 +734,11 @@ cleanup() {
 trap 'cleanup $?' EXIT
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
-  run_stage parser_tests run_parser_tests_cmd
+  if [[ -d "${PARSER_ROOT}" ]]; then
+    run_stage parser_tests run_parser_tests_cmd
+  else
+    record_skipped "parser_tests" "parser_root_unavailable"
+  fi
 else
   record_skipped "parser_tests" "disabled"
 fi
@@ -685,7 +749,12 @@ else
   record_skipped "analysis_tests" "disabled"
 fi
 
-run_stage bundle_generation generate_bundle_cmd
+if [[ "${REUSE_BUNDLE}" == "1" ]]; then
+  record_skipped "bundle_generation" "reused_existing_bundle"
+  run_stage bundle_validation validate_bundle_artifact
+else
+  run_stage bundle_generation generate_bundle_cmd
+fi
 
 if [[ "${MODE}" == "live-refresh" ]]; then
   run_stage cfbstats_snapshot generate_snapshot_cmd

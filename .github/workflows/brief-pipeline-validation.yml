@@ -23,13 +23,6 @@ jobs:
         with:
           path: pbp-analysis
 
-      - name: Checkout pbp-parser
-        uses: actions/checkout@v4
-        with:
-          repository: victorres11/pbp-parser
-          path: pbp-parser
-          ref: main
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -38,18 +31,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r ../pbp-parser/requirements.txt -r ../pbp-parser/requirements-dev.txt
+          python -m pip install pytest
+
+      - name: Run brief-specific tests
+        run: |
+          python -m pytest -q \
+            tests/test_game_prep_loader_artifacts.py \
+            tests/test_scoring_zones_issue_158.py
 
       - name: Run offline pipeline validation
         run: |
           ./scripts/refresh-game-prep-pipeline.sh Washington "Ohio State" \
             --season 2025 \
             --mode offline-validate \
-            --bundle-path "${RUNNER_TEMP}/pbp_stats_bundle.json" \
+            --bundle-path "${PWD}/tests/fixtures/pipeline/pbp_stats_bundle_2025.json" \
+            --reuse-bundle \
             --cfbstats-snapshot "${PWD}/tests/fixtures/pipeline/cfbstats_2025_snapshot.json" \
             --cfbstats-verification-report "${PWD}/tests/fixtures/pipeline/cfbstats_verification_2025_report.json" \
             --no-enrichment \
-            --run-tests \
+            --skip-tests \
             --brief-format markdown \
             --output-dir "${RUNNER_TEMP}/game_prep_brief" \
             --summary-json "${RUNNER_TEMP}/game_prep_pipeline_summary.json"

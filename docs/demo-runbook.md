@@ -44,13 +44,14 @@ Default live-refresh behavior:
 
 ### Offline Validate
 
-This is the deterministic CI/check path. It rebuilds the bundle locally, reuses pinned snapshot/report artifacts, skips live CFBStats refreshes, and can skip enrichment entirely.
+This is the deterministic CI/check path. It reuses pinned artifacts, skips live CFBStats refreshes, and can skip enrichment entirely.
 
 ```bash
 ./scripts/refresh-game-prep-pipeline.sh Washington "Ohio State" \
   --season 2025 \
   --mode offline-validate \
   --bundle-path /tmp/pbp_stats_bundle.json \
+  --reuse-bundle \
   --cfbstats-snapshot tests/fixtures/pipeline/cfbstats_2025_snapshot.json \
   --cfbstats-verification-report tests/fixtures/pipeline/cfbstats_verification_2025_report.json \
   --no-enrichment \
@@ -60,10 +61,12 @@ This is the deterministic CI/check path. It rebuilds the bundle locally, reuses 
 
 Default offline-validate behavior:
 
-- regenerates a local bundle instead of touching `yr-data-api`
+- can regenerate a local bundle, or reuse a pinned bundle with `--reuse-bundle`
 - validates that the supplied snapshot and verification artifacts have the expected schema
 - gates on verification `fail` metrics by default
 - renders a smoke brief without live CFBStats access
+
+If you already have a pinned bundle artifact, add `--reuse-bundle` to skip parser-side bundle regeneration. That is the mode the GitHub workflow uses so PR validation stays self-contained inside `pbp-analysis`.
 
 ### Summary JSON
 
