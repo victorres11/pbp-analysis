@@ -44,7 +44,7 @@ Default live-refresh behavior:
 
 ### GitHub Actions Live Refresh
 
-The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](/Users/victorres/projects2/pbp/pbp-analysis/.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
+The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
 
 Requirements:
 

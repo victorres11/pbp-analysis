@@ -101,9 +101,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install workflow dependencies
         run: |
           python -m pip install --upgrade pip
+          # The brief refresh path in pbp-analysis uses stdlib modules plus parser-owned dependencies.
+          # pbp-analysis does not currently maintain a separate requirements file.
           python -m pip install -r ../pbp-parser/requirements.txt -r ../pbp-parser/requirements-dev.txt
 
       - name: Prepare artifact paths
