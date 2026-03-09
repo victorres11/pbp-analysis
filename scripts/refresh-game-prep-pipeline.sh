@@ -439,6 +439,7 @@ run_stage_impl() {
   write_current_stage "${stage_name}" "${start_epoch}" "${start_iso}" "${expected_duration}" "${heartbeat_count}" "${exceeded_budget}"
   set +e
   (
+    set -o pipefail
     "$@" 2>&1 | tee "${stage_log}"
   ) &
   local stage_pid=$!
