@@ -98,13 +98,20 @@ def test_convert_xml_bundle_team_backfills_game_rows_from_bundle_stats() -> None
     assert game["opp_two_pt_attempts"] == 2
 
 
-def test_gather_team_data_uses_offline_cfbstats_artifacts() -> None:
+def test_gather_team_data_uses_offline_cfbstats_artifacts(
+    monkeypatch,
+) -> None:
     assert not hasattr(loaders, "_fetch_live_rankings")
     assert not hasattr(loaders, "_fetch_live_turnover_split")
     assert not hasattr(loaders, "_verify_cfbstats_metrics")
     assert not hasattr(loaders, "_rollup_game_from_play_tree")
     assert not hasattr(loaders, "_derive_game_detail_stats")
     assert not hasattr(loaders, "_derive_turnover_drive_stats")
+
+    def _unexpected_live_fetch(*args, **kwargs):
+        raise AssertionError("live enrichment fetch should not run during gather_team_data")
+
+    monkeypatch.setattr(loaders, "_fetch_live_enrichment", _unexpected_live_fetch)
 
     pbp_teams = {
         "washington": {
@@ -234,6 +241,7 @@ def test_gather_team_data_uses_offline_cfbstats_artifacts() -> None:
         pbp_teams,
         "Washington",
         2025,
+        allow_live_enrichment=True,
         cfbstats_snapshot=snapshot,
         cfbstats_verification_report=verification_report,
     )

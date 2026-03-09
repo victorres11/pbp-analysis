@@ -41,6 +41,7 @@ Default live-refresh behavior:
 - renders a smoke brief
 - writes a machine-readable summary JSON when `--summary-json` is provided
 - expects the CFBStats stages to be network-bound and potentially slower than offline validation
+- treats enrichment as required for a publishable run unless you explicitly pass `--no-enrichment`
 
 Important: the `yr-data-api/data/pbp_stats_bundle.json` write is a **local handoff convenience**, not the official published bundle contract. The published bundle contract is the season-scoped `published/<season>/pbp_stats_bundle_<season>.json` artifact layout used by the workflow-backed live-refresh path.
 
@@ -77,6 +78,8 @@ The scratch artifact upload contains run-scoped helper outputs:
 - enrichment file
 - smoke brief outputs
 
+By default the workflow refreshes and requires enrichment. If an operator intentionally disables enrichment, the run still completes, but the summary JSON marks it as non-publishable.
+
 ### Published Contract
 
 The published artifact contract is documented in [published-artifact-contract.md](./published-artifact-contract.md).
@@ -85,9 +88,13 @@ The specific role of the `yr-data-api` bundle handoff path is documented in [yr-
 Short version:
 
 - published production inputs live under `published/<season>/`
-- enrichment and smoke brief outputs are `scratch` artifacts, not part of the published contract
+- enrichment is a first-class run-scoped artifact, but not part of the published season-core set
+- smoke brief outputs remain scratch validation outputs
 - `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
 - `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff path, not a published artifact path
+- `enrichment_contract` inside the summary JSON is the machine-readable source of truth for enrichment policy and status
+
+The enrichment-specific contract is documented in [enrichment-artifact-contract.md](./enrichment-artifact-contract.md).
 
 ### Offline Validate
 
@@ -110,6 +117,7 @@ Default offline-validate behavior:
 
 - can regenerate a local bundle, or reuse a pinned bundle with `--reuse-bundle`
 - validates that the supplied snapshot and verification artifacts have the expected schema
+- requires an existing enrichment artifact unless `--no-enrichment` is set
 - gates on verification `fail` metrics by default
 - renders a smoke brief without live CFBStats access
 
@@ -121,10 +129,26 @@ The summary artifact is the machine-readable run contract for CI and operators. 
 
 - mode, season, teams, and git refs
 - artifact paths for bundle, snapshot, verification report, enrichment, and smoke brief outputs
+- `enrichment_contract` policy/status for the run
 - per-stage status with `duration_seconds`, `started_at`, `finished_at`, `heartbeat_count`, and `expected_duration_seconds`
 - smoke/test pass flags
 - verification fail/warning counts
 - collected `[warn]` lines from the run
+
+### Enrichment Policy
+
+The brief and pipeline now follow one deterministic enrichment policy:
+
+- default behavior requires an enrichment artifact
+- `--refresh-enrichment` is the only live enrichment fetch path
+- `--no-enrichment` is the only opt-out path
+- missing enrichment never triggers an implicit runtime fetch
+
+That means:
+
+- local brief generation without an enrichment file should fail fast with a clear message
+- local brief generation with `--refresh-enrichment` should write/update the file first
+- offline validation can remain deterministic by passing `--no-enrichment`
 
 ### Live Stage Observability
 

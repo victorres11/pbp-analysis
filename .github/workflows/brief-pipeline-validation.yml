@@ -6,6 +6,7 @@ on:
       - ".github/workflows/brief-live-refresh.yml"
       - ".github/workflows/brief-pipeline-validation.yml"
       - "docs/demo-runbook.md"
+      - "docs/enrichment-artifact-contract.md"
       - "docs/published-artifact-contract.md"
       - "docs/yr-data-api-bundle-role.md"
       - "scripts/refresh-game-prep-pipeline.sh"
@@ -39,6 +40,7 @@ jobs:
       - name: Run brief-specific tests
         run: |
           python -m pytest -q \
+            tests/test_game_prep_cli_enrichment.py \
             tests/test_game_prep_brief_golden.py \
             tests/test_game_prep_loader_artifacts.py \
             tests/test_pipeline_summary_contract.py \

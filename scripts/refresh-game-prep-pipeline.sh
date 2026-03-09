@@ -48,12 +48,12 @@ Options:
   --reuse-bundle                        Reuse an existing bundle at --bundle-path instead of regenerating it
   --cfbstats-snapshot <path>             Snapshot artifact path (generated or reused)
   --cfbstats-verification-report <path>  Verification report path (generated or reused)
-  --enrichment-file <path>               Enrichment artifact path
+  --enrichment-file <path>               Enrichment artifact path (required unless --no-enrichment)
   --run-tests                            Run parser and analysis pytest suites
   --skip-tests                           Skip parser and analysis pytest suites
   --strict-verification                  Fail if verification report has fail metrics (default)
   --no-strict-verification               Allow verification fail metrics without failing the pipeline
-  --no-enrichment                        Skip enrichment refresh/use during smoke rendering
+  --no-enrichment                        Disable enrichment for this run (non-publishable opt-out)
   --help                                 Show this help
 
 Environment overrides:
@@ -552,6 +552,7 @@ from scripts.game_prep_brief.loaders import (
     load_enrichment_file,
     merge_enrichment_payload,
     slugify,
+    validate_enrichment_payload,
     write_enrichment_file,
 )
 
@@ -562,31 +563,32 @@ refreshed = build_enrichment_payload(team_specs)
 if not refreshed:
     raise SystemExit(f"Enrichment refresh returned no data for {enrichment_path}")
 merged = merge_enrichment_payload(load_enrichment_file(enrichment_path), refreshed)
+required_slugs = [spec["slug"] for spec in team_specs]
+merged = validate_enrichment_payload(merged, required_slugs)
 write_enrichment_file(enrichment_path, merged)
 print(f"[ok] Enrichment -> {enrichment_path}")
 PY
 }
 
-write_disabled_enrichment_fixture() {
+validate_enrichment_artifact() {
   PYTHONPATH="${ANALYSIS_ROOT}" "${PYTHON_BIN}" - "${ENRICHMENT_FILE}" "${TEAM1}" "${TEAM2}" <<'PY'
 from pathlib import Path
 import json
 import sys
 
-from scripts.game_prep_brief.loaders import slugify
+from scripts.game_prep_brief.loaders import load_enrichment_file, slugify, validate_enrichment_payload
 
 enrichment_path = Path(sys.argv[1]).expanduser()
 team_names = sys.argv[2:]
-payload = {
-    slugify(name): {
-        "_status": "disabled",
-        "_source": "pipeline",
-    }
-    for name in team_names
-}
-enrichment_path.parent.mkdir(parents=True, exist_ok=True)
-enrichment_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-print(f"[ok] Enrichment placeholder -> {enrichment_path}")
+payload = load_enrichment_file(enrichment_path)
+required_slugs = [slugify(name) for name in team_names]
+try:
+    validated = validate_enrichment_payload(payload, required_slugs)
+except ValueError as exc:
+    raise SystemExit(f"Invalid enrichment artifact at {enrichment_path}: {exc}") from exc
+
+statuses = {slug: ((validated.get(slug) or {}).get("_status") or "unknown") for slug in required_slugs}
+print(f"[ok] Enrichment artifact -> {enrichment_path} statuses={json.dumps(statuses, sort_keys=True)}")
 PY
 }
 
@@ -746,9 +748,10 @@ smoke_brief_cmd() {
   )
 
   if [[ "${NO_ENRICHMENT}" == "1" ]]; then
-    write_disabled_enrichment_fixture
+    cmd+=(--no-enrichment)
+  else
+    cmd+=(--enrichment-file "${ENRICHMENT_FILE}")
   fi
-  cmd+=(--enrichment-file "${ENRICHMENT_FILE}")
 
   (
     cd "${ANALYSIS_ROOT}"
@@ -784,6 +787,7 @@ write_summary_json() {
   SNAPSHOT_PATH="${SNAPSHOT_PATH}" \
   VERIFICATION_REPORT_PATH="${VERIFICATION_REPORT_PATH}" \
   ENRICHMENT_FILE="${ENRICHMENT_FILE}" \
+  NO_ENRICHMENT="${NO_ENRICHMENT}" \
   OUTPUT_DIR="${OUTPUT_DIR}" \
   STRICT_VERIFICATION="${STRICT_VERIFICATION}" \
   BRIEF_FORMAT="${BRIEF_FORMAT}" \
@@ -865,6 +869,32 @@ def _read_counts(path: Path) -> dict:
     }
 
 
+def _read_enrichment_team_statuses(path: Path, required_team_slugs: list[str]) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    statuses: dict[str, str] = {}
+    for slug in required_team_slugs:
+        team_payload = payload.get(slug)
+        if isinstance(team_payload, dict):
+            status = team_payload.get("_status")
+            if status:
+                statuses[slug] = str(status)
+                continue
+            has_signal = any(
+                value not in ("N/A", None, "")
+                for key, value in team_payload.items()
+                if not str(key).startswith("_")
+            )
+            statuses[slug] = "ok" if has_signal else "unavailable"
+    return statuses
+
+
 def _path_or_none(value: str | None) -> str | None:
     if not value:
         return None
@@ -932,6 +962,25 @@ brief_html_relative = (
     if os.environ.get("BRIEF_HTML_PATH")
     else None
 )
+enrichment_required = os.environ.get("NO_ENRICHMENT") != "1"
+enrichment_stage_status = _stage_status(stages, "enrichment_artifact")
+enrichment_team_statuses = _read_enrichment_team_statuses(
+    Path(os.environ["ENRICHMENT_FILE"]).expanduser(),
+    [team1_slug, team2_slug],
+)
+if not enrichment_required:
+    enrichment_artifact_status = "disabled"
+elif enrichment_stage_status == "passed":
+    if any(status == "unavailable" for status in enrichment_team_statuses.values()):
+        enrichment_artifact_status = "validated_with_unavailable_teams"
+    else:
+        enrichment_artifact_status = "validated"
+elif enrichment_stage_status == "failed":
+    enrichment_artifact_status = "invalid"
+elif enrichment_stage_status == "interrupted":
+    enrichment_artifact_status = "interrupted"
+else:
+    enrichment_artifact_status = "missing"
 
 published_artifacts = {
     "bundle": _artifact_entry(
@@ -975,7 +1024,7 @@ scratch_artifacts = {
         path_value=os.environ.get("ENRICHMENT_FILE"),
         tier="scratch",
         scope="run",
-        required=False,
+        required=enrichment_required,
         relative_path=f"scratch/game_prep_enrichment_{season}.json",
     ),
     "smoke_brief_output_dir": _artifact_entry(
@@ -1014,6 +1063,10 @@ if verification_counts["fail"] > 0:
     non_publishable_reasons.append("verification_fail_metrics_present")
 if _stage_status(stages, "smoke_brief") != "passed":
     non_publishable_reasons.append("smoke_brief_failed")
+if not enrichment_required:
+    non_publishable_reasons.append("enrichment_disabled")
+elif enrichment_artifact_status != "validated":
+    non_publishable_reasons.append("enrichment_artifact_not_validated")
 if not published_set_complete:
     non_publishable_reasons.append("published_artifact_set_incomplete")
 publishable = not non_publishable_reasons
@@ -1047,6 +1100,9 @@ summary = {
         "analysis_tests_passed": _stage_status(stages, "analysis_tests") == "passed"
         if _stage_status(stages, "analysis_tests") != "skipped"
         else None,
+        "enrichment_artifact_validated": enrichment_stage_status == "passed"
+        if enrichment_required
+        else None,
         "smoke_brief_passed": _stage_status(stages, "smoke_brief") == "passed",
         "verification_fail_count": verification_counts["fail"],
         "verification_warning_count": verification_counts["warning"],
@@ -1065,8 +1121,18 @@ summary = {
     "strict_verification": os.environ.get("STRICT_VERIFICATION", "1") == "1",
     "brief_format": os.environ.get("BRIEF_FORMAT"),
     "exit_code": int(os.environ["FINAL_EXIT_CODE"]),
+    "enrichment_contract": {
+        "policy": "disabled" if not enrichment_required else "required",
+        "required_for_publishable_run": enrichment_required,
+        "runtime_live_fetch_allowed": False,
+        "artifact_status": enrichment_artifact_status,
+        "team_statuses": enrichment_team_statuses,
+        "artifact_path": _path_or_none(os.environ.get("ENRICHMENT_FILE")),
+        "live_refresh_behavior": "refresh_artifact_before_brief" if enrichment_required else "disabled",
+        "offline_validate_behavior": "require_existing_artifact" if enrichment_required else "disabled",
+    },
     "artifact_contract": {
-        "version": 1,
+        "version": 2,
         "artifact_set_id": artifact_set_id,
         "published_root_relative_path": f"published/{season}/",
         "scratch_root_relative_path": "scratch/",
@@ -1138,11 +1204,14 @@ run_stage verification_gate check_verification_report
 
 if [[ "${NO_ENRICHMENT}" == "1" ]]; then
   record_skipped "enrichment_refresh" "disabled"
+  record_skipped "enrichment_artifact" "disabled"
 else
   if [[ "${MODE}" == "live-refresh" ]]; then
     run_stage enrichment_refresh refresh_enrichment
+    run_stage enrichment_artifact validate_enrichment_artifact
   else
     record_skipped "enrichment_refresh" "offline_mode_uses_existing_or_required_artifact"
+    run_stage enrichment_artifact validate_enrichment_artifact
   fi
 fi
 

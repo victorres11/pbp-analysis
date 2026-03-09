@@ -1410,9 +1410,37 @@ def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> dict
     return payload
 
 
+def _enrichment_has_signal(payload: dict) -> bool:
+    return any(payload.get(k) not in ("N/A", None, "") for k in ENRICHMENT_KEYS)
+
+
+def normalize_enrichment_payload(payload: dict) -> dict:
+    normalized: dict = {}
+    if not isinstance(payload, dict):
+        return normalized
+    for slug, raw in payload.items():
+        if not isinstance(slug, str) or not isinstance(raw, dict):
+            continue
+        out = dict(raw)
+        if "_status" not in out:
+            out["_status"] = "ok" if _enrichment_has_signal(out) else "unavailable"
+        if "_source" not in out:
+            out["_source"] = "artifact"
+        normalized[slug] = out
+    return normalized
+
+
+def validate_enrichment_payload(payload: dict, required_team_slugs: list[str]) -> dict:
+    normalized = normalize_enrichment_payload(payload)
+    missing = [slug for slug in required_team_slugs if slug not in normalized]
+    if missing:
+        raise ValueError(f"missing teams: {', '.join(missing)}")
+    return normalized
+
+
 def build_team_enrichment(team_slug: str, team_name: str | None = None) -> dict:
     data = _fetch_live_enrichment(team_slug, team_name=team_name)
-    has_signal = any(v not in ("N/A", None, "") for k, v in data.items() if k in ENRICHMENT_KEYS)
+    has_signal = _enrichment_has_signal(data)
     return {
         **data,
         "_fetched_at": datetime.now(timezone.utc).isoformat(),
@@ -1437,7 +1465,7 @@ def load_enrichment_file(path: Path) -> dict:
     try:
         with open(path) as f:
             data = json.load(f)
-        return data if isinstance(data, dict) else {}
+        return normalize_enrichment_payload(data)
     except Exception:
         return {}
 
@@ -1450,7 +1478,7 @@ def write_enrichment_file(path: Path, payload: dict) -> None:
 
 def merge_enrichment_payload(existing: dict, refreshed: dict) -> dict:
     """Preserve prior non-empty enrichment values when live refresh is unavailable."""
-    merged: dict = dict(existing or {})
+    merged: dict = normalize_enrichment_payload(existing or {})
     for slug, incoming in (refreshed or {}).items():
         if not isinstance(incoming, dict):
             continue
@@ -1463,7 +1491,7 @@ def merge_enrichment_payload(existing: dict, refreshed: dict) -> dict:
                     out[key] = prior_value
                     continue
             out[key] = value
-        has_signal = any(out.get(k) not in ("N/A", None, "") for k in ENRICHMENT_KEYS)
+        has_signal = _enrichment_has_signal(out)
         out["_status"] = "ok" if has_signal else "unavailable"
         merged[slug] = out
     return merged
@@ -1867,11 +1895,16 @@ def gather_team_data(
     season: int,
     last_n: int = 3,
     enrichment_by_slug: dict | None = None,
-    allow_live_enrichment: bool = False,
+    allow_live_enrichment: bool | None = None,
     cfbstats_snapshot: dict | None = None,
     cfbstats_verification_report: dict | None = None,
 ) -> dict:
     school_slug = slugify(team_name)
+    if allow_live_enrichment:
+        print(
+            "[warn] allow_live_enrichment is deprecated and ignored; use an enrichment artifact or --refresh-enrichment.",
+            file=sys.stderr,
+        )
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)
@@ -1884,12 +1917,6 @@ def gather_team_data(
     if isinstance(seeded, dict):
         for key in ENRICHMENT_KEYS:
             value = seeded.get(key)
-            if value not in (None, ""):
-                pbp_stats[key] = value
-    if allow_live_enrichment:
-        live = _fetch_live_enrichment(school_slug, team_name=team_name)
-        for key in ENRICHMENT_KEYS:
-            value = live.get(key)
             if value not in (None, ""):
                 pbp_stats[key] = value
     games = pbp_entry.get("games", []) if pbp_entry else []
