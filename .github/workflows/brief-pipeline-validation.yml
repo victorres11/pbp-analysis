@@ -3,6 +3,7 @@ name: Brief Pipeline Validation
 on:
   pull_request:
     paths:
+      - ".github/workflows/brief-live-refresh.yml"
       - ".github/workflows/brief-pipeline-validation.yml"
       - "docs/demo-runbook.md"
       - "scripts/refresh-game-prep-pipeline.sh"
