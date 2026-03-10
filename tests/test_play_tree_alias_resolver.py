@@ -43,6 +43,38 @@ def test_play_side_resolver_assigns_team_alias_by_two_token_elimination() -> Non
     assert resolver.warnings == ()
 
 
+def test_play_side_resolver_assigns_description_alias_to_missing_side() -> None:
+    game = {
+        "opponent_abbr": "UMD",
+        "play_tree": [
+            {
+                "quarter": 1,
+                "drives": [
+                    {
+                        "plays": [
+                            {
+                                "offense": "UMD",
+                                "description": "Shotgun Maryland rush middle fumbled by Maryland recovered by WASH",
+                                "is_no_play": False,
+                                "is_turnover": True,
+                            }
+                        ]
+                    }
+                ],
+            }
+        ],
+    }
+
+    resolver = loaders._build_play_side_resolver(
+        game,
+        team_aliases={"UW"},
+        opp_aliases={"UMD"},
+    )
+
+    assert resolver.resolve("WASH") == "team"
+    assert "team offense token unresolved after alias resolution" in resolver.warnings
+
+
 def test_play_side_resolver_reports_unresolved_tokens() -> None:
     resolver = loaders._build_play_side_resolver(
         _game_with_offenses("AAA", "BBB", "CCC"),
@@ -140,3 +172,33 @@ def test_turnover_events_for_game_use_alias_resolver() -> None:
     assert len(events) == 1
     assert events[0]["offense"] == "WASH"
     assert events[0]["recovery_side"] == "opp"
+
+
+def test_turnover_events_for_game_use_alias_resolver_for_recovery_side() -> None:
+    game = {
+        "opponent_abbr": "UMD",
+        "play_tree": [
+            {
+                "quarter": 1,
+                "drives": [
+                    {
+                        "plays": [
+                            {
+                                "offense": "UMD",
+                                "description": "Shotgun Maryland rush middle fumbled by Maryland recovered by WASH",
+                                "is_no_play": False,
+                                "is_turnover": True,
+                                "clock": "12:34",
+                            }
+                        ]
+                    }
+                ],
+            }
+        ],
+    }
+
+    events = loaders._turnover_events_for_game(game, {"UW"}, {"UMD"})
+
+    assert len(events) == 1
+    assert events[0]["offense"] == "UMD"
+    assert events[0]["recovery_side"] == "team"

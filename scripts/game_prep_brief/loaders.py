@@ -661,6 +661,24 @@ def _play_tree_offense_tokens(play_tree: object) -> set[str]:
     return tokens
 
 
+def _play_tree_description_tokens(play_tree: object) -> set[str]:
+    tokens: set[str] = set()
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        for pattern in (
+            r"RECOVERED BY ([A-Z]{2,6})\b",
+            r"TOUCHDOWN ([A-Z]{2,6})\b",
+        ):
+            for match in re.finditer(pattern, desc_up):
+                tokens.add(match.group(1))
+        match = re.match(r"([A-Z]{2,6}) BALL ON\b", desc_up)
+        if match:
+            tokens.add(match.group(1))
+    return tokens
+
+
 def _build_play_side_resolver(
     game: dict,
     *,
@@ -687,6 +705,19 @@ def _build_play_side_resolver(
     # elimination when one side is already known.
     if len(offense_tokens) == 2 and len(unknown) == 1:
         token = next(iter(unknown))
+        if known_opp and not known_team:
+            team_tokens.add(token)
+        elif known_team and not known_opp:
+            opp_tokens.add(token)
+
+    known_team = offense_tokens & team_tokens
+    known_opp = offense_tokens & opp_tokens
+
+    # Turnover recovery and possession text can introduce a single team token
+    # even when the offense field only uses the other side's abbreviation.
+    desc_unknown = _play_tree_description_tokens(play_tree) - team_tokens - opp_tokens
+    if len(desc_unknown) == 1:
+        token = next(iter(desc_unknown))
         if known_opp and not known_team:
             team_tokens.add(token)
         elif known_team and not known_opp:
@@ -1998,7 +2029,11 @@ def _turnover_events_for_game(game: dict, team_aliases: set[str], opp_aliases: s
                 resolved_side = resolver.resolve(offense)
                 offense_side = resolved_side if resolved_side in {"team", "opp"} else None
                 recovery_side = _turnover_recovery_side(
-                    desc_up, offense_side, turnover_type, team_aliases, opp_aliases
+                    desc_up,
+                    offense_side,
+                    turnover_type,
+                    set(resolver.team_aliases),
+                    set(resolver.opp_aliases),
                 )
                 events.append(
                     {
