@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from scripts.game_prep_brief.live_refresh_ops import build_alert_payload, resolve_run_config
+from scripts.game_prep_brief.live_refresh_ops import (
+    build_alert_payload,
+    build_status_view,
+    resolve_run_config,
+)
 
 
 def test_resolve_run_config_uses_schedule_repo_defaults() -> None:
@@ -148,3 +152,75 @@ def test_build_alert_payload_notifies_when_summary_missing() -> None:
 
     assert payload["should_notify"] is True
     assert "missing_pipeline_summary" in payload["body"]
+
+
+def test_build_status_view_formats_publishable_latest_run() -> None:
+    markdown = build_status_view(
+        event_name="workflow_dispatch",
+        workflow_conclusion="success",
+        run_url="https://example.com/run",
+        summary={
+            "mode": "live-refresh",
+            "season": 2025,
+            "teams": ["Washington", "Ohio State"],
+            "generated_at": "2026-03-10T20:00:00+00:00",
+            "exit_code": 0,
+            "artifact_contract": {
+                "artifact_set_id": "artifact-id",
+                "publishable": True,
+                "published_set_complete": True,
+                "non_publishable_reasons": [],
+            },
+            "validation": {
+                "parser_tests_passed": True,
+                "analysis_tests_passed": True,
+                "verification_fail_count": 0,
+                "verification_warning_count": 1,
+                "smoke_brief_passed": True,
+            },
+            "enrichment_contract": {
+                "policy": "required",
+                "artifact_status": "validated",
+                "team_statuses": {"washington": "ok", "ohio-state": "ok"},
+            },
+            "run_state": {"interrupted_stages": []},
+            "observability": {"heartbeat_interval_seconds": 60, "slow_stages": []},
+            "warnings": [],
+        },
+        release_publishable="true",
+        rolling_release_url="https://example.com/release",
+        archive_release_url="https://example.com/archive",
+        rolling_release_result="published",
+        archive_release_result="published",
+        alert_posted=None,
+        repo="victorres11/pbp-analysis",
+    )
+
+    assert "# Brief Live Refresh Status" in markdown
+    assert "Overall status: `healthy`" in markdown
+    assert "https://example.com/run" in markdown
+    assert "artifact-id" in markdown
+    assert "Authoritative Published Assets" in markdown
+    assert "game_prep_pipeline_summary_2025.json" in markdown
+    assert "pbp_stats_bundle_2025.json" in markdown
+    assert "brief-live-refresh-status-view" in markdown
+
+
+def test_build_status_view_handles_missing_summary() -> None:
+    markdown = build_status_view(
+        event_name="schedule",
+        workflow_conclusion="failure",
+        run_url="https://example.com/run",
+        summary=None,
+        release_publishable="false",
+        rolling_release_url="https://example.com/release",
+        archive_release_url=None,
+        rolling_release_result=None,
+        archive_release_result=None,
+        alert_posted="posted",
+        repo="victorres11/pbp-analysis",
+    )
+
+    assert "Overall status: `missing_summary`" in markdown
+    assert "Pipeline summary JSON was not produced" in markdown
+    assert "brief-live-refresh-summary" in markdown
