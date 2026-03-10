@@ -7,6 +7,7 @@ import sys
 import urllib.parse
 import urllib.request
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -528,6 +529,24 @@ def _iter_play_tree_drives(play_tree: object):
                 yield quarter_num, plays
 
 
+@dataclass(frozen=True)
+class _PlaySideResolver:
+    team_aliases: frozenset[str]
+    opp_aliases: frozenset[str]
+    offense_tokens: frozenset[str]
+    warnings: tuple[str, ...]
+
+    def resolve(self, offense: object) -> str:
+        token = str(offense or "").upper().strip()
+        if not token:
+            return "unknown"
+        if token in self.team_aliases:
+            return "team"
+        if token in self.opp_aliases:
+            return "opp"
+        return "unknown"
+
+
 def _abbr_set(value: object) -> set[str]:
     if isinstance(value, str):
         cleaned = value.strip().upper()
@@ -631,6 +650,138 @@ def _infer_team_alias_from_play_tree(
             inferred.add(token)
 
     return inferred
+
+
+def _play_tree_offense_tokens(play_tree: object) -> set[str]:
+    tokens: set[str] = set()
+    for play in _iter_play_tree_plays(play_tree):
+        token = str(play.get("offense") or "").upper().strip()
+        if token:
+            tokens.add(token)
+    return tokens
+
+
+def _play_tree_description_tokens(play_tree: object) -> set[str]:
+    tokens: set[str] = set()
+    for play in _iter_play_tree_plays(play_tree):
+        if play.get("is_no_play"):
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        for pattern in (
+            r"RECOVERED BY ([A-Z]{2,6})\b",
+            r"TOUCHDOWN ([A-Z]{2,6})\b",
+        ):
+            for match in re.finditer(pattern, desc_up):
+                tokens.add(match.group(1))
+        match = re.match(r"([A-Z]{2,6}) BALL ON\b", desc_up)
+        if match:
+            tokens.add(match.group(1))
+    return tokens
+
+
+def _build_play_side_resolver(
+    game: dict,
+    *,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> _PlaySideResolver:
+    play_tree = game.get("play_tree") if isinstance(game, dict) else None
+    team_tokens = set(team_aliases)
+    opp_tokens = set(opp_aliases)
+    offense_tokens = _play_tree_offense_tokens(play_tree)
+
+    inferred_team_aliases = _infer_team_alias_from_play_tree(
+        play_tree,
+        team_aliases=team_tokens,
+        opponent_abbr=opp_tokens,
+    )
+    team_tokens.update(inferred_team_aliases)
+
+    known_team = offense_tokens & team_tokens
+    known_opp = offense_tokens & opp_tokens
+    unknown = offense_tokens - known_team - known_opp
+
+    # If the game only uses two offense tokens, assign the unresolved token by
+    # elimination when one side is already known.
+    if len(offense_tokens) == 2 and len(unknown) == 1:
+        token = next(iter(unknown))
+        if known_opp and not known_team:
+            team_tokens.add(token)
+        elif known_team and not known_opp:
+            opp_tokens.add(token)
+
+    known_team = offense_tokens & team_tokens
+    known_opp = offense_tokens & opp_tokens
+
+    # Turnover recovery and possession text can introduce a single team token
+    # even when the offense field only uses the other side's abbreviation.
+    desc_unknown = _play_tree_description_tokens(play_tree) - team_tokens - opp_tokens
+    if len(desc_unknown) == 1:
+        token = next(iter(desc_unknown))
+        if known_opp and not known_team:
+            team_tokens.add(token)
+        elif known_team and not known_opp:
+            opp_tokens.add(token)
+
+    warnings: list[str] = []
+    unresolved = offense_tokens - team_tokens - opp_tokens
+    if len(offense_tokens) > 2:
+        warnings.append(f"multiple offense tokens detected: {', '.join(sorted(offense_tokens))}")
+    if unresolved:
+        warnings.append(f"unresolved offense tokens: {', '.join(sorted(unresolved))}")
+    if offense_tokens and not (offense_tokens & team_tokens):
+        warnings.append("team offense token unresolved after alias resolution")
+
+    return _PlaySideResolver(
+        team_aliases=frozenset(team_tokens),
+        opp_aliases=frozenset(opp_tokens),
+        offense_tokens=frozenset(offense_tokens),
+        warnings=tuple(warnings),
+    )
+
+
+def _collect_play_tree_alias_warnings(team_name: str, pbp_entry: dict | None) -> list[str]:
+    if not isinstance(pbp_entry, dict):
+        return []
+    warnings: list[str] = []
+    team_aliases = _abbr_set(pbp_entry.get("abbr_aliases") or pbp_entry.get("abbr"))
+    for game in pbp_entry.get("games") or []:
+        if not isinstance(game, dict):
+            continue
+        opp_aliases = _abbr_set(game.get("opponent_abbr"))
+        resolver = _build_play_side_resolver(game, team_aliases=team_aliases, opp_aliases=opp_aliases)
+        if not resolver.warnings:
+            continue
+        label = f"{team_name}: G{game.get('game_number') or '?'} {game.get('opponent_abbr') or game.get('opponent') or 'OPP'}"
+        for warning in resolver.warnings:
+            warnings.append(f"{label}: {warning}")
+    return warnings
+
+
+def _turnover_recovery_side(
+    desc_up: str,
+    offense_side: str | None,
+    turnover_type: str,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> str | None:
+    if turnover_type == "INT":
+        if offense_side == "team":
+            return "opp"
+        if offense_side == "opp":
+            return "team"
+        return None
+
+    recovered = ""
+    match = re.search(r"RECOVERED BY ([A-Z0-9.'\\-]+)", desc_up)
+    if match:
+        recovered = re.sub(r"[^A-Z0-9]", "", match.group(1))
+
+    if recovered in team_aliases:
+        return "team"
+    if recovered in opp_aliases:
+        return "opp"
+    return None
 
 
 def _aggregate_xml_alias_rows(stats: object, category: str, team_aliases: set[str]) -> dict:
@@ -1196,21 +1347,22 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         fourth_att += int(g.get("4th_down_attempts") or 0)
         fourth_conv += int(g.get("4th_down_conversions") or 0)
         opp_abbr = str(g.get("opponent_abbr") or "").upper()
+        resolver = _build_play_side_resolver(g, team_aliases=team_aliases, opp_aliases=_abbr_set(opp_abbr))
         for play in _iter_play_tree_plays(g.get("play_tree") or []):
             if play.get("is_no_play"):
                 continue
-            offense = str(play.get("offense") or "").upper()
+            offense_side = resolver.resolve(play.get("offense"))
             desc = str(play.get("description") or "").upper()
             yards = play.get("yards")
             if "SACK" in desc:
-                if offense in team_aliases:
+                if offense_side == "team":
                     sacks_allowed += 1
-                elif offense == opp_abbr:
+                elif offense_side == "opp":
                     sacks_forced += 1
             if isinstance(yards, (int, float)) and yards < 0 and "RUSH" in desc:
-                if offense in team_aliases:
+                if offense_side == "team":
                     tfl_allowed += 1
-                elif offense == opp_abbr:
+                elif offense_side == "opp":
                     tfl_forced += 1
 
     record_fallback = f"{wins}-{losses}" + (f"-{ties}" if ties else "") if decided_games else "N/A"
@@ -1541,10 +1693,11 @@ def merge_enrichment_payload(existing: dict, refreshed: dict) -> dict:
     return merged
 
 
-def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
+def compute_last_n_stats(games: list[dict], n: int = 3, team_aliases: object = None) -> dict:
     sorted_games = sorted(games, key=lambda g: g.get("game_number", 0), reverse=True)
     last_games = sorted_games[:n]
     actual_n = len(last_games)
+    resolved_team_aliases = _abbr_set(team_aliases)
 
     def sum_stat(key: str) -> int:
         return sum(g.get(key) or 0 for g in last_games)
@@ -1560,15 +1713,18 @@ def compute_last_n_stats(games: list[dict], n: int = 3) -> dict:
         totals = []
         for g in last_games:
             count = 0
+            resolver = _build_play_side_resolver(
+                g,
+                team_aliases=resolved_team_aliases,
+                opp_aliases=_abbr_set(g.get("opponent_abbr")),
+            )
             for q in g.get("play_tree") or []:
                 for drive in q.get("drives") or []:
                     for p in drive.get("plays") or []:
                         if p.get("is_no_play"):
                             continue
-                        offense = (p.get("offense") or "").upper()
-                        team_abbr = (g.get("opponent_abbr") or "").upper()
                         # Opponent offense snaps are our defense snaps faced.
-                        if team_abbr and offense == team_abbr:
+                        if resolver.resolve(p.get("offense")) == "opp":
                             count += 1
             totals.append(count)
         return round(sum(totals) / actual_n, 1)
@@ -1852,6 +2008,7 @@ def _turnover_events_for_game(game: dict, team_aliases: set[str], opp_aliases: s
     play_tree = game.get("play_tree")
     if not isinstance(play_tree, list):
         return events
+    resolver = _build_play_side_resolver(game, team_aliases=team_aliases, opp_aliases=opp_aliases)
     for quarter in play_tree:
         if not isinstance(quarter, dict):
             continue
@@ -1869,9 +2026,14 @@ def _turnover_events_for_game(game: dict, team_aliases: set[str], opp_aliases: s
                 desc_up = desc.upper()
                 turnover_type = "INT" if "INTERCEPT" in desc_up else ("FUM" if "FUMBLE" in desc_up else "OTHER")
                 offense = str(play.get("offense") or "").upper()
-                offense_side = "team" if offense in team_aliases else ("opp" if offense in opp_aliases else None)
+                resolved_side = resolver.resolve(offense)
+                offense_side = resolved_side if resolved_side in {"team", "opp"} else None
                 recovery_side = _turnover_recovery_side(
-                    desc_up, offense_side, turnover_type, team_aliases, opp_aliases
+                    desc_up,
+                    offense_side,
+                    turnover_type,
+                    set(resolver.team_aliases),
+                    set(resolver.opp_aliases),
                 )
                 events.append(
                     {
@@ -1953,6 +2115,8 @@ def gather_team_data(
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)
     parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
+    alias_warnings = _collect_play_tree_alias_warnings(team_name, pbp_entry)
+    parity_gaps.extend(alias_warnings)
     fourth_down_gap = _fourth_down_parity_gap(team_name, pbp_entry)
     if fourth_down_gap:
         parity_gaps.append(fourth_down_gap)
@@ -1996,6 +2160,8 @@ def gather_team_data(
                 _print_turnover_debug(team_name, pbp_entry, mismatch_games, limit=3)
         if fourth_down_gap:
             print(f"[warn] {fourth_down_gap}", file=sys.stderr)
+        for warning in alias_warnings:
+            print(f"[warn] {warning}", file=sys.stderr)
     if games:
         offense_plays_pg = round(sum((g.get("total_plays") or 0) for g in games) / len(games), 1)
         defense_counts = []
@@ -2012,7 +2178,15 @@ def gather_team_data(
             defense_counts.append(count)
         pbp_stats["offense_plays_per_game"] = offense_plays_pg
         pbp_stats["defense_plays_allowed_per_game"] = round(sum(defense_counts) / len(defense_counts), 1) if defense_counts else "N/A"
-    last_n_stats = compute_last_n_stats(games, last_n)
+    last_n_stats = compute_last_n_stats(
+        games,
+        last_n,
+        team_aliases=(
+            pbp_entry.get("abbr_aliases") or pbp_entry.get("abbr")
+            if isinstance(pbp_entry, dict)
+            else None
+        ),
+    )
     # Keep turnover/points-off-turnover L3 metrics parser-derived from game-level rollups.
     # XML alias rows can overstate last-3 aggregates when multiple abbreviations are present.
     if isinstance(pbp_stats.get("last3_middle8_points_for"), (int, float)):

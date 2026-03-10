@@ -65,6 +65,11 @@ Notes:
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
 - `run-game-prep-brief.sh` automatically prefers a Python 3.10+ venv so upstream parser helpers are available.
+- Play-tree team/opp attribution uses a shared offense-token resolver:
+  - direct team/opponent abbreviation match first
+  - then known team alias fallback from `abbr_aliases`
+  - then two-token elimination for feed variants like `UW` vs `WAS`/`WASH`
+  - if a new feed alias appears, extend the team's `abbr_aliases` rather than patching individual stat paths
 
 ### Generate Data
 ```bash
