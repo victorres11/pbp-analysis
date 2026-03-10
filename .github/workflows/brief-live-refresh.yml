@@ -123,6 +123,7 @@ jobs:
             echo "VERIFICATION_REPORT_PATH=${root}/published/${SEASON}/cfbstats_verification_${SEASON}.json"
             echo "ENRICHMENT_FILE=${root}/scratch/game_prep_enrichment_${SEASON}.json"
             echo "BRIEF_OUTPUT_DIR=${root}/scratch/brief"
+            echo "STATUS_VIEW_PATH=${root}/scratch/brief_live_refresh_status.md"
             echo "SUMMARY_JSON=${root}/published/${SEASON}/game_prep_pipeline_summary_${SEASON}.json"
           } >> "${GITHUB_ENV}"
 
@@ -370,6 +371,7 @@ jobs:
         if: always()
         env:
           EVENT_NAME: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ROLLING_RELEASE_TAG: ${{ steps.publication.outputs.rolling_release_tag }}
           ROLLING_RELEASE_URL: ${{ steps.publication.outputs.rolling_release_url }}
           ARCHIVE_RELEASE_TAG: ${{ steps.publication.outputs.archive_release_tag }}
@@ -379,61 +381,29 @@ jobs:
           ARCHIVE_RELEASE_RESULT: ${{ steps.publish_archive_release.outputs.result }}
           ALERT_POSTED: ${{ steps.post_alert.outputs.result }}
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import json
-          import os
+          python -m scripts.game_prep_brief.live_refresh_ops render-status-view \
+            --event-name "${EVENT_NAME}" \
+            --workflow-conclusion "${{ job.status }}" \
+            --run-url "${RUN_URL}" \
+            --summary-json "${SUMMARY_JSON}" \
+            --release-publishable "${RELEASE_PUBLISHABLE}" \
+            --rolling-release-url "${ROLLING_RELEASE_URL}" \
+            --archive-release-url "${ARCHIVE_RELEASE_URL}" \
+            --rolling-release-result "${ROLLING_RELEASE_RESULT}" \
+            --archive-release-result "${ARCHIVE_RELEASE_RESULT}" \
+            --alert-posted "${ALERT_POSTED}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --output-path "${STATUS_VIEW_PATH}"
 
-          summary_path = Path(os.environ["SUMMARY_JSON"])
-          summary_lines = ["## Brief Live Refresh"]
-          if not summary_path.exists():
-              summary_lines.append("")
-              summary_lines.append("Pipeline summary JSON was not produced.")
-          else:
-              summary = json.loads(summary_path.read_text(encoding="utf-8"))
-              validation = summary.get("validation") or {}
-              summary_lines.extend(
-                  [
-                      "",
-                      f"- Mode: `{summary.get('mode')}`",
-                      f"- Teams: `{', '.join(summary.get('teams') or [])}`",
-                      f"- Season: `{summary.get('season')}`",
-                      f"- Exit code: `{summary.get('exit_code')}`",
-                      f"- Heartbeat interval: `{(summary.get('observability') or {}).get('heartbeat_interval_seconds')}`s",
-                      f"- Enrichment policy: `{(summary.get('enrichment_contract') or {}).get('policy')}`",
-                      f"- Enrichment artifact status: `{(summary.get('enrichment_contract') or {}).get('artifact_status')}`",
-                      f"- Verification fails: `{validation.get('verification_fail_count')}`",
-                      f"- Verification warnings: `{validation.get('verification_warning_count')}`",
-                      f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
-                      f"- Publishable: `{(summary.get('artifact_contract') or {}).get('publishable')}`",
-                      f"- Rolling release tag: `{os.environ.get('ROLLING_RELEASE_TAG')}`",
-                      f"- Archive release tag: `{os.environ.get('ARCHIVE_RELEASE_TAG')}`",
-                      f"- Trigger: `{os.environ.get('EVENT_NAME')}`",
-                  ]
-              )
-              rolling_release_result = os.environ.get("ROLLING_RELEASE_RESULT")
-              archive_release_result = os.environ.get("ARCHIVE_RELEASE_RESULT")
-              if rolling_release_result == "published":
-                  summary_lines.append(
-                      f"- Rolling release URL: {os.environ.get('ROLLING_RELEASE_URL')}"
-                  )
-              if archive_release_result == "published":
-                  summary_lines.append(
-                      f"- Archive release URL: {os.environ.get('ARCHIVE_RELEASE_URL')}"
-                  )
-              elif os.environ.get("RELEASE_PUBLISHABLE") == "false":
-                  summary_lines.append("- Published release: skipped (run was not publishable)")
-              if os.environ.get("ALERT_POSTED") == "posted":
-                  summary_lines.append("- Scheduled alert: posted to operator issue")
-              interrupted = (summary.get("run_state") or {}).get("interrupted_stages") or []
-              slow_stages = (summary.get("observability") or {}).get("slow_stages") or []
-              if interrupted:
-                  summary_lines.append(f"- Interrupted stages: `{', '.join(interrupted)}`")
-              if slow_stages:
-                  summary_lines.append(f"- Exceeded expected duration: `{', '.join(slow_stages)}`")
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
-              handle.write("\n".join(summary_lines) + "\n")
-          PY
+          cat "${STATUS_VIEW_PATH}" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload latest-run status view
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-live-refresh-status-view
+          path: ${{ env.STATUS_VIEW_PATH }}
+          if-no-files-found: warn
 
       - name: Upload pipeline summary
         if: always()

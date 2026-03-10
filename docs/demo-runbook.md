@@ -62,10 +62,16 @@ Workflow behavior:
 - archives the same publishable set to `brief-artifacts-archive-<artifact_set_id>`
 - runs automatically every day at `13:17 UTC` in addition to manual dispatch
 - uploads:
+  - `brief-live-refresh-status-view`
   - `brief-live-refresh-summary`
   - `brief-live-refresh-smoke-brief`
   - `brief-live-refresh-published-artifacts`
   - `brief-live-refresh-scratch-artifacts`
+
+The workflow also renders a human-readable latest-run status markdown view from the same summary JSON used by the pipeline contract. Operators can inspect it either:
+
+- directly in the workflow run summary, or
+- by downloading the `brief-live-refresh-status-view` artifact for that run
 
 The published artifact upload contains the season-scoped core set:
 

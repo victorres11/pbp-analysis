@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from .published_artifacts import published_artifact_download_url
+
 
 ALERT_ISSUE_TITLE = "Brief Live Refresh Alerts"
 
@@ -19,6 +21,13 @@ DEFAULT_RUN_CONFIG = {
     "strict_verification": "true",
     "include_enrichment": "true",
 }
+
+WORKFLOW_ARTIFACT_NAMES = (
+    "brief-live-refresh-summary",
+    "brief-live-refresh-status-view",
+    "brief-live-refresh-published-artifacts",
+    "brief-live-refresh-scratch-artifacts",
+)
 
 
 def _normalize_bool_string(value: str | None, default: str) -> str:
@@ -153,6 +162,189 @@ def build_alert_payload(
     }
 
 
+def _status_label(
+    *,
+    workflow_conclusion: str,
+    summary: dict[str, Any] | None,
+) -> str:
+    if summary is None:
+        return "missing_summary"
+
+    artifact_contract = summary.get("artifact_contract") or {}
+    validation = summary.get("validation") or {}
+
+    if workflow_conclusion != "success":
+        return "workflow_failure"
+    if not artifact_contract.get("publishable"):
+        return "non_publishable"
+    if validation.get("verification_fail_count") not in (0, None):
+        return "verification_failures"
+    if not artifact_contract.get("published_set_complete"):
+        return "published_set_incomplete"
+    return "healthy"
+
+
+def build_status_view(
+    *,
+    event_name: str,
+    workflow_conclusion: str,
+    run_url: str,
+    summary: dict[str, Any] | None,
+    release_publishable: str | None,
+    rolling_release_url: str | None,
+    archive_release_url: str | None,
+    rolling_release_result: str | None,
+    archive_release_result: str | None,
+    alert_posted: str | None,
+    repo: str,
+) -> str:
+    status = _status_label(workflow_conclusion=workflow_conclusion, summary=summary)
+    lines = [
+        "# Brief Live Refresh Status",
+        "",
+        f"- Overall status: `{status}`",
+        f"- Workflow conclusion: `{workflow_conclusion}`",
+        f"- Workflow run: {run_url}",
+        f"- Trigger: `{event_name}`",
+    ]
+
+    if summary is None:
+        lines.extend(
+            [
+                "",
+                "## Summary",
+                "",
+                "Pipeline summary JSON was not produced for this run.",
+                "Use the workflow run page and uploaded artifacts to inspect the failure.",
+                "",
+                "## Workflow Artifacts",
+                "",
+                *[f"- `{name}`" for name in WORKFLOW_ARTIFACT_NAMES],
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
+    artifact_contract = summary.get("artifact_contract") or {}
+    validation = summary.get("validation") or {}
+    enrichment = summary.get("enrichment_contract") or {}
+    observability = summary.get("observability") or {}
+    run_state = summary.get("run_state") or {}
+    warnings = summary.get("warnings") or []
+    teams = ", ".join(summary.get("teams") or [])
+    artifact_set_id = artifact_contract.get("artifact_set_id") or "unknown"
+
+    lines.extend(
+        [
+            f"- Generated at: `{summary.get('generated_at')}`",
+            f"- Mode: `{summary.get('mode')}`",
+            f"- Season: `{summary.get('season')}`",
+            f"- Teams: `{teams}`",
+            f"- Artifact set id: `{artifact_set_id}`",
+            f"- Exit code: `{summary.get('exit_code')}`",
+        ]
+    )
+
+    lines.extend(
+        [
+            "",
+            "## Validation",
+            "",
+            f"- Parser tests passed: `{validation.get('parser_tests_passed')}`",
+            f"- Analysis tests passed: `{validation.get('analysis_tests_passed')}`",
+            f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
+            f"- Verification fails: `{validation.get('verification_fail_count')}`",
+            f"- Verification warnings: `{validation.get('verification_warning_count')}`",
+            f"- Enrichment policy: `{enrichment.get('policy')}`",
+            f"- Enrichment artifact status: `{enrichment.get('artifact_status')}`",
+        ]
+    )
+    team_statuses = enrichment.get("team_statuses") or {}
+    if team_statuses:
+        lines.append(
+            "- Enrichment team statuses: "
+            + ", ".join(f"`{team}`=`{status}`" for team, status in sorted(team_statuses.items()))
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Publication",
+            "",
+            f"- Publishable: `{artifact_contract.get('publishable')}`",
+            f"- Published set complete: `{artifact_contract.get('published_set_complete')}`",
+        ]
+    )
+    non_publishable_reasons = artifact_contract.get("non_publishable_reasons") or []
+    if non_publishable_reasons:
+        lines.append(
+            "- Non-publishable reasons: " + ", ".join(f"`{reason}`" for reason in non_publishable_reasons)
+        )
+    if rolling_release_url:
+        lines.append(f"- Rolling release: {rolling_release_url}")
+    if archive_release_url and archive_release_result == "published":
+        lines.append(f"- Archive release: {archive_release_url}")
+    if rolling_release_result:
+        lines.append(f"- Rolling release result: `{rolling_release_result}`")
+    if archive_release_result:
+        lines.append(f"- Archive release result: `{archive_release_result}`")
+
+    season = summary.get("season")
+    if artifact_contract.get("publishable") and release_publishable == "true":
+        lines.extend(
+            [
+                "",
+                "### Authoritative Published Assets",
+                "",
+                f"- Summary JSON: {published_artifact_download_url('pipeline_summary', int(season), repo=repo)}",
+                f"- Bundle: {published_artifact_download_url('bundle', int(season), repo=repo)}",
+                f"- CFBStats snapshot: {published_artifact_download_url('cfbstats_snapshot', int(season), repo=repo)}",
+                f"- Verification report: {published_artifact_download_url('cfbstats_verification_report', int(season), repo=repo)}",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "### Authoritative Sources",
+                "",
+                "- Latest run summary JSON: workflow artifact `brief-live-refresh-summary` on this run",
+                "- Published last-known-good artifacts remain on the rolling release until a publishable run replaces them",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Runtime",
+            "",
+            f"- Heartbeat interval: `{observability.get('heartbeat_interval_seconds')}`s",
+            f"- Interrupted stages: `{', '.join(run_state.get('interrupted_stages') or []) or 'none'}`",
+            f"- Slow stages: `{', '.join(observability.get('slow_stages') or []) or 'none'}`",
+        ]
+    )
+    if alert_posted == "posted":
+        lines.append("- Scheduled alert: posted to operator issue")
+    if warnings:
+        lines.extend(
+            [
+                "",
+                "## Warnings",
+                "",
+                *[f"- {warning}" for warning in warnings],
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Workflow Artifacts",
+            "",
+            *[f"- `{name}`" for name in WORKFLOW_ARTIFACT_NAMES],
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _write_github_output(outputs: dict[str, str]) -> None:
     github_output = os.environ.get("GITHUB_OUTPUT")
     if not github_output:
@@ -192,6 +384,21 @@ def _prepare_alert_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--message-path", required=True, type=Path)
 
 
+def _render_status_view_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--event-name", required=True)
+    parser.add_argument("--workflow-conclusion", required=True)
+    parser.add_argument("--run-url", required=True)
+    parser.add_argument("--summary-json", type=Path)
+    parser.add_argument("--release-publishable")
+    parser.add_argument("--rolling-release-url")
+    parser.add_argument("--archive-release-url")
+    parser.add_argument("--rolling-release-result")
+    parser.add_argument("--archive-release-result")
+    parser.add_argument("--alert-posted")
+    parser.add_argument("--repo", required=True)
+    parser.add_argument("--output-path", required=True, type=Path)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Live refresh workflow helpers.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -201,6 +408,9 @@ def parse_args() -> argparse.Namespace:
 
     prepare_alert = subparsers.add_parser("prepare-alert")
     _prepare_alert_args(prepare_alert)
+
+    render_status_view = subparsers.add_parser("render-status-view")
+    _render_status_view_args(render_status_view)
 
     return parser.parse_args()
 
@@ -274,12 +484,38 @@ def _run_prepare_alert(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_render_status_view(args: argparse.Namespace) -> int:
+    summary = None
+    if args.summary_json and args.summary_json.exists():
+        summary = json.loads(args.summary_json.read_text(encoding="utf-8"))
+
+    status_markdown = build_status_view(
+        event_name=args.event_name,
+        workflow_conclusion=args.workflow_conclusion,
+        run_url=args.run_url,
+        summary=summary,
+        release_publishable=args.release_publishable,
+        rolling_release_url=args.rolling_release_url,
+        archive_release_url=args.archive_release_url,
+        rolling_release_result=args.rolling_release_result,
+        archive_release_result=args.archive_release_result,
+        alert_posted=args.alert_posted,
+        repo=args.repo,
+    )
+    args.output_path.parent.mkdir(parents=True, exist_ok=True)
+    args.output_path.write_text(status_markdown, encoding="utf-8")
+    _write_github_output({"status_view_path": str(args.output_path)})
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     if args.command == "resolve-config":
         return _run_resolve_config(args)
     if args.command == "prepare-alert":
         return _run_prepare_alert(args)
+    if args.command == "render-status-view":
+        return _run_render_status_view(args)
     raise ValueError(f"Unsupported command: {args.command}")
 
 
