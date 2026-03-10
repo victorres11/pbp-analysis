@@ -4,20 +4,20 @@ import json
 import os
 import re
 import sys
-import urllib.request
 import urllib.parse
+import urllib.request
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .published_artifacts import (
+    fetch_published_artifact_json,
+    published_artifact_download_url,
+    published_artifact_release_url,
+)
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 PBP_JSON = ROOT_DIR / "data.json"
-XML_BUNDLE_JSON = Path(
-    os.getenv(
-        "GAME_PREP_XML_BUNDLE_PATH",
-        str(ROOT_DIR.parent / "yr-data-api" / "data" / "pbp_stats_bundle.json"),
-    )
-)
 GAME_PREP_DATA_SOURCE = (os.getenv("GAME_PREP_DATA_SOURCE") or "xml").strip().lower()
 MATCHUPS_DIR = ROOT_DIR / "matchups"
 OUTPUT_DIR = ROOT_DIR / "outputs" / "game_prep_brief"
@@ -85,66 +85,100 @@ def _team_name_variants(team_name: str, team_slug: str) -> set[str]:
         variants.add(base.replace(" st", " state"))
     return {v for v in variants if v}
 
-
-PBP_PARSER_ROOT = ROOT_DIR.parent / "pbp-parser"
-
-
-def _default_cfbstats_snapshot_path(season: int) -> Path:
-    return PBP_PARSER_ROOT / "data" / "cfbstats_snapshots" / f"cfbstats_{season}.json"
-
-
-def _default_cfbstats_verification_report_path(season: int) -> Path:
-    return PBP_PARSER_ROOT / "data" / "cfbstats_reports" / f"cfbstats_verification_{season}.json"
+def _is_url_source(value: str | Path | None) -> bool:
+    if isinstance(value, Path):
+        return False
+    if not isinstance(value, str):
+        return False
+    parsed = urllib.parse.urlparse(value)
+    return parsed.scheme in {"http", "https"}
 
 
-def _resolve_cfbstats_snapshot_path(season: int, path: Path | None = None) -> Path:
-    if path is not None:
-        return path
-    env_path = os.getenv("GAME_PREP_CFBSTATS_SNAPSHOT_PATH")
-    return Path(env_path) if env_path else _default_cfbstats_snapshot_path(season)
+def _coerce_path(value: str | Path) -> Path:
+    return value if isinstance(value, Path) else Path(value).expanduser()
 
 
-def _resolve_cfbstats_verification_report_path(season: int, path: Path | None = None) -> Path:
-    if path is not None:
-        return path
-    env_path = os.getenv("GAME_PREP_CFBSTATS_VERIFICATION_PATH")
-    return Path(env_path) if env_path else _default_cfbstats_verification_report_path(season)
-
-
-def _load_json_artifact(path: Path, *, expected_artifact: str) -> dict:
-    if not path.exists():
-        print(f"[warn] Missing {expected_artifact} artifact at {path}", file=sys.stderr)
-        return {}
+def _read_json_url(url: str) -> dict:
+    headers = {"User-Agent": "pbp-analysis-game-prep-brief"}
     try:
-        with open(path) as f:
-            data = json.load(f)
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
     except Exception as exc:
-        print(f"[warn] Failed to read {expected_artifact} artifact at {path}: {exc}", file=sys.stderr)
-        return {}
-    if not isinstance(data, dict):
-        print(f"[warn] Invalid {expected_artifact} artifact at {path}: expected top-level object", file=sys.stderr)
-        return {}
-    actual_artifact = ((data.get("meta") or {}).get("artifact") or "").strip()
-    if actual_artifact != expected_artifact:
+        raise RuntimeError(f"Failed to read JSON url {url}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Invalid JSON payload at {url}: expected top-level object")
+    return payload
+
+
+def _load_json_from_source(
+    source: str | Path | None,
+    *,
+    expected_artifact: str | None = None,
+    published_logical_name: str,
+    season: int,
+    env_var_name: str,
+) -> dict:
+    resolved_source = source if source is not None else (os.getenv(env_var_name) or "").strip() or None
+    source_label = None
+    try:
+        if resolved_source is None:
+            source_label = published_artifact_download_url(published_logical_name, season)
+            data = fetch_published_artifact_json(published_logical_name, season)
+        elif _is_url_source(resolved_source):
+            source_label = str(resolved_source)
+            data = _read_json_url(str(resolved_source))
+        else:
+            path = _coerce_path(resolved_source)
+            source_label = str(path)
+            if not path.exists():
+                print(f"[warn] Missing {published_logical_name} artifact at {path}", file=sys.stderr)
+                return {}
+            with open(path) as handle:
+                data = json.load(handle)
+    except Exception as exc:
+        fallback_release_url = published_artifact_release_url(season)
         print(
-            f"[warn] Invalid {expected_artifact} artifact at {path}: found '{actual_artifact or 'unknown'}'",
+            f"[warn] Failed to load {published_logical_name} artifact from "
+            f"{source_label or fallback_release_url}: {exc}",
             file=sys.stderr,
         )
         return {}
+
+    if not isinstance(data, dict):
+        print(
+            f"[warn] Invalid {published_logical_name} artifact at {source_label}: expected top-level object",
+            file=sys.stderr,
+        )
+        return {}
+    if expected_artifact is not None:
+        actual_artifact = ((data.get("meta") or {}).get("artifact") or "").strip()
+        if actual_artifact != expected_artifact:
+            print(
+                f"[warn] Invalid {published_logical_name} artifact at {source_label}: "
+                f"found '{actual_artifact or 'unknown'}'",
+                file=sys.stderr,
+            )
+            return {}
     return data
 
 
-def load_cfbstats_snapshot(season: int, path: Path | None = None) -> dict:
-    return _load_json_artifact(
-        _resolve_cfbstats_snapshot_path(season, path),
+def load_cfbstats_snapshot(season: int, source: str | Path | None = None) -> dict:
+    return _load_json_from_source(
+        source,
         expected_artifact="cfbstats_snapshot",
+        published_logical_name="cfbstats_snapshot",
+        season=season,
+        env_var_name="GAME_PREP_CFBSTATS_SNAPSHOT_PATH",
     )
 
 
-def load_cfbstats_verification_report(season: int, path: Path | None = None) -> dict:
-    return _load_json_artifact(
-        _resolve_cfbstats_verification_report_path(season, path),
+def load_cfbstats_verification_report(season: int, source: str | Path | None = None) -> dict:
+    return _load_json_from_source(
+        source,
         expected_artifact="cfbstats_bundle_verification_report",
+        published_logical_name="cfbstats_verification_report",
+        season=season,
+        env_var_name="GAME_PREP_CFBSTATS_VERIFICATION_PATH",
     )
 
 
@@ -761,11 +795,16 @@ def _convert_xml_bundle_team(slug: str, payload: dict) -> dict:
     }
 
 
-def _load_xml_bundle_data() -> dict:
-    if not XML_BUNDLE_JSON.exists():
+def _load_xml_bundle_data(season: int, source: str | Path | None = None) -> dict:
+    raw = _load_json_from_source(
+        source,
+        expected_artifact=None,
+        published_logical_name="bundle",
+        season=season,
+        env_var_name="GAME_PREP_XML_BUNDLE_PATH",
+    )
+    if not raw:
         return {}
-    with open(XML_BUNDLE_JSON) as f:
-        raw = json.load(f)
     out: dict = {}
     # Support wrapper shape {"teams": {...}, "_meta": {...}} and legacy flat shape.
     meta = raw.get("_meta")
@@ -782,17 +821,22 @@ def _load_xml_bundle_data() -> dict:
     return out
 
 
-def load_pbp_data(matchup_slug: str | None = None) -> dict:
+def load_pbp_data(
+    matchup_slug: str | None = None,
+    *,
+    season: int = 2025,
+    bundle_source: str | Path | None = None,
+) -> dict:
     base: dict = {}
     if GAME_PREP_DATA_SOURCE != "xml":
         print(
             f"[warn] Non-XML source '{GAME_PREP_DATA_SOURCE}' is disabled; forcing XML bundle mode",
             file=sys.stderr,
         )
-    base = _load_xml_bundle_data()
+    base = _load_xml_bundle_data(season, bundle_source)
     if not base:
         print(
-            f"[warn] XML bundle source unavailable at {XML_BUNDLE_JSON}; returning empty team set",
+            "[warn] XML bundle source unavailable; returning empty team set",
             file=sys.stderr,
         )
 
