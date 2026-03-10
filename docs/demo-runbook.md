@@ -59,6 +59,7 @@ Workflow behavior:
 - checks out `pbp-analysis` and `pbp-parser`
 - runs `scripts/refresh-game-prep-pipeline.sh` in `live-refresh` mode
 - publishes successful season-core outputs to the GitHub release `brief-artifacts-<season>`
+- runs automatically every day at `13:17 UTC` in addition to manual dispatch
 - uploads:
   - `brief-live-refresh-summary`
   - `brief-live-refresh-smoke-brief`
@@ -89,6 +90,50 @@ The scratch artifact upload contains run-scoped helper outputs:
 - smoke brief outputs
 
 By default the workflow refreshes and requires enrichment. If an operator intentionally disables enrichment, the run still completes, but the summary JSON marks it as non-publishable and the season GitHub release is not updated.
+
+### Scheduled Defaults
+
+The scheduled run uses repository variables when present and falls back to these defaults:
+
+- `BRIEF_LIVE_REFRESH_TEAM1` or `Washington`
+- `BRIEF_LIVE_REFRESH_TEAM2` or `Ohio State`
+- `BRIEF_LIVE_REFRESH_SEASON` or `2025`
+- `BRIEF_LIVE_REFRESH_LAST_N` or `3`
+- `BRIEF_LIVE_REFRESH_BRIEF_FORMAT` or `markdown`
+- `BRIEF_LIVE_REFRESH_RUN_TESTS` or `false`
+- `BRIEF_LIVE_REFRESH_STRICT_VERIFICATION` or `true`
+- `BRIEF_LIVE_REFRESH_INCLUDE_ENRICHMENT` or `true`
+
+The workflow treats `BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED=false` as a pause switch for the scheduled trigger. Manual dispatch remains available even when the schedule is paused.
+
+### Scheduled Failure Notifications
+
+Scheduled runs notify operators only when a run is unhealthy:
+
+- workflow failure
+- non-publishable run
+- verification fail metrics
+- missing required published artifacts
+- missing pipeline summary JSON
+
+Notification channel:
+
+- the workflow maintains a GitHub issue thread titled `Brief Live Refresh Alerts`
+- if the issue does not exist, the workflow creates it with labels `overnight` and `game-brief`
+- each unhealthy scheduled run adds a comment with:
+  - run URL
+  - season and matchup
+  - publishable status
+  - verification counts
+  - interrupted / slow stages
+  - non-publishable reasons
+
+This keeps scheduled operator alerts inside the repo without requiring an external webhook service.
+
+To pause scheduled operations when needed:
+
+- set repository variable `BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED=false`, or
+- disable the workflow in the Actions UI
 
 ### Published Contract
 

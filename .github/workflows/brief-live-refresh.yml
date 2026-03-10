@@ -47,9 +47,12 @@ on:
         required: true
         type: boolean
         default: true
+  schedule:
+    - cron: "17 13 * * *"
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: brief-live-refresh
@@ -57,6 +60,7 @@ concurrency:
 
 jobs:
   live-refresh:
+    if: github.event_name != 'schedule' || vars.BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     defaults:
@@ -69,18 +73,57 @@ jobs:
         with:
           path: pbp-analysis
 
+      - name: Resolve run configuration
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TEAM1: ${{ inputs.team1 }}
+          INPUT_TEAM2: ${{ inputs.team2 }}
+          INPUT_SEASON: ${{ inputs.season }}
+          INPUT_LAST_N: ${{ inputs.last_n }}
+          INPUT_BRIEF_FORMAT: ${{ inputs.brief_format }}
+          INPUT_RUN_TESTS: ${{ inputs.run_tests }}
+          INPUT_STRICT_VERIFICATION: ${{ inputs.strict_verification }}
+          INPUT_INCLUDE_ENRICHMENT: ${{ inputs.include_enrichment }}
+          VAR_TEAM1: ${{ vars.BRIEF_LIVE_REFRESH_TEAM1 }}
+          VAR_TEAM2: ${{ vars.BRIEF_LIVE_REFRESH_TEAM2 }}
+          VAR_SEASON: ${{ vars.BRIEF_LIVE_REFRESH_SEASON }}
+          VAR_LAST_N: ${{ vars.BRIEF_LIVE_REFRESH_LAST_N }}
+          VAR_BRIEF_FORMAT: ${{ vars.BRIEF_LIVE_REFRESH_BRIEF_FORMAT }}
+          VAR_RUN_TESTS: ${{ vars.BRIEF_LIVE_REFRESH_RUN_TESTS }}
+          VAR_STRICT_VERIFICATION: ${{ vars.BRIEF_LIVE_REFRESH_STRICT_VERIFICATION }}
+          VAR_INCLUDE_ENRICHMENT: ${{ vars.BRIEF_LIVE_REFRESH_INCLUDE_ENRICHMENT }}
+        run: |
+          python -m scripts.game_prep_brief.live_refresh_ops resolve-config \
+            --event-name "${EVENT_NAME}" \
+            --input-team1 "${INPUT_TEAM1}" \
+            --input-team2 "${INPUT_TEAM2}" \
+            --input-season "${INPUT_SEASON}" \
+            --input-last-n "${INPUT_LAST_N}" \
+            --input-brief-format "${INPUT_BRIEF_FORMAT}" \
+            --input-run-tests "${INPUT_RUN_TESTS}" \
+            --input-strict-verification "${INPUT_STRICT_VERIFICATION}" \
+            --input-include-enrichment "${INPUT_INCLUDE_ENRICHMENT}" \
+            --var-team1 "${VAR_TEAM1}" \
+            --var-team2 "${VAR_TEAM2}" \
+            --var-season "${VAR_SEASON}" \
+            --var-last-n "${VAR_LAST_N}" \
+            --var-brief-format "${VAR_BRIEF_FORMAT}" \
+            --var-run-tests "${VAR_RUN_TESTS}" \
+            --var-strict-verification "${VAR_STRICT_VERIFICATION}" \
+            --var-include-enrichment "${VAR_INCLUDE_ENRICHMENT}"
+
       - name: Resolve artifact paths
         run: |
           root="${RUNNER_TEMP}/brief_live_refresh"
           {
-            echo "PUBLISHED_ROOT=${root}/published/${{ inputs.season }}"
+            echo "PUBLISHED_ROOT=${root}/published/${SEASON}"
             echo "SCRATCH_ROOT=${root}/scratch"
-            echo "BUNDLE_PATH=${root}/published/${{ inputs.season }}/pbp_stats_bundle_${{ inputs.season }}.json"
-            echo "SNAPSHOT_PATH=${root}/published/${{ inputs.season }}/cfbstats_${{ inputs.season }}.json"
-            echo "VERIFICATION_REPORT_PATH=${root}/published/${{ inputs.season }}/cfbstats_verification_${{ inputs.season }}.json"
-            echo "ENRICHMENT_FILE=${root}/scratch/game_prep_enrichment_${{ inputs.season }}.json"
+            echo "BUNDLE_PATH=${root}/published/${SEASON}/pbp_stats_bundle_${SEASON}.json"
+            echo "SNAPSHOT_PATH=${root}/published/${SEASON}/cfbstats_${SEASON}.json"
+            echo "VERIFICATION_REPORT_PATH=${root}/published/${SEASON}/cfbstats_verification_${SEASON}.json"
+            echo "ENRICHMENT_FILE=${root}/scratch/game_prep_enrichment_${SEASON}.json"
             echo "BRIEF_OUTPUT_DIR=${root}/scratch/brief"
-            echo "SUMMARY_JSON=${root}/published/${{ inputs.season }}/game_prep_pipeline_summary_${{ inputs.season }}.json"
+            echo "SUMMARY_JSON=${root}/published/${SEASON}/game_prep_pipeline_summary_${SEASON}.json"
           } >> "${GITHUB_ENV}"
 
       - name: Require main branch
@@ -130,14 +173,6 @@ jobs:
         env:
           PBP_PARSER_ROOT: ${{ github.workspace }}/pbp-parser
           PBP_PIPELINE_PYTHON: python
-          TEAM1: ${{ inputs.team1 }}
-          TEAM2: ${{ inputs.team2 }}
-          SEASON: ${{ inputs.season }}
-          LAST_N: ${{ inputs.last_n }}
-          BRIEF_FORMAT: ${{ inputs.brief_format }}
-          RUN_TESTS: ${{ inputs.run_tests }}
-          STRICT_VERIFICATION: ${{ inputs.strict_verification }}
-          INCLUDE_ENRICHMENT: ${{ inputs.include_enrichment }}
         run: |
           args=(
             "./scripts/refresh-game-prep-pipeline.sh"
@@ -182,9 +217,9 @@ jobs:
           if [[ ! -f "${SUMMARY_JSON}" ]]; then
             {
               echo "publishable=false"
-              echo "release_tag=brief-artifacts-${{ inputs.season }}"
-              echo "release_name=Brief Published Artifacts ${{ inputs.season }}"
-              echo "release_url=https://github.com/${GITHUB_REPOSITORY}/releases/tag/brief-artifacts-${{ inputs.season }}"
+              echo "release_tag=brief-artifacts-${SEASON}"
+              echo "release_name=Brief Published Artifacts ${SEASON}"
+              echo "release_url=https://github.com/${GITHUB_REPOSITORY}/releases/tag/brief-artifacts-${SEASON}"
               echo "release_notes_path="
             } >> "${GITHUB_OUTPUT}"
             exit 0
@@ -194,7 +229,7 @@ jobs:
             --summary-json "${SUMMARY_JSON}" \
             --repo "${GITHUB_REPOSITORY}" \
             --run-url "${RUN_URL}" \
-            --notes-path "${RUNNER_TEMP}/brief_published_artifacts_${{ inputs.season }}.md"
+            --notes-path "${RUNNER_TEMP}/brief_published_artifacts_${SEASON}.md"
 
       - name: Publish season artifact release
         id: publish_release
@@ -225,13 +260,86 @@ jobs:
 
           echo "result=published" >> "${GITHUB_OUTPUT}"
 
+      - name: Prepare scheduled alert
+        if: always() && github.event_name == 'schedule'
+        id: alert
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_CONCLUSION: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_URL: ${{ steps.publication.outputs.release_url }}
+        run: |
+          args=(
+            python -m scripts.game_prep_brief.live_refresh_ops prepare-alert
+            --event-name "${EVENT_NAME}"
+            --workflow-conclusion "${WORKFLOW_CONCLUSION}"
+            --run-url "${RUN_URL}"
+            --message-path "${RUNNER_TEMP}/brief_live_refresh_alert.md"
+          )
+
+          if [[ -f "${SUMMARY_JSON}" ]]; then
+            args+=(--summary-json "${SUMMARY_JSON}")
+          fi
+
+          if [[ -n "${RELEASE_URL}" ]]; then
+            args+=(--release-url "${RELEASE_URL}")
+          fi
+
+          "${args[@]}"
+
+      - name: Ensure operator alert issue
+        if: always() && github.event_name == 'schedule' && steps.alert.outputs.should_notify == 'true'
+        id: alert_issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_ISSUE_TITLE: ${{ steps.alert.outputs.issue_title }}
+        run: |
+          issue_number=$(gh issue list \
+            --repo "${GITHUB_REPOSITORY}" \
+            --state all \
+            --search "\"${ALERT_ISSUE_TITLE}\" in:title" \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number')
+
+          if [[ -z "${issue_number}" || "${issue_number}" == "null" ]]; then
+            issue_number=$(gh issue create \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${ALERT_ISSUE_TITLE}" \
+              --label overnight \
+              --label game-brief \
+              --body "Auto-generated operator notification thread for scheduled brief live-refresh failures or non-publishable runs.")
+            issue_number=${issue_number##*/}
+          else
+            state=$(gh issue view "${issue_number}" --repo "${GITHUB_REPOSITORY}" --json state --jq '.state')
+            if [[ "${state}" == "CLOSED" ]]; then
+              gh issue reopen "${issue_number}" --repo "${GITHUB_REPOSITORY}"
+            fi
+          fi
+
+          echo "issue_number=${issue_number}" >> "${GITHUB_OUTPUT}"
+
+      - name: Post scheduled alert
+        if: always() && github.event_name == 'schedule' && steps.alert.outputs.should_notify == 'true'
+        id: post_alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ steps.alert_issue.outputs.issue_number }}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --body-file "${{ steps.alert.outputs.message_path }}"
+
+          echo "result=posted" >> "${GITHUB_OUTPUT}"
+
       - name: Add workflow summary
         if: always()
         env:
+          EVENT_NAME: ${{ github.event_name }}
           RELEASE_TAG: ${{ steps.publication.outputs.release_tag }}
           RELEASE_URL: ${{ steps.publication.outputs.release_url }}
           RELEASE_PUBLISHABLE: ${{ steps.publication.outputs.publishable }}
           RELEASE_RESULT: ${{ steps.publish_release.outputs.result }}
+          ALERT_POSTED: ${{ steps.post_alert.outputs.result }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -261,6 +369,7 @@ jobs:
                       f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
                       f"- Publishable: `{(summary.get('artifact_contract') or {}).get('publishable')}`",
                       f"- Published release tag: `{os.environ.get('RELEASE_TAG')}`",
+                      f"- Trigger: `{os.environ.get('EVENT_NAME')}`",
                   ]
               )
               release_result = os.environ.get("RELEASE_RESULT")
@@ -270,6 +379,8 @@ jobs:
                   )
               elif os.environ.get("RELEASE_PUBLISHABLE") == "false":
                   summary_lines.append("- Published release: skipped (run was not publishable)")
+              if os.environ.get("ALERT_POSTED") == "posted":
+                  summary_lines.append("- Scheduled alert: posted to operator issue")
               interrupted = (summary.get("run_state") or {}).get("interrupted_stages") or []
               slow_stages = (summary.get("observability") or {}).get("slow_stages") or []
               if interrupted:
