@@ -158,6 +158,12 @@ Short version:
 - `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff path, not a published artifact path
 - `enrichment_contract` inside the summary JSON is the machine-readable source of truth for enrichment policy and status
 
+Direct brief runs follow the same contract by default:
+
+- `python -m scripts.game_prep_brief ...` resolves bundle, snapshot, and verification from `brief-artifacts-<season>` unless you explicitly override them
+- local overrides remain available through `--xml-bundle`, `--cfbstats-snapshot`, `--cfbstats-verification-report`, and their matching `GAME_PREP_*` env vars
+- local direct runs against the private repo should provide GitHub auth via `GAME_PREP_PUBLISHED_ARTIFACT_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, or an authenticated `gh` CLI session
+
 The enrichment-specific contract is documented in [enrichment-artifact-contract.md](./enrichment-artifact-contract.md).
 
 ### Freshness and Hold Policy

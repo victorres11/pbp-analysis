@@ -107,6 +107,8 @@ Downstream consumers should:
 - use `artifact_contract.published_artifacts` to discover the logical artifact names and expected relative paths
 - ignore `artifact_contract.scratch_artifacts` for production consumption
 
+In `pbp-analysis`, direct brief generation follows this contract by default. Local filesystem or URL sources are supported only as explicit overrides through CLI flags or `GAME_PREP_*` environment variables.
+
 Consumers should not follow workflow artifacts from failed or non-publishable runs. If the latest refresh is unhealthy, they should continue using the current `brief-artifacts-<season>` release until a new publishable run replaces it.
 
 Consumers that need direct download URLs can combine the release tag with the published filenames:

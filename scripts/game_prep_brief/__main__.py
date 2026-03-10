@@ -83,16 +83,19 @@ def parse_args():
         help="Keep forcing each section onto a new print page (older whitespace-heavy behavior).",
     )
     p.add_argument(
-        "--cfbstats-snapshot",
-        type=Path,
+        "--xml-bundle",
         default=None,
-        help="Optional path to the offline CFBStats snapshot artifact.",
+        help="Optional path or URL to the parser bundle JSON. Defaults to the published season release asset.",
+    )
+    p.add_argument(
+        "--cfbstats-snapshot",
+        default=None,
+        help="Optional path or URL to the offline CFBStats snapshot artifact.",
     )
     p.add_argument(
         "--cfbstats-verification-report",
-        type=Path,
         default=None,
-        help="Optional path to the offline CFBStats verification report artifact.",
+        help="Optional path or URL to the offline CFBStats verification report artifact.",
     )
     p.add_argument(
         "--no-alerts",
@@ -140,7 +143,11 @@ def main():
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    pbp_teams = load_pbp_data(matchup_slug=args.matchup_slug)
+    pbp_teams = load_pbp_data(
+        season=args.season,
+        bundle_source=args.xml_bundle,
+        matchup_slug=args.matchup_slug,
+    )
     bundle_meta = pbp_teams.pop("_meta", None) or {}
     team_specs = [
         {"slug": slugify(args.team1), "display_name": args.team1},

@@ -50,11 +50,8 @@ def _render_golden_sections(
     season: int,
     team1_name: str,
     team2_name: str,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, list[str]]:
-    monkeypatch.setattr(loaders, "XML_BUNDLE_JSON", bundle_path)
-
-    pbp_teams = loaders.load_pbp_data()
+    pbp_teams = loaders.load_pbp_data(season=season, bundle_source=bundle_path)
     snapshot = loaders.load_cfbstats_snapshot(season, snapshot_path)
     verification = loaders.load_cfbstats_verification_report(season, verification_path)
 
@@ -86,7 +83,6 @@ def _render_golden_sections(
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_artifact_backed_brief_sections_match_golden_snapshots(
     case: dict,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     expected = json.loads(case["expected"].read_text(encoding="utf-8"))
     actual = _render_golden_sections(
@@ -96,7 +92,6 @@ def test_artifact_backed_brief_sections_match_golden_snapshots(
         season=case["season"],
         team1_name=case["team1"],
         team2_name=case["team2"],
-        monkeypatch=monkeypatch,
     )
 
     assert actual.keys() == expected.keys()

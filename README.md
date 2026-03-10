@@ -52,10 +52,15 @@ Outputs default to:
 
 Notes:
 - Uses XML/StatBroadcast bundle source by default (`GAME_PREP_DATA_SOURCE=xml`).
-- Default XML bundle path: `../yr-data-api/data/pbp_stats_bundle.json`
-  - Override with `GAME_PREP_XML_BUNDLE_PATH=/path/to/pbp_stats_bundle.json`
-  - This `yr-data-api` path is a local handoff/convenience file for direct brief runs, not the official published artifact contract
-  - The canonical published bundle is released as `pbp_stats_bundle_<season>.json` on the season GitHub release `brief-artifacts-<season>`
+- Default artifact source: the rolling published GitHub release `brief-artifacts-<season>`
+  - Bundle: `pbp_stats_bundle_<season>.json`
+  - Snapshot: `cfbstats_<season>.json`
+  - Verification: `cfbstats_verification_<season>.json`
+  - Local direct runs against the private repo should provide GitHub auth via `GAME_PREP_PUBLISHED_ARTIFACT_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, or an authenticated `gh` CLI session
+  - Override bundle with `--xml-bundle /path/or/url.json` or `GAME_PREP_XML_BUNDLE_PATH=/path/or/url.json`
+  - Override snapshot with `--cfbstats-snapshot /path/or/url.json` or `GAME_PREP_CFBSTATS_SNAPSHOT_PATH=/path/or/url.json`
+  - Override verification with `--cfbstats-verification-report /path/or/url.json` or `GAME_PREP_CFBSTATS_VERIFICATION_PATH=/path/or/url.json`
+  - `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff/convenience file, not the default production source
 - Set `GAME_PREP_DATA_SOURCE=local` to force legacy `data.json` source.
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
