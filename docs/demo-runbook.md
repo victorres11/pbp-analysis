@@ -47,7 +47,7 @@ Important: the `yr-data-api/data/pbp_stats_bundle.json` write is a **local hando
 
 ### GitHub Actions Live Refresh
 
-The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but writes every output into workflow artifacts instead of depending on `yr-data-api`.
+The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but publishes the season-core artifact set to a GitHub release instead of depending on `yr-data-api`.
 
 Requirements:
 
@@ -58,6 +58,7 @@ Workflow behavior:
 
 - checks out `pbp-analysis` and `pbp-parser`
 - runs `scripts/refresh-game-prep-pipeline.sh` in `live-refresh` mode
+- publishes successful season-core outputs to the GitHub release `brief-artifacts-<season>`
 - uploads:
   - `brief-live-refresh-summary`
   - `brief-live-refresh-smoke-brief`
@@ -73,12 +74,21 @@ The published artifact upload contains the season-scoped core set:
 
 This is the official published contract. It is distinct from the local `yr-data-api/data/pbp_stats_bundle.json` handoff path.
 
+Canonical retrieval path for the current season set:
+
+- release page: `https://github.com/victorres11/pbp-analysis/releases/tag/brief-artifacts-<season>`
+- direct downloads:
+  - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/pbp_stats_bundle_<season>.json`
+  - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/cfbstats_<season>.json`
+  - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/cfbstats_verification_<season>.json`
+  - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/game_prep_pipeline_summary_<season>.json`
+
 The scratch artifact upload contains run-scoped helper outputs:
 
 - enrichment file
 - smoke brief outputs
 
-By default the workflow refreshes and requires enrichment. If an operator intentionally disables enrichment, the run still completes, but the summary JSON marks it as non-publishable.
+By default the workflow refreshes and requires enrichment. If an operator intentionally disables enrichment, the run still completes, but the summary JSON marks it as non-publishable and the season GitHub release is not updated.
 
 ### Published Contract
 

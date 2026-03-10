@@ -55,6 +55,7 @@ Notes:
 - Default XML bundle path: `../yr-data-api/data/pbp_stats_bundle.json`
   - Override with `GAME_PREP_XML_BUNDLE_PATH=/path/to/pbp_stats_bundle.json`
   - This `yr-data-api` path is a local handoff/convenience file for direct brief runs, not the official published artifact contract
+  - The canonical published bundle is released as `pbp_stats_bundle_<season>.json` on the season GitHub release `brief-artifacts-<season>`
 - Set `GAME_PREP_DATA_SOURCE=local` to force legacy `data.json` source.
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
