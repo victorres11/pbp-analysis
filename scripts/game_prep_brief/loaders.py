@@ -1444,10 +1444,16 @@ def _extract_pbp_stats(team_data: dict) -> dict:
         "color": team_data.get("color", "#888888"),
         "conference": team_data.get("conference", ""),
         "abbr": team_data.get("abbr", ""),
+        "source_points_off_turnovers_for": xml_pot.get("points_off_turnovers", "N/A"),
+        "source_points_off_turnovers_against": xml_pot.get("points_off_turnovers_allowed", "N/A"),
+        "source_post_turnover_drives_for": xml_pot.get("pot_drives", "N/A"),
+        "source_post_turnover_drives_against": xml_pot.get("pot_drives_allowed", "N/A"),
         "last3_turnovers_gained": xml_tov.get("last_n_turnovers_forced", "N/A"),
         "last3_turnovers_lost": xml_tov.get("last_n_turnovers", "N/A"),
         "last3_points_off_turnovers_for": xml_pot.get("last_3_points_off_turnovers", "N/A"),
         "last3_points_off_turnovers_against": xml_pot.get("last_3_points_off_turnovers_allowed", "N/A"),
+        "last3_post_turnover_drives_for": xml_pot.get("last_3_pot_drives", "N/A"),
+        "last3_post_turnover_drives_against": xml_pot.get("last_3_pot_drives_allowed", "N/A"),
         "last3_middle8_points_for": xml_m8.get("last_3_middle_eight_points", "N/A"),
         "last3_middle8_points_against": xml_m8.get("last_3_middle_eight_points_allowed", "N/A"),
         "last3_middle8_points_for_pg": xml_m8.get("last_3_middle_eight_points_pg", "N/A"),
@@ -2223,6 +2229,14 @@ def gather_team_data(
         last_n_stats["middle8_margin"] = int(last_n_stats["middle8_points_for"]) - int(
             last_n_stats["middle8_points_against"]
         )
+    if isinstance(pbp_stats.get("last3_points_off_turnovers_for"), (int, float)):
+        last_n_stats["points_off_turnovers_for"] = int(pbp_stats["last3_points_off_turnovers_for"])
+    if isinstance(pbp_stats.get("last3_points_off_turnovers_against"), (int, float)):
+        last_n_stats["points_off_turnovers_against"] = int(pbp_stats["last3_points_off_turnovers_against"])
+    if isinstance(pbp_stats.get("last3_post_turnover_drives_for"), (int, float)):
+        last_n_stats["post_turnover_drives_for"] = int(pbp_stats["last3_post_turnover_drives_for"])
+    if isinstance(pbp_stats.get("last3_post_turnover_drives_against"), (int, float)):
+        last_n_stats["post_turnover_drives_against"] = int(pbp_stats["last3_post_turnover_drives_against"])
     if isinstance(pbp_stats.get("last3_penalties_pg"), (int, float)):
         last_n_stats["penalties_per_game"] = float(pbp_stats["last3_penalties_pg"])
 

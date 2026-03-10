@@ -7,6 +7,7 @@ def _src(label: str) -> str:
 
 
 SRC_PBP = _src("pbp")
+SRC_XML = _src("xml")
 SRC_CFB = _src("cfb")
 SRC_PFF = _src("pff")
 SRC_API = _src("api")
