@@ -49,7 +49,7 @@ on:
         default: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: brief-live-refresh
@@ -173,8 +173,65 @@ jobs:
 
           "${args[@]}"
 
+      - name: Prepare release publication
+        if: always()
+        id: publication
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ ! -f "${SUMMARY_JSON}" ]]; then
+            {
+              echo "publishable=false"
+              echo "release_tag=brief-artifacts-${{ inputs.season }}"
+              echo "release_name=Brief Published Artifacts ${{ inputs.season }}"
+              echo "release_url=https://github.com/${GITHUB_REPOSITORY}/releases/tag/brief-artifacts-${{ inputs.season }}"
+              echo "release_notes_path="
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          python -m scripts.game_prep_brief.published_release \
+            --summary-json "${SUMMARY_JSON}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --run-url "${RUN_URL}" \
+            --notes-path "${RUNNER_TEMP}/brief_published_artifacts_${{ inputs.season }}.md"
+
+      - name: Publish season artifact release
+        id: publish_release
+        if: success() && steps.publication.outputs.publishable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.publication.outputs.release_tag }}"
+          name="${{ steps.publication.outputs.release_name }}"
+          notes="${{ steps.publication.outputs.release_notes_path }}"
+
+          if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release edit "${tag}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${name}" \
+              --notes-file "${notes}"
+          else
+            gh release create "${tag}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${name}" \
+              --notes-file "${notes}" \
+              --target "${GITHUB_SHA}"
+          fi
+
+          gh release upload "${tag}" "${PUBLISHED_ROOT}"/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+
+          echo "result=published" >> "${GITHUB_OUTPUT}"
+
       - name: Add workflow summary
         if: always()
+        env:
+          RELEASE_TAG: ${{ steps.publication.outputs.release_tag }}
+          RELEASE_URL: ${{ steps.publication.outputs.release_url }}
+          RELEASE_PUBLISHABLE: ${{ steps.publication.outputs.publishable }}
+          RELEASE_RESULT: ${{ steps.publish_release.outputs.result }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -203,8 +260,16 @@ jobs:
                       f"- Verification warnings: `{validation.get('verification_warning_count')}`",
                       f"- Smoke brief passed: `{validation.get('smoke_brief_passed')}`",
                       f"- Publishable: `{(summary.get('artifact_contract') or {}).get('publishable')}`",
+                      f"- Published release tag: `{os.environ.get('RELEASE_TAG')}`",
                   ]
               )
+              release_result = os.environ.get("RELEASE_RESULT")
+              if release_result == "published":
+                  summary_lines.append(
+                      f"- Published release URL: {os.environ.get('RELEASE_URL')}"
+                  )
+              elif os.environ.get("RELEASE_PUBLISHABLE") == "false":
+                  summary_lines.append("- Published release: skipped (run was not publishable)")
               interrupted = (summary.get("run_state") or {}).get("interrupted_stages") or []
               slow_stages = (summary.get("observability") or {}).get("slow_stages") or []
               if interrupted:
