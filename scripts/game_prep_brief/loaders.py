@@ -822,9 +822,10 @@ def _load_xml_bundle_data(season: int, source: str | Path | None = None) -> dict
 
 
 def load_pbp_data(
+    matchup_slug: str | None = None,
+    *,
     season: int = 2025,
     bundle_source: str | Path | None = None,
-    matchup_slug: str | None = None,
 ) -> dict:
     base: dict = {}
     if GAME_PREP_DATA_SOURCE != "xml":

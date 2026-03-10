@@ -64,3 +64,13 @@ def test_explicit_local_artifact_overrides_bypass_published_release(monkeypatch)
     assert "washington" in bundle
     assert snapshot["meta"]["artifact"] == "cfbstats_snapshot"
     assert report["meta"]["artifact"] == "cfbstats_bundle_verification_report"
+
+
+def test_load_pbp_data_keeps_matchup_slug_as_first_positional_argument() -> None:
+    bundle = loaders.load_pbp_data(
+        "missing-matchup-slug",
+        season=2025,
+        bundle_source=PIPELINE_FIXTURES / "pbp_stats_bundle_2025.json",
+    )
+
+    assert "washington" in bundle
