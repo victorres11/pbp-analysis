@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._sources import SRC_PBP
+from ._sources import SRC_PBP, SRC_XML
 
 
 def _games(team: dict) -> list[dict]:
@@ -52,7 +52,9 @@ def _avg_pts_after_turnover(games: list[dict]) -> float | None:
     total_pts = _sum(games, "points_off_turnovers_for")
     total_drives = 0
     for g in games:
-        total_drives += len(g.get("post_turnover_drives", []) or [])
+        total_drives += sum(
+            1 for drive in (g.get("post_turnover_drives", []) or []) if drive.get("side") == "team_gained"
+        )
     if not total_drives:
         return None
     return round(total_pts / total_drives, 2)
@@ -63,11 +65,44 @@ def _pg(total: int, games: list[dict]) -> float:
     return round(total / n, 1) if n else 0.0
 
 
+def _source_pot_value(team: dict, key: str) -> int | None:
+    value = ((team.get("stats") or {}).get(key))
+    return int(value) if isinstance(value, (int, float)) else None
+
+
+def _season_pot_summary(team: dict) -> dict[str, int | float | None]:
+    games = _games(team)
+    parser_pts_for = _sum(games, "points_off_turnovers_for")
+    parser_pts_against = _sum(games, "points_off_turnovers_against")
+
+    points_for = _source_pot_value(team, "source_points_off_turnovers_for")
+    points_against = _source_pot_value(team, "source_points_off_turnovers_against")
+    drives_for = _source_pot_value(team, "source_post_turnover_drives_for")
+    drives_against = _source_pot_value(team, "source_post_turnover_drives_against")
+
+    if points_for is None:
+        points_for = parser_pts_for
+    if points_against is None:
+        points_against = parser_pts_against
+
+    avg_points_for = round(points_for / drives_for, 2) if isinstance(drives_for, int) and drives_for > 0 else None
+    return {
+        "points_for": points_for,
+        "points_against": points_against,
+        "drives_for": drives_for,
+        "drives_against": drives_against,
+        "offense_pg": _pg(points_for, games),
+        "defense_pg": _pg(points_against, games),
+        "avg_points_per_drive": avg_points_for if avg_points_for is not None else _avg_pts_after_turnover(games),
+    }
+
+
 def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
 
     games = _games(team)
+    pot = _season_pot_summary(team)
     totals = {
         "gained": _sum(games, "turnovers_gained"),
         "lost": _sum(games, "turnovers_lost"),
@@ -75,18 +110,16 @@ def _team_html(team: dict) -> str:
         "int_lost": _sum(games, "interceptions_lost"),
         "fum_gained": _sum(games, "fumbles_gained"),
         "fum_lost": _sum(games, "fumbles_lost"),
-        "pts_for": _sum(games, "points_off_turnovers_for"),
-        "pts_against": _sum(games, "points_off_turnovers_against"),
+        "pts_for": int(pot["points_for"] or 0),
+        "pts_against": int(pot["points_against"] or 0),
     }
-    # POT: use play-by-play derived values (not pre-baked StatBroadcast
-    # aggregates, which are internally inconsistent with their own play tree).
-    season_off_pg = _pg(totals["pts_for"], games)
-    season_def_pg = _pg(totals["pts_against"], games)
+    season_off_pg = pot["offense_pg"]
+    season_def_pg = pot["defense_pg"]
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin")
     if not isinstance(margin, (int, float)):
         margin = totals["gained"] - totals["lost"]
     drives_split = _post_turnover_drives(games)
-    avg_pts_post_to = _avg_pts_after_turnover(games)
+    avg_pts_post_to = pot["avg_points_per_drive"]
     avg_pts_text = f"{avg_pts_post_to}" if isinstance(avg_pts_post_to, (int, float)) else "N/A"
 
     def _drives_html_block(label: str, items: list[dict]) -> str:
@@ -174,9 +207,9 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Points Off Turnovers</h4>
         <ul>
-          <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm){SRC_PBP}</li>
-          <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm){SRC_PBP}</li>
-          <li>Avg Points per Post-TO Drive: {avg_pts_text}{SRC_PBP}</li>
+          <li>Offense (off takeaways): {totals['pts_for']} total ({season_off_pg}/gm){SRC_XML}</li>
+          <li>Defense (allowed off giveaways): {totals['pts_against']} total ({season_def_pg}/gm){SRC_XML}</li>
+          <li>Avg Points per Post-TO Drive: {avg_pts_text}{SRC_XML}</li>
         </ul>
       </div>
       <div class="block">
@@ -191,16 +224,16 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- Turnovers: N/A"
     games = _games(team)
+    pot = _season_pot_summary(team)
     gained = _sum(games, "turnovers_gained")
     lost = _sum(games, "turnovers_lost")
     margin = team.get("pbp_entry", {}).get("aggregates", {}).get("turnover_margin", "N/A")
     if not isinstance(margin, (int, float)):
         margin = gained - lost
-    pts_for = _sum(games, "points_off_turnovers_for")
-    pts_against = _sum(games, "points_off_turnovers_against")
-    # POT: use play-by-play derived values (see _team_html comment).
-    season_off_pg = _pg(pts_for, games)
-    season_def_pg = _pg(pts_against, games)
+    pts_for = int(pot["points_for"] or 0)
+    pts_against = int(pot["points_against"] or 0)
+    season_off_pg = pot["offense_pg"]
+    season_def_pg = pot["defense_pg"]
     margin_note = ""
     points_note = ""
     if _should_show_last_n(team):

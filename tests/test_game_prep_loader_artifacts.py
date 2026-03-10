@@ -1,4 +1,5 @@
 from scripts.game_prep_brief import loaders
+from scripts.game_prep_brief.sections import turnovers
 
 
 def test_convert_xml_bundle_team_backfills_game_rows_from_bundle_stats() -> None:
@@ -43,7 +44,17 @@ def test_convert_xml_bundle_team_backfills_game_rows_from_bundle_stats() -> None
             },
             "points_off_turnovers": {
                 "UW": {"games": 1},
-                "OSU": {"games": 1, "points_off_turnovers": 7, "points_off_turnovers_allowed": 3},
+                "OSU": {
+                    "games": 1,
+                    "points_off_turnovers": 7,
+                    "points_off_turnovers_allowed": 3,
+                    "pot_drives": 2,
+                    "pot_drives_allowed": 1,
+                    "last_3_points_off_turnovers": 11,
+                    "last_3_points_off_turnovers_allowed": 4,
+                    "last_3_pot_drives": 3,
+                    "last_3_pot_drives_allowed": 2,
+                },
             },
             "red_zone": {
                 "UW": {"games": 1},
@@ -123,7 +134,16 @@ def test_gather_team_data_uses_offline_cfbstats_artifacts(
             "cfbstats": {"rankings": {"all": {}, "conf": {}, "nonconf": {}}, "two_point_totals": {}},
             "xml_rollups": {
                 "turnovers": {"turnovers": 1, "turnovers_forced": 2, "interceptions": 1, "fumbles_lost": 0},
-                "points_off_turnovers": {"points_off_turnovers": 7, "points_off_turnovers_allowed": 3},
+                "points_off_turnovers": {
+                    "points_off_turnovers": 7,
+                    "points_off_turnovers_allowed": 3,
+                    "pot_drives": 2,
+                    "pot_drives_allowed": 1,
+                    "last_3_points_off_turnovers": 11,
+                    "last_3_points_off_turnovers_allowed": 4,
+                    "last_3_pot_drives": 3,
+                    "last_3_pot_drives_allowed": 2,
+                },
             },
             "aggregates": {"turnover_margin": 1},
             "bye_weeks": [],
@@ -252,7 +272,84 @@ def test_gather_team_data_uses_offline_cfbstats_artifacts(
     assert team["cfbstats_verification"]["summary"]["match"] == 1
     assert team["cfbstats_verification"]["summary"]["special_case"] == 1
     assert team["cfbstats_verification"]["summary"]["warning"] == 1
+    assert team["stats"]["source_points_off_turnovers_for"] == 7
+    assert team["stats"]["source_post_turnover_drives_for"] == 2
+    assert team["last_n"]["points_off_turnovers_for"] == 11
+    assert team["last_n"]["points_off_turnovers_against"] == 4
+    assert team["last_n"]["post_turnover_drives_for"] == 3
+    assert team["last_n"]["post_turnover_drives_against"] == 2
     turnover_metric = next(metric for metric in team["cfbstats_verification"]["metrics"] if metric["key"] == "turnover_margin")
     assert turnover_metric["status"] == "special_case"
     assert turnover_metric["source"] == 0.0
     assert "Turnover-on-downs definition gap" in turnover_metric["note"]
+
+
+def test_turnovers_section_prefers_source_pot_totals_over_parser_game_sums() -> None:
+    team = {
+        "display_name": "Washington",
+        "has_pbp": True,
+        "stats": {
+            "source_points_off_turnovers_for": 11,
+            "source_points_off_turnovers_against": 4,
+            "source_post_turnover_drives_for": 3,
+            "source_post_turnover_drives_against": 2,
+        },
+        "last_n": {
+            "actual_n": 3,
+            "required_n": 3,
+            "turnover_margin": 2,
+            "turnovers_gained": 4,
+            "turnovers_lost": 2,
+            "points_off_turnovers_for": 9,
+            "points_off_turnovers_against": 3,
+        },
+        "pbp_entry": {
+            "aggregates": {"turnover_margin": 2},
+            "games": [
+                {
+                    "game_number": 1,
+                    "opponent": "OSU",
+                    "turnovers_gained": 2,
+                    "turnovers_lost": 1,
+                    "interceptions_gained": 1,
+                    "interceptions_lost": 1,
+                    "fumbles_gained": 1,
+                    "fumbles_lost": 0,
+                    "points_off_turnovers_for": 7,
+                    "points_off_turnovers_against": 0,
+                    "post_turnover_drives": [],
+                },
+                {
+                    "game_number": 2,
+                    "opponent": "ORE",
+                    "turnovers_gained": 2,
+                    "turnovers_lost": 1,
+                    "interceptions_gained": 1,
+                    "interceptions_lost": 0,
+                    "fumbles_gained": 1,
+                    "fumbles_lost": 1,
+                    "points_off_turnovers_for": 0,
+                    "points_off_turnovers_against": 0,
+                    "post_turnover_drives": [],
+                },
+                {
+                    "game_number": 3,
+                    "opponent": "UCLA",
+                    "turnovers_gained": 0,
+                    "turnovers_lost": 0,
+                    "interceptions_gained": 0,
+                    "interceptions_lost": 0,
+                    "fumbles_gained": 0,
+                    "fumbles_lost": 0,
+                    "points_off_turnovers_for": 0,
+                    "points_off_turnovers_against": 0,
+                    "post_turnover_drives": [],
+                },
+            ],
+        },
+    }
+
+    rendered = turnovers.build(team, team)["md_content"]
+
+    assert "- Offense Points Off TO: 11 (3.7/gm)" in rendered
+    assert "- Defense Points Allowed Off Giveaways: 4 (1.3/gm)" in rendered
