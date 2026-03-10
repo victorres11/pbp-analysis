@@ -58,7 +58,8 @@ Workflow behavior:
 
 - checks out `pbp-analysis` and `pbp-parser`
 - runs `scripts/refresh-game-prep-pipeline.sh` in `live-refresh` mode
-- publishes successful season-core outputs to the GitHub release `brief-artifacts-<season>`
+- publishes successful season-core outputs to the rolling GitHub release `brief-artifacts-<season>`
+- archives the same publishable set to `brief-artifacts-archive-<artifact_set_id>`
 - runs automatically every day at `13:17 UTC` in addition to manual dispatch
 - uploads:
   - `brief-live-refresh-summary`
@@ -84,12 +85,18 @@ Canonical retrieval path for the current season set:
   - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/cfbstats_verification_<season>.json`
   - `https://github.com/victorres11/pbp-analysis/releases/download/brief-artifacts-<season>/game_prep_pipeline_summary_<season>.json`
 
+Archived rollback path for one publishable run:
+
+- release page: `https://github.com/victorres11/pbp-analysis/releases/tag/brief-artifacts-archive-<artifact_set_id>`
+
 The scratch artifact upload contains run-scoped helper outputs:
 
 - enrichment file
 - smoke brief outputs
 
 By default the workflow refreshes and requires enrichment. If an operator intentionally disables enrichment, the run still completes, but the summary JSON marks it as non-publishable and the season GitHub release is not updated.
+
+The rolling season release remains the current last-known-good set when a run fails or is non-publishable. Scheduled failures do not advance consumers to a new artifact set automatically.
 
 ### Scheduled Defaults
 
@@ -142,7 +149,9 @@ The specific role of the `yr-data-api` bundle handoff path is documented in [yr-
 
 Short version:
 
-- published production inputs live under `published/<season>/`
+- published production inputs are retrieved from the rolling release `brief-artifacts-<season>`
+- rolling release `brief-artifacts-<season>` is the current last-known-good published set
+- archive releases `brief-artifacts-archive-<artifact_set_id>` preserve each publishable run for rollback
 - enrichment is a first-class run-scoped artifact, but not part of the published season-core set
 - smoke brief outputs remain scratch validation outputs
 - `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
@@ -150,6 +159,64 @@ Short version:
 - `enrichment_contract` inside the summary JSON is the machine-readable source of truth for enrichment policy and status
 
 The enrichment-specific contract is documented in [enrichment-artifact-contract.md](./enrichment-artifact-contract.md).
+
+### Freshness and Hold Policy
+
+Freshness is determined from the published pipeline summary asset:
+
+- `fresh`: `generated_at` age `<= 36h`
+- `stale_warning`: `> 36h` and `<= 72h`
+- `stale_critical`: `> 72h`
+
+Consumer policy:
+
+- always keep using the current `brief-artifacts-<season>` release unless operators explicitly roll back or republish
+- do not follow failed or non-publishable workflow artifacts
+
+Operator policy:
+
+- `stale_warning`: investigate the refresh pipeline, but keep serving the current season release
+- `stale_critical`: either restore the pipeline quickly or intentionally place the season on hold
+- hold procedure: set `BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED=false`
+
+Pause command example:
+
+```bash
+gh variable set BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED \
+  --repo victorres11/pbp-analysis \
+  --body false
+```
+
+### Rollback Procedure
+
+If the rolling release needs to be backed out after a publishable run:
+
+1. Pause the schedule with `BRIEF_LIVE_REFRESH_SCHEDULE_ENABLED=false`
+2. Identify the desired archive release `brief-artifacts-archive-<artifact_set_id>`
+3. Restore that archive release's assets onto the rolling release `brief-artifacts-<season>`
+4. Confirm the rolling release notes and `game_prep_pipeline_summary_<season>.json` now match the restored archive set
+5. Re-enable the schedule when the pipeline is healthy again
+
+The archive release is the supported rollback source. Workflow artifacts are still useful for debugging, but they are not the intended rollback mechanism.
+
+CLI rollback example:
+
+```bash
+ARCHIVE_TAG="brief-artifacts-archive-<artifact_set_id>"
+ROLLING_TAG="brief-artifacts-<season>"
+TMP_DIR=$(mktemp -d)
+
+gh release download "${ARCHIVE_TAG}" \
+  --repo victorres11/pbp-analysis \
+  --dir "${TMP_DIR}"
+
+gh release upload "${ROLLING_TAG}" \
+  "${TMP_DIR}"/* \
+  --repo victorres11/pbp-analysis \
+  --clobber
+```
+
+After uploading, update the rolling release notes so they reflect the restored archive release metadata before re-enabling the schedule.
 
 ### Offline Validate
 
