@@ -22,6 +22,35 @@ The enrichment artifact is a JSON object keyed by team slug:
     "_status": "ok",
     "_source": "yr-data-api",
     "_fetched_at": "2026-03-09T00:00:00+00:00",
+    "_providers": {
+      "blitz": {
+        "status": "ok",
+        "fields": {
+          "blitz_pct": "31.2%",
+          "blitz_pct_last3": "28.7%"
+        },
+        "reasons": []
+      },
+      "negative_plays": {
+        "status": "ok",
+        "fields": {
+          "negative_plays_pg_api": "6.3",
+          "negative_plays_forced_pg_api": "7.1",
+          "negative_plays_pg_last3_api": "5.7",
+          "negative_plays_forced_pg_last3_api": "7.7"
+        },
+        "reasons": []
+      },
+      "pff": {
+        "status": "partial",
+        "fields": {
+          "pff_missed_tackles_pg": "N/A",
+          "pff_tfl_pg": "N/A",
+          "pff_sacks_pg": "N/A"
+        },
+        "reasons": ["pff_tackling:zero_placeholder_response"]
+      }
+    },
     "blitz_pct": "31.2%",
     "negative_plays_pg_api": 6.3,
     "pff_tfl_pg": 7.1
@@ -34,11 +63,27 @@ Per-team entries may contain any of the enrichment keys currently consumed by th
 - `_status`
   - `ok`: at least one enrichment field has signal
   - `unavailable`: the artifact exists for the team but the fetched values were empty / unavailable
+- `_providers`
+  - provider-level fetch envelope used by the brief renderer for explicit warnings
+  - providers currently include `blitz`, `negative_plays`, and `pff`
+  - each provider carries:
+    - `status`: `ok`, `partial`, or `unavailable`
+    - `fields`: the stored values for that provider's enrichment keys
+    - `reasons`: machine-readable fetch or parsing reasons, if any
 - `_source`
   - `yr-data-api` for refreshed artifacts
   - `artifact` for normalized legacy artifacts that did not carry explicit metadata
 - `_fetched_at`
   - UTC timestamp from the refresh step when available
+
+The top-level `_status` intentionally stays coarse for pipeline gating. It answers
+"does this team have any usable enrichment signal at all?" Provider-level
+partial/unavailable truth lives under `_providers`.
+
+When a live refresh preserves a prior flat value because a provider call failed,
+the provider entry still records the current fetch status and reasons. That lets
+the brief render with the last known value while still surfacing that the latest
+refresh was partial or unavailable.
 
 ## Runtime Policy
 

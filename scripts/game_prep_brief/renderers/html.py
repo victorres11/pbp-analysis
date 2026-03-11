@@ -44,6 +44,12 @@ PFF_WARNING_KEYS = (
     "pff_fmt_pg",
 )
 
+PROVIDER_LABELS = {
+    "blitz": "Blitz",
+    "negative_plays": "Negative-play API",
+    "pff": "PFF",
+}
+
 
 def _is_missing(value: object) -> bool:
     if value is None:
@@ -54,12 +60,70 @@ def _is_missing(value: object) -> bool:
     return False
 
 
+def _provider_reason_summary(reasons: object) -> str:
+    if not isinstance(reasons, list):
+        return ""
+    joined = " ".join(str(reason).lower() for reason in reasons if reason)
+    if not joined:
+        return ""
+    if "zero_placeholder_response" in joined:
+        return "placeholder zeros"
+    if "malformed_payload" in joined:
+        return "malformed payload"
+    if "empty_response" in joined:
+        return "empty response"
+    if any(token in joined for token in ("timeout", "timeouterror")):
+        return "timeout"
+    if any(token in joined for token in ("httperror", "urlerror", "forbidden", "unauthorized", "401", "403", "412")):
+        return "fetch error"
+    return ""
+
+
+def _provider_warning_fragments(team: dict) -> list[str]:
+    enrichment = team.get("enrichment")
+    providers = enrichment.get("_providers") if isinstance(enrichment, dict) else None
+    if not isinstance(providers, dict):
+        return []
+
+    fragments: list[str] = []
+    for provider_key, provider in providers.items():
+        if not isinstance(provider, dict):
+            continue
+        status = str(provider.get("status") or "").strip().lower()
+        if status not in {"partial", "unavailable"}:
+            continue
+        label = PROVIDER_LABELS.get(provider_key, provider_key.replace("_", " ").title())
+        reason = _provider_reason_summary(provider.get("reasons"))
+        fragment = f"{label} {status}"
+        if reason:
+            fragment += f" ({reason})"
+        fragments.append(fragment)
+    return fragments
+
+
 def _missing_warning(team1: dict, team2: dict) -> str:
+    provider_impacted: list[str] = []
     impacted: list[str] = []
     for team in (team1, team2):
+        provider_fragments = _provider_warning_fragments(team)
+        if provider_fragments:
+            provider_impacted.append(
+                f"{team.get('display_name', 'Team')} ({', '.join(provider_fragments)})"
+            )
+            continue
         stats = team.get("stats", {})
         if any(_is_missing(stats.get(key)) for key in PFF_WARNING_KEYS):
             impacted.append(team.get("display_name", "Team"))
+    if provider_impacted:
+        suffix = (
+            f" Additional teams with missing enrichment fields: {', '.join(impacted)}."
+            if impacted
+            else ""
+        )
+        return (
+            f"Enrichment snapshot issues: {'; '.join(provider_impacted)}. "
+            f"Some situational/trenches metrics may be stale or unavailable.{suffix}"
+        )
     if not impacted:
         return ""
     teams_text = ", ".join(impacted)
