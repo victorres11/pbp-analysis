@@ -69,6 +69,90 @@ ENRICHMENT_KEYS = (
     "pff_tempo_label",
 )
 
+ENRICHMENT_PROVIDER_KEYS = {
+    "blitz": (
+        "blitz_pct",
+        "blitz_pct_last3",
+    ),
+    "negative_plays": (
+        "negative_plays_pg_api",
+        "negative_plays_forced_pg_api",
+        "negative_plays_pg_last3_api",
+        "negative_plays_forced_pg_last3_api",
+    ),
+    "pff": (
+        "pff_plays_offense_pg",
+        "pff_plays_defense_pg",
+        "pff_missed_tackles_pg",
+        "pff_tfl_pg",
+        "pff_sacks_pg",
+        "pff_sacks_allowed_pg",
+        "pff_fmt_total",
+        "pff_fmt_pg",
+        "pff_avg_play_clock",
+        "pff_hurry_up_pct",
+        "pff_tempo_label",
+    ),
+}
+
+
+def _has_enrichment_signal(value: object) -> bool:
+    if value in ("N/A", None, ""):
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
+
+
+def _provider_status_for_values(values: dict, keys: tuple[str, ...]) -> str:
+    present = [key for key in keys if _has_enrichment_signal(values.get(key))]
+    if not present:
+        return "unavailable"
+    if len(present) == len(keys):
+        return "ok"
+    return "partial"
+
+
+def _overall_enrichment_status(payload: dict, providers: dict | None = None) -> str:
+    if isinstance(providers, dict) and providers:
+        for provider_name, keys in ENRICHMENT_PROVIDER_KEYS.items():
+            provider = providers.get(provider_name)
+            if not isinstance(provider, dict):
+                continue
+            fields = provider.get("fields")
+            if isinstance(fields, dict) and any(_has_enrichment_signal(fields.get(key)) for key in keys):
+                return "ok"
+    return "ok" if _enrichment_has_signal(payload) else "unavailable"
+
+
+def _normalize_provider_payload(values: dict, provider_payload: dict | None = None) -> dict:
+    normalized_providers: dict = {}
+    for provider_name, keys in ENRICHMENT_PROVIDER_KEYS.items():
+        raw_provider = provider_payload.get(provider_name) if isinstance(provider_payload, dict) else None
+        normalized_provider = dict(raw_provider) if isinstance(raw_provider, dict) else {}
+
+        raw_fields = normalized_provider.get("fields")
+        provider_fields = dict(raw_fields) if isinstance(raw_fields, dict) else {}
+        normalized_provider["fields"] = {
+            key: values.get(key, provider_fields.get(key, "N/A"))
+            for key in keys
+        }
+
+        status = str(normalized_provider.get("status") or "").strip().lower()
+        if status not in {"ok", "partial", "unavailable"}:
+            status = _provider_status_for_values(normalized_provider["fields"], keys)
+        normalized_provider["status"] = status
+
+        raw_reasons = normalized_provider.get("reasons")
+        if isinstance(raw_reasons, list):
+            normalized_provider["reasons"] = [str(reason).strip() for reason in raw_reasons if str(reason).strip()]
+        else:
+            normalized_provider["reasons"] = []
+
+        normalized_providers[provider_name] = normalized_provider
+    return normalized_providers
+
+
 def _norm_team_name(value: str | None) -> str:
     if not value:
         return ""
@@ -231,23 +315,47 @@ def _candidate_team_ids(team_slug: str, team_name: str | None = None) -> list[st
 
 
 def _fetch_text_from_candidates(candidates: list[str], suffix: str, timeout: int = 8, attempts: int = 3) -> str | None:
+    result = _fetch_text_result_from_candidates(
+        candidates,
+        suffix,
+        timeout=timeout,
+        attempts=attempts,
+    )
+    return result.get("text")
+
+
+def _fetch_text_result_from_candidates(
+    candidates: list[str],
+    suffix: str,
+    timeout: int = 8,
+    attempts: int = 3,
+) -> dict[str, object]:
     if not candidates:
-        return None
+        return {"text": None, "status": "unavailable", "reason": "no_team_candidates", "url": None}
+    last_reason = "empty_response"
+    last_url: str | None = None
     for candidate in candidates:
         encoded = urllib.parse.quote(candidate)
         url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
+        last_url = url
         for attempt in range(1, attempts + 1):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     text = (resp.read().decode("utf-8", errors="ignore") or "").strip()
                 if text:
-                    return text
-            except Exception:
+                    return {"text": text, "status": "ok", "reason": None, "url": url}
+                last_reason = f"empty_response via {candidate}"
+            except Exception as exc:
+                last_reason = f"{type(exc).__name__}: {exc}"
                 if attempt < attempts:
                     time.sleep(0.2 * attempt)
                 continue
-    return None
+    print(
+        f"[warn] yr-data-api fetch failed for {suffix}: {last_reason}",
+        file=sys.stderr,
+    )
+    return {"text": None, "status": "unavailable", "reason": last_reason, "url": last_url}
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -1931,32 +2039,52 @@ def _extract_pbp_stats(team_data: dict) -> dict:
     }
 
 
-def _fetch_blitz_stats(team_slug: str, team_name: str | None = None) -> dict:
+def _build_provider_entry(
+    provider_name: str,
+    values: dict,
+    *,
+    reasons: list[str] | None = None,
+) -> dict:
+    keys = ENRICHMENT_PROVIDER_KEYS[provider_name]
+    return {
+        "status": _provider_status_for_values(values, keys),
+        "fields": {key: values.get(key, "N/A") for key in keys},
+        "reasons": [reason for reason in (reasons or []) if reason],
+    }
+
+
+def _fetch_blitz_stats(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
     """Fetch blitz season/last3 values from yr-data-api. Returns N/A on failure."""
     if not team_slug and not team_name:
-        return {"blitz_pct": "N/A", "blitz_pct_last3": "N/A"}
+        out = {"blitz_pct": "N/A", "blitz_pct_last3": "N/A"}
+        return out, _build_provider_entry("blitz", out, reasons=["no_team_identifier"])
 
     candidates = _candidate_team_ids(team_slug, team_name)
 
     out = {"blitz_pct": "N/A", "blitz_pct_last3": "N/A"}
+    reasons: list[str] = []
 
     for scope_key, scope in (("blitz_pct", "season"), ("blitz_pct_last3", "last3")):
-        text = _fetch_text_from_candidates(candidates, f"pff/blitz?scope={scope}&format=text")
+        result = _fetch_text_result_from_candidates(candidates, f"pff/blitz?scope={scope}&format=text")
+        text = result.get("text")
         if text:
             out[scope_key] = text
+        else:
+            reasons.append(f"{scope_key}:{result.get('reason') or 'unavailable'}")
 
-    return out
+    return out, _build_provider_entry("blitz", out, reasons=reasons)
 
 
-def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> dict:
+def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
     """Fetch offensive/defensive negative plays (season + last3) from yr-data-api."""
     if not team_slug and not team_name:
-        return {
+        out = {
             "negative_plays_pg_api": "N/A",
             "negative_plays_forced_pg_api": "N/A",
             "negative_plays_pg_last3_api": "N/A",
             "negative_plays_forced_pg_last3_api": "N/A",
         }
+        return out, _build_provider_entry("negative_plays", out, reasons=["no_team_identifier"])
 
     candidates = _candidate_team_ids(team_slug, team_name)
 
@@ -1966,6 +2094,7 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
         "negative_plays_pg_last3_api": "N/A",
         "negative_plays_forced_pg_last3_api": "N/A",
     }
+    reasons: list[str] = []
 
     endpoint_specs = [
         ("negative_plays_pg_api", "pbp/negative-plays?scope=season&format=text"),
@@ -1975,17 +2104,20 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
     ]
 
     for key, suffix in endpoint_specs:
-        text = _fetch_text_from_candidates(candidates, suffix)
+        result = _fetch_text_result_from_candidates(candidates, suffix)
+        text = result.get("text")
         if text:
             out[key] = text
+        else:
+            reasons.append(f"{key}:{result.get('reason') or 'unavailable'}")
 
-    return out
+    return out, _build_provider_entry("negative_plays", out, reasons=reasons)
 
 
-def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
+def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
     """Fetch compact PFF metrics used in callout blocks."""
     if not team_slug and not team_name:
-        return {
+        out = {
             "pff_plays_offense_pg": "N/A",
             "pff_plays_defense_pg": "N/A",
             "pff_missed_tackles_pg": "N/A",
@@ -1998,6 +2130,7 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
             "pff_hurry_up_pct": "N/A",
             "pff_tempo_label": "N/A",
         }
+        return out, _build_provider_entry("pff", out, reasons=["no_team_identifier"])
 
     candidates = _candidate_team_ids(team_slug, team_name)
 
@@ -2014,38 +2147,62 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
         "pff_hurry_up_pct": "N/A",
         "pff_tempo_label": "N/A",
     }
+    reasons: list[str] = []
 
-    def _try_fetch(suffix: str) -> str | None:
-        return _fetch_text_from_candidates(candidates, suffix)
+    def _try_fetch(suffix: str) -> dict[str, object]:
+        return _fetch_text_result_from_candidates(candidates, suffix)
 
-    plays = _try_fetch("pff/plays?side=both&format=text")
-    if plays and "," in plays:
-        off, deff = plays.split(",", 1)
+    plays_result = _try_fetch("pff/plays?side=both&format=text")
+    plays = plays_result.get("text")
+    if plays and "," in str(plays):
+        off, deff = str(plays).split(",", 1)
         out["pff_plays_offense_pg"] = off.strip() or "N/A"
         out["pff_plays_defense_pg"] = deff.strip() or "N/A"
+    elif plays:
+        reasons.append("pff_plays:malformed_payload")
+    else:
+        reasons.append(f"pff_plays:{plays_result.get('reason') or 'unavailable'}")
 
-    tackling_pg = _try_fetch("pff/tackling-per-game?format=text")
+    tackling_result = _try_fetch("pff/tackling-per-game?format=text")
+    tackling_pg = tackling_result.get("text")
     if tackling_pg:
-        parts = [p.strip() for p in tackling_pg.split("\t")]
+        parts = [p.strip() for p in str(tackling_pg).split("\t")]
         if len(parts) >= 3:
-            out["pff_missed_tackles_pg"] = parts[0] or "N/A"
-            out["pff_tfl_pg"] = parts[1] or "N/A"
-            out["pff_sacks_pg"] = parts[2] or "N/A"
+            first_three = parts[:3]
+            if all(part in {"0", "0.0", "0.00"} for part in first_three):
+                reasons.append("pff_tackling:zero_placeholder_response")
+            else:
+                out["pff_missed_tackles_pg"] = first_three[0] or "N/A"
+                out["pff_tfl_pg"] = first_three[1] or "N/A"
+                out["pff_sacks_pg"] = first_three[2] or "N/A"
+        else:
+            reasons.append("pff_tackling:malformed_payload")
+    else:
+        reasons.append(f"pff_tackling:{tackling_result.get('reason') or 'unavailable'}")
 
-    sacks_allowed = _try_fetch("pff/sacks-allowed?format=text")
+    sacks_allowed_result = _try_fetch("pff/sacks-allowed?format=text")
+    sacks_allowed = sacks_allowed_result.get("text")
     if sacks_allowed:
-        out["pff_sacks_allowed_pg"] = sacks_allowed.strip()
+        out["pff_sacks_allowed_pg"] = str(sacks_allowed).strip()
+    else:
+        reasons.append(f"pff_sacks_allowed:{sacks_allowed_result.get('reason') or 'unavailable'}")
 
-    fmt = _try_fetch("pff/fmt?format=text")
+    fmt_result = _try_fetch("pff/fmt?format=text")
+    fmt = fmt_result.get("text")
     if fmt:
-        parts = [p.strip() for p in fmt.split("\t")]
+        parts = [p.strip() for p in str(fmt).split("\t")]
         if len(parts) >= 2:
             out["pff_fmt_total"] = parts[0] or "N/A"
             out["pff_fmt_pg"] = parts[1] or "N/A"
+        else:
+            reasons.append("pff_fmt:malformed_payload")
+    else:
+        reasons.append(f"pff_fmt:{fmt_result.get('reason') or 'unavailable'}")
 
-    play_clock = _try_fetch("pff/play-clock?format=text")
+    play_clock_result = _try_fetch("pff/play-clock?format=text")
+    play_clock = play_clock_result.get("text")
     if play_clock:
-        parts = [p.strip() for p in play_clock.split("\t")]
+        parts = [p.strip() for p in str(play_clock).split("\t")]
         if len(parts) >= 1:
             out["pff_avg_play_clock"] = parts[0] or "N/A"
         if len(parts) >= 2:
@@ -2054,6 +2211,7 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
                 out["pff_hurry_up_pct"] = f"{hurry_pct}%"
             except (ValueError, TypeError):
                 out["pff_hurry_up_pct"] = "N/A"
+                reasons.append("pff_play_clock:invalid_hurry_up_pct")
         try:
             avg = float(out["pff_avg_play_clock"])
             if avg >= 18:
@@ -2064,20 +2222,34 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> dict:
                 out["pff_tempo_label"] = "Fast"
         except (ValueError, TypeError):
             out["pff_tempo_label"] = "N/A"
+            reasons.append("pff_play_clock:invalid_avg_play_clock")
+    else:
+        reasons.append(f"pff_play_clock:{play_clock_result.get('reason') or 'unavailable'}")
 
-    return out
+    return out, _build_provider_entry("pff", out, reasons=reasons)
 
 
-def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> dict:
-    payload = {}
-    payload.update(_fetch_blitz_stats(team_slug, team_name=team_name))
-    payload.update(_fetch_negative_play_stats(team_slug, team_name=team_name))
-    payload.update(_fetch_pff_snapshot(team_slug, team_name=team_name))
-    return payload
+def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
+    payload: dict = {}
+    providers: dict = {}
+
+    blitz_values, blitz_provider = _fetch_blitz_stats(team_slug, team_name=team_name)
+    payload.update(blitz_values)
+    providers["blitz"] = blitz_provider
+
+    negative_values, negative_provider = _fetch_negative_play_stats(team_slug, team_name=team_name)
+    payload.update(negative_values)
+    providers["negative_plays"] = negative_provider
+
+    pff_values, pff_provider = _fetch_pff_snapshot(team_slug, team_name=team_name)
+    payload.update(pff_values)
+    providers["pff"] = pff_provider
+
+    return payload, providers
 
 
 def _enrichment_has_signal(payload: dict) -> bool:
-    return any(payload.get(k) not in ("N/A", None, "") for k in ENRICHMENT_KEYS)
+    return any(_has_enrichment_signal(payload.get(k)) for k in ENRICHMENT_KEYS)
 
 
 def normalize_enrichment_payload(payload: dict) -> dict:
@@ -2088,8 +2260,11 @@ def normalize_enrichment_payload(payload: dict) -> dict:
         if not isinstance(slug, str) or not isinstance(raw, dict):
             continue
         out = dict(raw)
-        if "_status" not in out:
-            out["_status"] = "ok" if _enrichment_has_signal(out) else "unavailable"
+        provider_payload = _normalize_provider_payload(out, out.get("_providers"))
+        out["_providers"] = provider_payload
+        status = str(out.get("_status") or "").strip().lower()
+        if status not in {"ok", "unavailable"}:
+            out["_status"] = _overall_enrichment_status(out, provider_payload)
         if "_source" not in out:
             out["_source"] = "artifact"
         normalized[slug] = out
@@ -2105,13 +2280,13 @@ def validate_enrichment_payload(payload: dict, required_team_slugs: list[str]) -
 
 
 def build_team_enrichment(team_slug: str, team_name: str | None = None) -> dict:
-    data = _fetch_live_enrichment(team_slug, team_name=team_name)
-    has_signal = _enrichment_has_signal(data)
+    data, providers = _fetch_live_enrichment(team_slug, team_name=team_name)
     return {
         **data,
+        "_providers": providers,
         "_fetched_at": datetime.now(timezone.utc).isoformat(),
         "_source": "yr-data-api",
-        "_status": "ok" if has_signal else "unavailable",
+        "_status": _overall_enrichment_status(data, providers),
     }
 
 
@@ -2157,8 +2332,8 @@ def merge_enrichment_payload(existing: dict, refreshed: dict) -> dict:
                     out[key] = prior_value
                     continue
             out[key] = value
-        has_signal = _enrichment_has_signal(out)
-        out["_status"] = "ok" if has_signal else "unavailable"
+        out["_providers"] = _normalize_provider_payload(out, incoming.get("_providers"))
+        out["_status"] = _overall_enrichment_status(out, out.get("_providers"))
         merged[slug] = out
     return merged
 
@@ -2594,7 +2769,12 @@ def gather_team_data(
     if fourth_down_gap:
         parity_gaps.append(fourth_down_gap)
     pbp_stats = _extract_pbp_stats(pbp_entry) if pbp_entry else {}
-    seeded = (enrichment_by_slug or {}).get(school_slug) or {}
+    raw_seeded = (enrichment_by_slug or {}).get(school_slug)
+    seeded = (
+        normalize_enrichment_payload({school_slug: raw_seeded}).get(school_slug, {})
+        if isinstance(raw_seeded, dict)
+        else {}
+    )
     if isinstance(seeded, dict):
         for key in ENRICHMENT_KEYS:
             value = seeded.get(key)
@@ -2725,6 +2905,7 @@ def gather_team_data(
         },
         "full_staff": [],
         "stats": pbp_stats,
+        "enrichment": seeded,
         "last_n": last_n_stats,
         "turnover_reconciliation": turnover_recon,
         "turnover_game_reconciliation": turnover_game_recon,
