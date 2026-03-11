@@ -89,13 +89,15 @@
     "*Special Teams*",
     "*Washington*",
     "- FG%: 76.9% (Long 51)",
-    "- Punt Avg: N/A (Net N/A)",
+    "- Punt Avg: 40.3 (Net 34.6)",
     "- 2PT O/D: 0/0 · 1/2",
-    "- Return TDs: N/A",
+    "- Last 3 2PT O/D: 0/0 · 0/0",
+    "- ST Impact: TDs 4 | FG Blocks 0 | Punt Blocks 1 | Onside 0/0",
     "*Ohio State*",
     "- FG%: 80.0% (Long 53)",
-    "- Punt Avg: N/A (Net N/A)",
+    "- Punt Avg: 42.5 (Net 40.9)",
     "- 2PT O/D: 0/0 · 0/2",
-    "- Return TDs: N/A"
+    "- Last 3 2PT O/D: 0/0 · 0/0",
+    "- ST Impact: TDs 1 | FG Blocks 0 | Punt Blocks 1 | Onside 0/0"
   ]
 }

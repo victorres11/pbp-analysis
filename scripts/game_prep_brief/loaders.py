@@ -529,6 +529,381 @@ def _iter_play_tree_drives(play_tree: object):
                 yield quarter_num, plays
 
 
+def _desc_contains_alias(desc_up: str, aliases: set[str]) -> bool:
+    return any(alias and alias in desc_up for alias in aliases)
+
+
+def _is_fg_attempt_desc(desc: str) -> bool:
+    return "FIELD GOAL" in desc or bool(re.search(r"\bFG\b", desc))
+
+
+def _is_fg_made_desc(desc: str) -> bool:
+    if any(bad in desc for bad in ("NO GOOD", "MISSED", "WIDE", "BLOCKED")):
+        return False
+    return any(good in desc for good in ("GOOD", "IS GOOD", "MADE"))
+
+
+def _extract_field_goal_yards(desc: str) -> int | None:
+    if not _is_fg_attempt_desc(desc):
+        return None
+    patterns = (
+        r"(\d{1,3})\s*-\s*YARD\s+FIELD GOAL",
+        r"(\d{1,3})\s+YARD\s+FIELD GOAL",
+        r"FIELD GOAL(?:\s+ATTEMPT)?(?:\s+FROM|\s+AT)?\s*(\d{1,3})\s*YARD",
+        r"FG(?:\s+ATTEMPT)?(?:\s+FROM|\s+AT)?\s*(\d{1,3})\s*YARD",
+        r"(\d{1,3})\s*YDS?\s+FIELD GOAL",
+        r"(\d{1,3})\s*YD\S*\s+FIELD GOAL",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, desc)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                return None
+    match = re.search(r"FROM\s+(\d{1,3})\s*YARD", desc)
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+def _extract_punt_yards(desc: str) -> int | None:
+    if "PUNT" not in desc:
+        return None
+    for pattern in (r"PUNT(?:ED|S)?\s+(-?\d{1,3})\s+YARD", r"PUNT(?:ED|S)?\s+(-?\d{1,3})\s+YDS?"):
+        match = re.search(pattern, desc)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def _extract_return_yards(desc: str) -> int | None:
+    if "RETURN" not in desc:
+        return None
+    patterns: tuple[tuple[str, bool], ...] = (
+        (r"RETURN(?:ED)?\s+(-?\d{1,3})\s+YARD", False),
+        (r"RETURN(?:ED)?\s+(-?\d{1,3})\s+YDS?", False),
+        (r"RETURN\s+FOR\s+LOSS\s+OF\s+(\d{1,3})\s+YARD", True),
+        (r"RETURN\s+FOR\s+LOSS\s+OF\s+(\d{1,3})\s+YDS?", True),
+    )
+    for pattern, is_loss in patterns:
+        match = re.search(pattern, desc)
+        if not match:
+            continue
+        try:
+            yards = int(match.group(1))
+        except ValueError:
+            return None
+        return -yards if is_loss else yards
+    return None
+
+
+def _is_dead_ball_uns_kickoff_enforcement(desc: str) -> bool:
+    if "NO PLAY" not in desc or "PENALTY" not in desc:
+        return False
+    if "UNS" not in desc and "UNSPORTSMANLIKE" not in desc:
+        return False
+    if "ATTEMPT" not in desc or "SUCCESSFUL" not in desc:
+        return False
+    return re.search(r"\bFROM\s+([A-Z]{2,6})\s*35\s+TO\s+\1\s*50\b", desc) is not None
+
+
+def _special_teams_kick_side(
+    *,
+    desc_up: str,
+    offense_side: str | None,
+    is_kickoff: bool,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> str | None:
+    if offense_side in {"team", "opp"}:
+        return offense_side
+    if not is_kickoff:
+        return None
+    team_in_desc = _desc_contains_alias(desc_up, team_aliases)
+    opp_in_desc = _desc_contains_alias(desc_up, opp_aliases)
+    if team_in_desc and not opp_in_desc:
+        return "opp"
+    if opp_in_desc and not team_in_desc:
+        return "team"
+    return None
+
+
+def _derive_two_point_stats_from_play_tree(
+    game: dict,
+    *,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> dict | None:
+    play_tree = game.get("play_tree")
+    if not isinstance(play_tree, list):
+        return None
+
+    plays = list(_iter_play_tree_plays(play_tree))
+    if not plays:
+        return None
+
+    resolver = _build_play_side_resolver(game, team_aliases=team_aliases, opp_aliases=opp_aliases)
+    stats = {
+        "two_pt_attempts": 0,
+        "two_pt_conversions": 0,
+        "two_pt_rush_attempts": 0,
+        "two_pt_rush_conversions": 0,
+        "two_pt_pass_attempts": 0,
+        "two_pt_pass_conversions": 0,
+        "opp_two_pt_attempts": 0,
+        "opp_two_pt_conversions": 0,
+    }
+    two_pt_keywords = ("TWO-POINT", "TWO POINT", "2-POINT", "2 POINT", "2PT")
+    success_keywords = ("SUCCESSFUL", "CONVERTED", "GOOD", "CONVERSION", "SUCCESS")
+    failure_keywords = ("FAILED", "FAIL", "NO GOOD", "UNSUCCESSFUL")
+    pass_keywords = ("PASS", "COMPLETE", "INCOMPLETE", "THROWN")
+    rush_keywords = (
+        "RUSH",
+        "RUN",
+        "SCRAMBLE",
+        "UP THE MIDDLE",
+        "LEFT END",
+        "RIGHT END",
+        "LEFT TACKLE",
+        "RIGHT TACKLE",
+        "LEFT GUARD",
+        "RIGHT GUARD",
+    )
+
+    for play in plays:
+        desc_up = str(play.get("description") or "").upper()
+        has_two_pt_keyword = any(keyword in desc_up for keyword in two_pt_keywords)
+        has_attempt_phrase = (
+            ("PASS ATTEMPT" in desc_up or "RUSH ATTEMPT" in desc_up)
+            and any(keyword in desc_up for keyword in ("SUCCESSFUL", "FAILED"))
+        )
+        if not has_two_pt_keyword and not has_attempt_phrase:
+            continue
+        if "EXTRA POINT" in desc_up or "POINT AFTER" in desc_up or " PAT " in f" {desc_up} ":
+            continue
+
+        side = resolver.resolve(play.get("offense"))
+        if side not in {"team", "opp"}:
+            continue
+        if play.get("is_no_play") and not _is_dead_ball_uns_kickoff_enforcement(desc_up):
+            continue
+
+        has_failure = any(keyword in desc_up for keyword in failure_keywords)
+        if bool(play.get("is_scoring")):
+            successful = True
+        elif has_failure:
+            successful = False
+        else:
+            successful = any(keyword in desc_up for keyword in success_keywords)
+
+        is_pass = any(keyword in desc_up for keyword in pass_keywords)
+        is_rush = any(keyword in desc_up for keyword in rush_keywords)
+        play_type = "pass" if is_pass else ("rush" if is_rush else "unknown")
+
+        if side == "team":
+            stats["two_pt_attempts"] += 1
+            if successful:
+                stats["two_pt_conversions"] += 1
+            if play_type == "pass":
+                stats["two_pt_pass_attempts"] += 1
+                if successful:
+                    stats["two_pt_pass_conversions"] += 1
+            elif play_type == "rush":
+                stats["two_pt_rush_attempts"] += 1
+                if successful:
+                    stats["two_pt_rush_conversions"] += 1
+        else:
+            stats["opp_two_pt_attempts"] += 1
+            if successful:
+                stats["opp_two_pt_conversions"] += 1
+
+    return stats
+
+
+def _derive_special_teams_stats_from_play_tree(
+    game: dict,
+    *,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> dict | None:
+    play_tree = game.get("play_tree")
+    if not isinstance(play_tree, list):
+        return None
+
+    plays = list(_iter_play_tree_plays(play_tree))
+    if not plays:
+        return None
+
+    resolver = _build_play_side_resolver(game, team_aliases=team_aliases, opp_aliases=opp_aliases)
+    stats = {
+        "kickoff_returns": 0,
+        "kickoff_return_yards": 0,
+        "kickoff_return_long": 0,
+        "kick_return_30_plus": 0,
+        "punt_returns": 0,
+        "punt_return_yards": 0,
+        "punt_return_long": 0,
+        "punt_return_20_plus": 0,
+        "punt_returns_allowed": 0,
+        "punt_return_yards_allowed": 0,
+        "punt_return_long_allowed": 0,
+        "punt_return_20_plus_allowed": 0,
+        "special_teams_tds": 0,
+        "fg_blocks": 0,
+        "punt_blocks": 0,
+        "punts": 0,
+        "punt_yards": 0,
+        "punt_net_yards": 0,
+        "punt_long": 0,
+        "punts_inside_20": 0,
+        "punt_touchbacks": 0,
+        "field_goals_made": 0,
+        "field_goals_attempts": 0,
+        "field_goal_long": 0,
+        "pat_made": 0,
+        "pat_attempts": 0,
+        "onside_kicks_attempted": 0,
+        "onside_kicks_recovered": 0,
+    }
+    has_signal = False
+
+    for play in plays:
+        if play.get("is_no_play"):
+            continue
+        desc_up = str(play.get("description") or "").upper()
+        offense_side = resolver.resolve(play.get("offense"))
+        if offense_side not in {"team", "opp"}:
+            offense_side = None
+        is_kickoff = "KICKOFF" in desc_up
+        is_punt = "PUNT" in desc_up
+        is_fg = _is_fg_attempt_desc(desc_up)
+        is_pat = "PAT" in desc_up or "EXTRA POINT" in desc_up or "POINT AFTER" in desc_up
+        is_onside = "ONSIDE" in desc_up
+        has_signal = has_signal or is_kickoff or is_punt or is_fg or is_pat
+        kick_side = _special_teams_kick_side(
+            desc_up=desc_up,
+            offense_side=offense_side,
+            is_kickoff=is_kickoff,
+            team_aliases=team_aliases,
+            opp_aliases=opp_aliases,
+        )
+
+        if "BLOCKED" in desc_up:
+            if is_fg and (
+                offense_side == "opp"
+                or (offense_side is None and _desc_contains_alias(desc_up, team_aliases) and not _desc_contains_alias(desc_up, opp_aliases))
+            ):
+                stats["fg_blocks"] += 1
+            if is_punt and (
+                offense_side == "opp"
+                or (offense_side is None and _desc_contains_alias(desc_up, team_aliases) and not _desc_contains_alias(desc_up, opp_aliases))
+            ):
+                stats["punt_blocks"] += 1
+
+        if kick_side == "team":
+            if is_punt:
+                stats["punts"] += 1
+                gross = _extract_punt_yards(desc_up)
+                if gross is None and isinstance(play.get("yards"), (int, float)):
+                    gross = int(play.get("yards") or 0)
+                if gross is None:
+                    gross = 0
+                stats["punt_yards"] += gross
+                stats["punt_long"] = max(stats["punt_long"], gross)
+                touchback = "TOUCHBACK" in desc_up
+                if touchback:
+                    stats["punt_touchbacks"] += 1
+                return_yards = _extract_return_yards(desc_up) if "RETURN" in desc_up else 0
+                net = gross
+                if return_yards is not None:
+                    net -= return_yards
+                    stats["punt_returns_allowed"] += 1
+                    stats["punt_return_yards_allowed"] += return_yards
+                    stats["punt_return_long_allowed"] = max(stats["punt_return_long_allowed"], return_yards)
+                    if return_yards >= 20:
+                        stats["punt_return_20_plus_allowed"] += 1
+                if touchback:
+                    net = max(net - 20, 0)
+                stats["punt_net_yards"] += net
+                if not touchback and ("INSIDE 20" in desc_up or re.search(r"(OUT OF BOUNDS|DOWNED|FAIR CATCH).*?(\d+)", desc_up)):
+                    spot_match = re.search(r"AT\s+[A-Z]*(\d+)", desc_up)
+                    if spot_match and int(spot_match.group(1)) <= 20:
+                        stats["punts_inside_20"] += 1
+
+            if is_fg:
+                stats["field_goals_attempts"] += 1
+                fg_made = _is_fg_made_desc(desc_up)
+                if fg_made:
+                    stats["field_goals_made"] += 1
+                fg_yards = _extract_field_goal_yards(desc_up)
+                if fg_yards is not None and fg_made:
+                    stats["field_goal_long"] = max(stats["field_goal_long"], fg_yards)
+
+            if is_pat:
+                stats["pat_attempts"] += 1
+                if "GOOD" in desc_up or "MADE" in desc_up:
+                    stats["pat_made"] += 1
+
+            if is_kickoff and is_onside:
+                stats["onside_kicks_attempted"] += 1
+                if "RECOVER" in desc_up and _desc_contains_alias(desc_up, team_aliases):
+                    stats["onside_kicks_recovered"] += 1
+
+        if kick_side == "opp":
+            if is_kickoff and "RETURN" in desc_up:
+                ret_yards = play.get("yards") if isinstance(play.get("yards"), (int, float)) else _extract_return_yards(desc_up)
+                if isinstance(ret_yards, (int, float)):
+                    ret_yards_int = int(ret_yards)
+                    stats["kickoff_returns"] += 1
+                    stats["kickoff_return_yards"] += ret_yards_int
+                    stats["kickoff_return_long"] = max(stats["kickoff_return_long"], ret_yards_int)
+                    if ret_yards_int >= 30:
+                        stats["kick_return_30_plus"] += 1
+
+            if is_punt and "RETURN" in desc_up and kick_side == "opp":
+                ret_yards = play.get("yards") if isinstance(play.get("yards"), (int, float)) else _extract_return_yards(desc_up)
+                if isinstance(ret_yards, (int, float)):
+                    ret_yards_int = int(ret_yards)
+                    stats["punt_returns"] += 1
+                    stats["punt_return_yards"] += ret_yards_int
+                    stats["punt_return_long"] = max(stats["punt_return_long"], ret_yards_int)
+                    if ret_yards_int >= 20:
+                        stats["punt_return_20_plus"] += 1
+
+        if "TOUCHDOWN" in desc_up and (is_kickoff or is_punt or is_fg or is_pat or "RETURN" in desc_up or "BLOCKED" in desc_up):
+            credited = False
+            if _desc_contains_alias(desc_up, team_aliases) and not _desc_contains_alias(desc_up, opp_aliases):
+                credited = True
+            elif kick_side == "opp":
+                credited = True
+            elif (is_fg or is_punt) and kick_side == "team" and "FAKE" in desc_up:
+                credited = True
+            if credited:
+                stats["special_teams_tds"] += 1
+
+    stats["kickoff_return_avg"] = (
+        round(stats["kickoff_return_yards"] / stats["kickoff_returns"], 1) if stats["kickoff_returns"] else 0.0
+    )
+    stats["punt_return_avg"] = (
+        round(stats["punt_return_yards"] / stats["punt_returns"], 1) if stats["punt_returns"] else 0.0
+    )
+    stats["punt_return_allowed_avg"] = (
+        round(stats["punt_return_yards_allowed"] / stats["punt_returns_allowed"], 1)
+        if stats["punt_returns_allowed"]
+        else 0.0
+    )
+    stats["punt_avg"] = round(stats["punt_yards"] / stats["punts"], 1) if stats["punts"] else 0.0
+    stats["punt_net_avg"] = round(stats["punt_net_yards"] / stats["punts"], 1) if stats["punts"] else 0.0
+    return stats if has_signal else None
+
+
 @dataclass(frozen=True)
 class _PlaySideResolver:
     team_aliases: frozenset[str]
@@ -1041,6 +1416,95 @@ def _best_xml_row(xml_stats: dict, category: str) -> dict:
         key=lambda item: (item[1].get("games", 0) if isinstance(item[1], dict) else 0),
     )
     return row if isinstance(row, dict) else {}
+
+
+def _apply_special_teams_play_tree_derivations(team_name: str, pbp_entry: dict | None) -> list[str]:
+    if not isinstance(pbp_entry, dict):
+        return []
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return []
+
+    team_aliases = _abbr_set(pbp_entry.get("abbr_aliases") or pbp_entry.get("abbr"))
+    if not team_aliases:
+        return []
+
+    for game in games:
+        opp_aliases = _abbr_set(game.get("opponent_abbr"))
+        derived_st = _derive_special_teams_stats_from_play_tree(
+            game,
+            team_aliases=team_aliases,
+            opp_aliases=opp_aliases,
+        )
+        if isinstance(derived_st, dict):
+            existing = game.get("special_teams") if isinstance(game.get("special_teams"), dict) else {}
+            merged = dict(existing)
+            for key, value in derived_st.items():
+                if key not in merged or merged.get(key) in (None, "", "N/A"):
+                    merged[key] = value
+            if not existing:
+                merged = derived_st
+            game["special_teams"] = merged
+
+        derived_two_pt = _derive_two_point_stats_from_play_tree(
+            game,
+            team_aliases=team_aliases,
+            opp_aliases=opp_aliases,
+        )
+        if isinstance(derived_two_pt, dict):
+            game.update(derived_two_pt)
+
+    warnings: list[str] = []
+    xml_stats = pbp_entry.get("xml_stats") if isinstance(pbp_entry.get("xml_stats"), dict) else {}
+    xml_st = _best_xml_row(xml_stats, "special_teams")
+    if xml_st:
+        derived_fg_att = sum(
+            int((g.get("special_teams") or {}).get("field_goals_attempts") or 0)
+            for g in games
+            if isinstance(g.get("special_teams"), dict)
+        )
+        derived_fg_made = sum(
+            int((g.get("special_teams") or {}).get("field_goals_made") or 0)
+            for g in games
+            if isinstance(g.get("special_teams"), dict)
+        )
+        xml_fg_att = int(xml_st.get("fg_attempts") or 0)
+        xml_fg_made = int(xml_st.get("fg_made") or 0)
+        if derived_fg_att != xml_fg_att or derived_fg_made != xml_fg_made:
+            warnings.append(
+                f"{team_name}: special-teams FG parity delta "
+                f"(derived {derived_fg_made}/{derived_fg_att} vs XML {xml_fg_made}/{xml_fg_att})"
+            )
+
+    xml_tp = _best_xml_row(xml_stats, "two_point")
+    if xml_tp:
+        derived_totals = {
+            "two_point_attempts": sum(int(g.get("two_pt_attempts") or 0) for g in games if isinstance(g.get("two_pt_attempts"), int)),
+            "two_point_conversions": sum(int(g.get("two_pt_conversions") or 0) for g in games if isinstance(g.get("two_pt_conversions"), int)),
+            "two_point_allowed_attempts": sum(
+                int(g.get("opp_two_pt_attempts") or 0) for g in games if isinstance(g.get("opp_two_pt_attempts"), int)
+            ),
+            "two_point_allowed_conversions": sum(
+                int(g.get("opp_two_pt_conversions") or 0)
+                for g in games
+                if isinstance(g.get("opp_two_pt_conversions"), int)
+            ),
+        }
+        xml_totals = {
+            "two_point_attempts": int(xml_tp.get("two_point_attempts") or 0),
+            "two_point_conversions": int(xml_tp.get("two_point_conversions") or 0),
+            "two_point_allowed_attempts": int(xml_tp.get("two_point_allowed_attempts") or 0),
+            "two_point_allowed_conversions": int(xml_tp.get("two_point_allowed_conversions") or 0),
+        }
+        if derived_totals != xml_totals:
+            warnings.append(
+                f"{team_name}: derived two-point totals differ from XML "
+                f"(derived O {derived_totals['two_point_conversions']}/{derived_totals['two_point_attempts']}, "
+                f"D {derived_totals['two_point_allowed_conversions']}/{derived_totals['two_point_allowed_attempts']} "
+                f"vs XML O {xml_totals['two_point_conversions']}/{xml_totals['two_point_attempts']}, "
+                f"D {xml_totals['two_point_allowed_conversions']}/{xml_totals['two_point_allowed_attempts']})"
+            )
+    return warnings
 
 
 def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
@@ -2120,7 +2584,10 @@ def gather_team_data(
     pbp_entry = get_team_pbp(pbp_teams, team_name, school_slug)
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)
-    parity_gaps = _collect_parity_gaps(team_name, pbp_entry)
+        parity_gaps = _apply_special_teams_play_tree_derivations(team_name, pbp_entry)
+    else:
+        parity_gaps = []
+    parity_gaps.extend(_collect_parity_gaps(team_name, pbp_entry))
     alias_warnings = _collect_play_tree_alias_warnings(team_name, pbp_entry)
     parity_gaps.extend(alias_warnings)
     fourth_down_gap = _fourth_down_parity_gap(team_name, pbp_entry)
