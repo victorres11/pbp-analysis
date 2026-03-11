@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._sources import SRC_PBP
+from ._sources import SRC_CFB, SRC_PBP, SRC_XML
 
 
 def _games(team: dict) -> list[dict]:
@@ -195,18 +195,6 @@ def _team_stats(team: dict) -> dict:
         out["two_pt_allowed_conv"] = int(
             xml_tp_row.get("two_point_allowed_conversions", out["two_pt_allowed_conv"]) or 0
         )
-        if xml_tp_row.get("last_3_two_point_attempts") is not None:
-            out["l3_two_pt_att"] = int(xml_tp_row.get("last_3_two_point_attempts") or 0)
-        if xml_tp_row.get("last_3_two_point_conversions") is not None:
-            out["l3_two_pt_conv"] = int(xml_tp_row.get("last_3_two_point_conversions") or 0)
-        if xml_tp_row.get("last_3_two_point_allowed_attempts") is not None:
-            out["l3_two_pt_allowed_att"] = int(
-                xml_tp_row.get("last_3_two_point_allowed_attempts") or 0
-            )
-        if xml_tp_row.get("last_3_two_point_allowed_conversions") is not None:
-            out["l3_two_pt_allowed_conv"] = int(
-                xml_tp_row.get("last_3_two_point_allowed_conversions") or 0
-            )
     elif not games:
         out["two_pt_att"] = "N/A"
         out["two_pt_conv"] = "N/A"
@@ -254,10 +242,34 @@ def _team_stats(team: dict) -> dict:
     return out
 
 
+def _fg_source_tag(team: dict) -> str:
+    pbp = team.get("pbp_entry") or {}
+    xml_stats = pbp.get("xml_stats") or {}
+    xml_st = xml_stats.get("special_teams") if isinstance(xml_stats.get("special_teams"), dict) else {}
+    return SRC_XML if xml_st else SRC_PBP
+
+
+def _season_two_pt_source_tag(team: dict) -> str:
+    cfb_tp = _cfbstats_two_point(team)
+    if any(cfb_tp.get(key) is not None for key in (
+        "two_point_attempts",
+        "two_point_conversions",
+        "two_point_allowed_attempts",
+        "two_point_allowed_conversions",
+    )):
+        return SRC_CFB
+    pbp = team.get("pbp_entry") or {}
+    xml_stats = pbp.get("xml_stats") or {}
+    xml_tp = xml_stats.get("two_point") if isinstance(xml_stats.get("two_point"), dict) else {}
+    return SRC_XML if xml_tp else SRC_PBP
+
+
 def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
     stats = _team_stats(team)
+    fg_src = _fg_source_tag(team)
+    two_pt_src = _season_two_pt_source_tag(team)
 
     return f"""
     <div class="team-card">
@@ -265,8 +277,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Field Goals</h4>
         <ul>
-          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({_fmt_num(stats['fg_pct'], '%')}){SRC_PBP}</li>
-          <li>Long: {stats['fg_long']}{SRC_PBP}</li>
+          <li>Made/Att: {stats['fg_made']} / {stats['fg_att']} ({_fmt_num(stats['fg_pct'], '%')}){fg_src}</li>
+          <li>Long: {stats['fg_long']}{fg_src}</li>
         </ul>
       </div>
       <div class="block">
@@ -296,8 +308,8 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Two-Point Conversions</h4>
         <ul>
-          <li>Offense: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])}{SRC_PBP}</li>
-          <li>Defense Allowed: {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}{SRC_PBP}</li>
+          <li>Offense: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])}{two_pt_src}</li>
+          <li>Defense Allowed: {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}{two_pt_src}</li>
           <li>Last 3 O/D: {_fmt_two_pt(stats['l3_two_pt_conv'], stats['l3_two_pt_att'])} · {_fmt_two_pt(stats['l3_two_pt_allowed_conv'], stats['l3_two_pt_allowed_att'])}{SRC_PBP}</li>
         </ul>
       </div>
@@ -314,7 +326,8 @@ def _team_md(team: dict) -> str:
         f"- FG%: {_fmt_num(stats['fg_pct'], '%')} (Long {stats['fg_long']})",
         f"- Punt Avg: {_fmt_num(stats['punt_avg'])} (Net {_fmt_num(stats['punt_net_avg'])})",
         f"- 2PT O/D: {_fmt_two_pt(stats['two_pt_conv'], stats['two_pt_att'])} · {_fmt_two_pt(stats['two_pt_allowed_conv'], stats['two_pt_allowed_att'])}",
-        f"- Return TDs: {_fmt_int(stats['special_teams_tds'])}",
+        f"- Last 3 2PT O/D: {_fmt_two_pt(stats['l3_two_pt_conv'], stats['l3_two_pt_att'])} · {_fmt_two_pt(stats['l3_two_pt_allowed_conv'], stats['l3_two_pt_allowed_att'])}",
+        f"- ST Impact: TDs {_fmt_int(stats['special_teams_tds'])} | FG Blocks {_fmt_int(stats['fg_blocks'])} | Punt Blocks {_fmt_int(stats['punt_blocks'])} | Onside {_fmt_int(stats['onside_recovered'])}/{_fmt_int(stats['onside_attempts'])}",
     ])
 
 
