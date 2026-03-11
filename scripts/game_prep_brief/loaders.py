@@ -548,7 +548,12 @@ def _converted_bundle_game(
             _int_or_none(raw_game.get("points_off_turnovers_allowed")),
             _int_or_none(points_off_turnovers.get("points_off_turnovers_allowed")),
         ),
-        "post_turnover_drives": _list_or_empty(raw_game.get("post_turnover_drives")),
+        "post_turnover_drives": _enrich_post_turnover_drives(
+            raw_game,
+            _list_or_empty(raw_game.get("post_turnover_drives")),
+            team_aliases=_abbr_set(raw_game.get("team")),
+            opp_aliases=_abbr_set(opponent_abbr),
+        ),
         "red_zone_trips": _pick_present(
             _int_or_none(raw_game.get("red_zone_trips")),
             _int_or_none(red_zone.get("rz_trips")),
@@ -635,6 +640,169 @@ def _iter_play_tree_drives(play_tree: object):
             plays = [p for p in (drive.get("plays") or []) if isinstance(p, dict)]
             if plays:
                 yield quarter_num, plays
+
+
+def _scrimmage_play_count(plays: list[dict]) -> int:
+    return sum(1 for play in plays if not play.get("is_no_play") and play.get("is_scrimmage_play"))
+
+
+def _clock_remaining_seconds(clock: object) -> int | None:
+    if not isinstance(clock, str):
+        return None
+    match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", clock)
+    if not match:
+        return None
+    minutes = int(match.group(1))
+    seconds = int(match.group(2))
+    if seconds >= 60:
+        return None
+    return minutes * 60 + seconds
+
+
+def _clock_elapsed_seconds(quarter: object, clock: object) -> int | None:
+    if not isinstance(quarter, int) or quarter <= 0:
+        return None
+    remaining = _clock_remaining_seconds(clock)
+    if remaining is None:
+        return None
+    if quarter <= 4:
+        return ((quarter - 1) * 15 * 60) + ((15 * 60) - remaining)
+    return None
+
+
+def _format_drive_top(seconds: int | None) -> str | None:
+    if seconds is None or seconds < 0:
+        return None
+    minutes, remainder = divmod(seconds, 60)
+    return f"{minutes}:{remainder:02d}"
+
+
+def _drive_side(plays: list[dict], resolver: "_PlaySideResolver") -> str | None:
+    for play in plays:
+        if play.get("is_no_play") or not play.get("is_scrimmage_play"):
+            continue
+        side = resolver.resolve(play.get("offense"))
+        if side in {"team", "opp"}:
+            return side
+    return None
+
+
+def _find_turnover_drive_index(
+    flat_drives: list[tuple[int | None, list[dict]]],
+    entry: dict,
+) -> int | None:
+    target_desc = str(entry.get("turnover_description") or "").strip()
+    target_clock = str(entry.get("clock") or "").strip()
+    target_quarter = entry.get("quarter")
+    for idx, (quarter, plays) in enumerate(flat_drives):
+        for play in plays:
+            if play.get("is_no_play"):
+                continue
+            desc = str(play.get("description") or "").strip()
+            clock = str(play.get("clock") or "").strip()
+            if target_desc and desc != target_desc:
+                continue
+            if target_clock and clock != target_clock:
+                continue
+            play_quarter = play.get("quarter")
+            quarter_value = play_quarter if isinstance(play_quarter, int) else quarter
+            if isinstance(target_quarter, int) and quarter_value != target_quarter:
+                continue
+            return idx
+    return None
+
+
+def _matched_post_turnover_drive_segments(
+    flat_drives: list[tuple[int | None, list[dict]]],
+    entry: dict,
+    resolver: "_PlaySideResolver",
+) -> list[tuple[int | None, list[dict]]]:
+    turnover_drive_idx = _find_turnover_drive_index(flat_drives, entry)
+    if turnover_drive_idx is None:
+        return []
+
+    expected_side = "team" if entry.get("side") == "team_gained" else "opp"
+    expected_plays = entry.get("num_plays") if isinstance(entry.get("num_plays"), int) else None
+    collected: list[tuple[int | None, list[dict]]] = []
+    total_scrimmage_plays = 0
+
+    for drive_idx in range(turnover_drive_idx + 1, len(flat_drives)):
+        quarter, plays = flat_drives[drive_idx]
+        drive_side = _drive_side(plays, resolver)
+        if drive_side != expected_side:
+            if collected:
+                break
+            continue
+        if not _scrimmage_play_count(plays):
+            continue
+        collected.append((quarter, plays))
+        total_scrimmage_plays += _scrimmage_play_count(plays)
+        if expected_plays is not None and total_scrimmage_plays >= expected_plays:
+            break
+
+    return collected
+
+
+def _drive_top_seconds(drive_segments: list[tuple[int | None, list[dict]]]) -> int | None:
+    first_elapsed: int | None = None
+    last_elapsed: int | None = None
+
+    for quarter, plays in drive_segments:
+        valid_plays = [play for play in plays if not play.get("is_no_play") and play.get("clock")]
+        if not valid_plays:
+            continue
+        first_play = valid_plays[0]
+        last_play = valid_plays[-1]
+        start_elapsed = _clock_elapsed_seconds(
+            first_play.get("quarter") if isinstance(first_play.get("quarter"), int) else quarter,
+            first_play.get("clock"),
+        )
+        end_elapsed = _clock_elapsed_seconds(
+            last_play.get("quarter") if isinstance(last_play.get("quarter"), int) else quarter,
+            last_play.get("clock"),
+        )
+        if first_elapsed is None and start_elapsed is not None:
+            first_elapsed = start_elapsed
+        if end_elapsed is not None:
+            last_elapsed = end_elapsed
+
+    if first_elapsed is None or last_elapsed is None or last_elapsed < first_elapsed:
+        return None
+    return last_elapsed - first_elapsed
+
+
+def _enrich_post_turnover_drives(
+    raw_game: dict,
+    entries: list[dict],
+    *,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> list[dict]:
+    if not entries:
+        return []
+    play_tree = raw_game.get("play_tree")
+    if not isinstance(play_tree, list) or not play_tree:
+        return entries
+
+    resolver = _build_play_side_resolver(raw_game, team_aliases=team_aliases, opp_aliases=opp_aliases)
+    flat_drives = list(_iter_play_tree_drives(play_tree))
+    if not flat_drives:
+        return entries
+
+    enriched: list[dict] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        out = dict(entry)
+        segments = _matched_post_turnover_drive_segments(flat_drives, out, resolver)
+        top_seconds = _drive_top_seconds(segments)
+        if top_seconds is None and str(out.get("drive_result") or "").upper() == "DEF TD":
+            top_seconds = 0
+        if top_seconds is not None:
+            out["drive_top_seconds"] = top_seconds
+            out["drive_top"] = _format_drive_top(top_seconds)
+        enriched.append(out)
+    return enriched
 
 
 def _desc_contains_alias(desc_up: str, aliases: set[str]) -> bool:
