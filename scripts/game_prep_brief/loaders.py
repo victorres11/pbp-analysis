@@ -856,8 +856,8 @@ def _derive_special_teams_stats_from_play_tree(
                 if "RECOVER" in desc_up and _desc_contains_alias(desc_up, team_aliases):
                     stats["onside_kicks_recovered"] += 1
 
-        if kick_side == "opp" or (is_kickoff and _desc_contains_alias(desc_up, team_aliases)):
-            if is_kickoff and "RETURN" in desc_up and _desc_contains_alias(desc_up, team_aliases):
+        if kick_side == "opp":
+            if is_kickoff and "RETURN" in desc_up:
                 ret_yards = play.get("yards") if isinstance(play.get("yards"), (int, float)) else _extract_return_yards(desc_up)
                 if isinstance(ret_yards, (int, float)):
                     ret_yards_int = int(ret_yards)

@@ -121,3 +121,26 @@ def test_special_teams_markdown_uses_na_for_last3_two_point_when_no_game_level_s
     md = special_teams.build(team, opponent)["md_content"]
 
     assert "- Last 3 2PT O/D: N/A · N/A" in md
+
+
+def test_apply_special_teams_derivations_does_not_reverse_kickoff_return_side() -> None:
+    pbp_entry = {
+        "abbr": "UW",
+        "abbr_aliases": ["UW"],
+        "games": [
+            _game(
+                _play(
+                    "UW kickoff 65 yards to the OSU00 Smith return 20 yards to the OSU20",
+                    offense="UW",
+                    yards=20,
+                )
+            )
+        ],
+        "xml_stats": {},
+    }
+
+    loaders._apply_special_teams_play_tree_derivations("Washington", pbp_entry)
+
+    st = pbp_entry["games"][0]["special_teams"]
+    assert st["kickoff_returns"] == 0
+    assert st["kickoff_return_yards"] == 0
