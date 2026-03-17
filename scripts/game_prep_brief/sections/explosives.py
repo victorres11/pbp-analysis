@@ -234,6 +234,8 @@ def _iter_offensive_plays(game: dict, team_abbr: object) -> list[dict]:
                     continue
                 if play.get("is_no_play"):
                     continue
+                if play.get("is_scrimmage_play") is False:
+                    continue
                 out.append(play)
     return out
 
@@ -242,6 +244,8 @@ def _is_rush(desc: str) -> bool:
     d = desc.lower()
     if "kneel" in d:
         return False
+    if "scrambl" in d:
+        return True
     return " rush " in f" {d} "
 
 

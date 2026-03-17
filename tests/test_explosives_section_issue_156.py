@@ -39,11 +39,11 @@ def test_explosives_section_uses_play_tree_counts_for_pbp_context() -> None:
     washington_game_row_totals = explosives._game_row_aggregate_explosives(washington["pbp_entry"]["games"])
     ohio_state_game_row_totals = explosives._game_row_aggregate_explosives(ohio_state["pbp_entry"]["games"])
 
-    assert washington_totals["explosives"] == 83
+    assert washington_totals["explosives"] == 86
     assert washington_totals["explosive_passes"] == 48
-    assert washington_totals["explosive_rushes"] == 35
+    assert washington_totals["explosive_rushes"] == 38
     assert washington_totals["pass_20_plus"] == 48
-    assert washington_totals["rush_20_plus"] == 21
+    assert washington_totals["rush_20_plus"] == 24
     assert washington_totals["rush_15_19"] == 14
     assert washington_game_row_totals == {
         "explosives": 100,
@@ -70,8 +70,63 @@ def test_explosives_markdown_surfaces_play_tree_counts_and_bundle_row_gap() -> N
 
     md = explosives.build(washington, ohio_state)["md_content"]
 
-    assert "- PBP Explosives: 83 (Pass 48, Rush 35)" in md
-    assert "- Delta using PBP 20+ vs CFBStats: -4 (-5.5%) (residual -4)" in md
+    assert "- PBP Explosives: 86 (Pass 48, Rush 38)" in md
+    assert "- Delta using PBP 20+ vs CFBStats: -1 (-1.4%) (residual -1)" in md
 
     assert "- PBP Explosives: 71 (Pass 45, Rush 26)" in md
     assert "- Delta using PBP 20+ vs CFBStats: 0 (0.0%) (residual 0)" in md
+
+
+def test_explosives_treat_scrambles_as_runs_but_ignore_special_teams_returns() -> None:
+    team = {
+        "display_name": "Washington",
+        "has_pbp": True,
+        "stats": {"abbr": "UW"},
+        "last_n": {"actual_n": 0, "required_n": 3},
+        "pbp_entry": {
+            "abbr": "UW",
+            "abbr_aliases": ["UW"],
+            "cfbstats": {"rankings": {"all": {"explosives": {"value": "1", "rank": 1}}}},
+            "games": [
+                {
+                    "game_number": 1,
+                    "opponent": "OSU",
+                    "play_tree": [
+                        {
+                            "quarter": 1,
+                            "drives": [
+                                {
+                                    "plays": [
+                                        {
+                                            "offense": "UW",
+                                            "description": "WILLIAMS JR., Demond scrambles to the right for a gain of 21 yards to the OSU25",
+                                            "yards": 21,
+                                            "is_no_play": False,
+                                            "is_scrimmage_play": True,
+                                        },
+                                        {
+                                            "offense": "UW",
+                                            "description": "MOCZULSKI, Ethan kickoff 65 yards from the UW35 to the OSU0, return 25 yards",
+                                            "yards": 25,
+                                            "is_no_play": False,
+                                            "is_scrimmage_play": False,
+                                        },
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+
+    totals = explosives._aggregate_explosives(
+        team["pbp_entry"]["games"],
+        explosives._team_aliases(team),
+    )
+
+    assert totals["explosives"] == 1
+    assert totals["explosive_passes"] == 0
+    assert totals["explosive_rushes"] == 1
+    assert totals["rush_20_plus"] == 1
