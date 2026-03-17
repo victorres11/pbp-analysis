@@ -2265,10 +2265,10 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
     reasons: list[str] = []
 
     endpoint_specs = [
-        ("negative_plays_pg_api", "pbp/negative-plays?scope=season&format=text"),
-        ("negative_plays_forced_pg_api", "pbp/negative-plays-forced?scope=season&format=text"),
-        ("negative_plays_pg_last3_api", "pbp/negative-plays?scope=last3&format=text"),
-        ("negative_plays_forced_pg_last3_api", "pbp/negative-plays-forced?scope=last3&format=text"),
+        ("negative_plays_pg_api", "pbp/negative-plays?side=off&scope=season&format=text"),
+        ("negative_plays_forced_pg_api", "pbp/negative-plays?side=def&scope=season&format=text"),
+        ("negative_plays_pg_last3_api", "pbp/negative-plays?side=off&scope=last3&format=text"),
+        ("negative_plays_forced_pg_last3_api", "pbp/negative-plays?side=def&scope=last3&format=text"),
     ]
 
     for key, suffix in endpoint_specs:
@@ -2320,16 +2320,19 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     def _try_fetch(suffix: str) -> dict[str, object]:
         return _fetch_text_result_from_candidates(candidates, suffix)
 
-    plays_result = _try_fetch("pff/plays?side=both&format=text")
-    plays = plays_result.get("text")
-    if plays and "," in str(plays):
-        off, deff = str(plays).split(",", 1)
-        out["pff_plays_offense_pg"] = off.strip() or "N/A"
-        out["pff_plays_defense_pg"] = deff.strip() or "N/A"
-    elif plays:
-        reasons.append("pff_plays:malformed_payload")
+    plays_off_result = _try_fetch("pff/plays?side=off&format=text")
+    plays_off = plays_off_result.get("text")
+    if plays_off:
+        out["pff_plays_offense_pg"] = str(plays_off).strip() or "N/A"
     else:
-        reasons.append(f"pff_plays:{plays_result.get('reason') or 'unavailable'}")
+        reasons.append(f"pff_plays_off:{plays_off_result.get('reason') or 'unavailable'}")
+
+    plays_def_result = _try_fetch("pff/plays?side=def&format=text")
+    plays_def = plays_def_result.get("text")
+    if plays_def:
+        out["pff_plays_defense_pg"] = str(plays_def).strip() or "N/A"
+    else:
+        reasons.append(f"pff_plays_def:{plays_def_result.get('reason') or 'unavailable'}")
 
     tackling_result = _try_fetch("pff/tackling-per-game?format=text")
     tackling_pg = tackling_result.get("text")
