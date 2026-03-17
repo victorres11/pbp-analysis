@@ -34,20 +34,136 @@ def _games(team: dict) -> list[dict]:
     return pbp.get("games", [])
 
 
-def _aggregate_explosives(games: list[dict]) -> dict:
+def _fallback_game_explosive_counts(game: dict) -> dict:
+    explosive_passes = game.get("explosive_passes", 0) or 0
+    explosive_rushes = game.get("explosive_rushes", 0) or 0
+    explosives_total = game.get("explosives")
+    if explosives_total is None:
+        explosives_total = explosive_passes + explosive_rushes
+    return {
+        "explosives": explosives_total,
+        "explosive_passes": explosive_passes,
+        "explosive_rushes": explosive_rushes,
+        "pass_20_plus": 0,
+        "rush_20_plus": 0,
+        "rush_15_19": 0,
+    }
+
+
+def _explicit_explosive_counts(game: dict) -> dict | None:
+    details = game.get("explosive_details", []) or []
+    if not details:
+        return None
+    counts = {
+        "explosives": 0,
+        "explosive_passes": 0,
+        "explosive_rushes": 0,
+        "pass_20_plus": 0,
+        "rush_20_plus": 0,
+        "rush_15_19": 0,
+    }
+    for play in details:
+        yards = _to_yards(play.get("yards"))
+        if yards is None:
+            continue
+        play_type = str(play.get("type") or "").lower().strip()
+        if play_type == "pass" and yards >= 20:
+            counts["explosive_passes"] += 1
+            counts["pass_20_plus"] += 1
+        elif play_type in {"run", "rush"}:
+            if yards >= 20:
+                counts["explosive_rushes"] += 1
+                counts["rush_20_plus"] += 1
+            elif yards >= 15:
+                counts["explosive_rushes"] += 1
+                counts["rush_15_19"] += 1
+    counts["explosives"] = counts["explosive_passes"] + counts["explosive_rushes"]
+    return counts if counts["explosives"] else None
+
+
+def _derived_game_explosive_counts(game: dict, team_abbr: object) -> dict:
+    counts = {
+        "explosives": 0,
+        "explosive_passes": 0,
+        "explosive_rushes": 0,
+        "pass_20_plus": 0,
+        "rush_20_plus": 0,
+        "rush_15_19": 0,
+    }
+    plays = _iter_offensive_plays(game, team_abbr)
+    if plays:
+        for play in plays:
+            desc = play.get("description") or ""
+            desc_up = str(desc).upper()
+            yards = _to_yards(play.get("yards"))
+            if yards is None:
+                continue
+            if _is_pass(desc):
+                if yards >= 20 and "INTERCEPT" not in desc_up:
+                    counts["explosive_passes"] += 1
+                    counts["pass_20_plus"] += 1
+            elif _is_rush(desc):
+                if yards >= 20:
+                    counts["explosive_rushes"] += 1
+                    counts["rush_20_plus"] += 1
+                elif yards >= 15:
+                    counts["explosive_rushes"] += 1
+                    counts["rush_15_19"] += 1
+        counts["explosives"] = counts["explosive_passes"] + counts["explosive_rushes"]
+        return counts
+
+    explicit_counts = _explicit_explosive_counts(game)
+    if explicit_counts is not None:
+        return explicit_counts
+
+    return _fallback_game_explosive_counts(game)
+
+
+def _aggregate_explosives(games: list[dict], team_abbr: object) -> dict:
+    totals = {
+        "explosives": 0,
+        "explosive_passes": 0,
+        "explosive_rushes": 0,
+        "pass_20_plus": 0,
+        "rush_20_plus": 0,
+        "rush_15_19": 0,
+        "per_game": [],
+    }
+    for game in sorted(games, key=lambda x: x.get("game_number", 0)):
+        counts = _derived_game_explosive_counts(game, team_abbr)
+        for key in (
+            "explosives",
+            "explosive_passes",
+            "explosive_rushes",
+            "pass_20_plus",
+            "rush_20_plus",
+            "rush_15_19",
+        ):
+            totals[key] += counts[key]
+        totals["per_game"].append(
+            {
+                "game_number": game.get("game_number", "?"),
+                "opponent": game.get("opponent", "?"),
+                "explosives": counts["explosives"],
+            }
+        )
+    return totals
+
+
+def _game_row_aggregate_explosives(games: list[dict]) -> dict:
     totals = {
         "explosives": 0,
         "explosive_passes": 0,
         "explosive_rushes": 0,
     }
-    for g in games:
-        totals["explosive_passes"] += g.get("explosive_passes", 0) or 0
-        totals["explosive_rushes"] += g.get("explosive_rushes", 0) or 0
-        if g.get("explosives") is not None:
-            totals["explosives"] += g.get("explosives", 0) or 0
+    for game in games:
+        totals["explosive_passes"] += game.get("explosive_passes", 0) or 0
+        totals["explosive_rushes"] += game.get("explosive_rushes", 0) or 0
+        if game.get("explosives") is not None:
+            totals["explosives"] += game.get("explosives", 0) or 0
         else:
-            totals["explosives"] += (g.get("explosive_passes", 0) or 0) + (
-                g.get("explosive_rushes", 0) or 0
+            totals["explosives"] += (game.get("explosive_passes", 0) or 0) + (
+                game.get("explosive_rushes", 0) or 0
             )
     return totals
 
@@ -99,15 +215,11 @@ def _should_show_last_n(team: dict) -> bool:
     return last_n.get("actual_n", 0) >= last_n.get("required_n", 3)
 
 
-def _per_game_trend(games: list[dict]) -> list[str]:
-    trend = []
-    for g in sorted(games, key=lambda x: x.get("game_number", 0)):
-        opp = g.get("opponent", "?")
-        count = g.get("explosives")
-        if count is None:
-            count = (g.get("explosive_passes", 0) or 0) + (g.get("explosive_rushes", 0) or 0)
-        trend.append(f"G{g.get('game_number', '?')} vs {opp}: {count}")
-    return trend
+def _per_game_trend(aggregate: dict) -> list[str]:
+    return [
+        f"G{entry.get('game_number', '?')} vs {entry.get('opponent', '?')}: {entry.get('explosives', 0)}"
+        for entry in aggregate.get("per_game", [])
+    ]
 
 
 def _iter_offensive_plays(game: dict, team_abbr: object) -> list[dict]:
@@ -174,26 +286,12 @@ def _non_explosive_profile(games: list[dict], team_abbr: object) -> dict:
 
 
 def _explosive_definition_breakdown(games: list[dict], team_abbr: object) -> dict:
-    pass_20_plus = 0
-    rush_20_plus = 0
-    rush_15_19 = 0
-    for g in games:
-        for p in _iter_offensive_plays(g, team_abbr):
-            desc = p.get("description") or ""
-            desc_up = str(desc).upper()
-            yards = _to_yards(p.get("yards"))
-            if yards is None:
-                continue
-            if _is_pass(desc):
-                if yards >= 20 and "INTERCEPT" not in desc_up:
-                    pass_20_plus += 1
-            elif _is_rush(desc):
-                if yards >= 20:
-                    rush_20_plus += 1
-                elif yards >= 15:
-                    rush_15_19 += 1
+    aggregate = _aggregate_explosives(games, team_abbr)
+    pass_20_plus = aggregate["pass_20_plus"]
+    rush_20_plus = aggregate["rush_20_plus"]
+    rush_15_19 = aggregate["rush_15_19"]
     pbp_20_total = pass_20_plus + rush_20_plus
-    pbp_15_total = pbp_20_total + rush_15_19
+    pbp_15_total = aggregate["explosives"]
     return {
         "pass_20_plus": pass_20_plus,
         "rush_20_plus": rush_20_plus,
@@ -322,7 +420,8 @@ def _team_html(team: dict) -> str:
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
 
     games = _games(team)
-    totals = _aggregate_explosives(games)
+    team_abbr = _team_aliases(team)
+    totals = _aggregate_explosives(games, team_abbr=team_abbr)
     rankings_all = (
         (team.get("pbp_entry") or {})
         .get("cfbstats", {})
@@ -334,16 +433,15 @@ def _team_html(team: dict) -> str:
     cfb_expl_rank = expl_rank.get("rank")
     cfb_expl_total = _to_num(cfb_expl_raw)
     delta_text, delta_status = _explosive_delta(cfb_expl_total, float(totals["explosives"]))
-    trend = _per_game_trend(games)
-    team_abbr = _team_aliases(team)
+    trend = _per_game_trend(totals)
     top_plays = _top_explosive_plays(games, team_abbr=team_abbr)
     ne_season = _non_explosive_profile(games, team_abbr) if team_abbr else {"rush_avg": 0.0, "pass_avg": 0.0, "rush_att": 0, "pass_att": 0}
-    defs = _explosive_definition_breakdown(games, team_abbr) if team_abbr else {
-        "pass_20_plus": 0,
-        "rush_20_plus": 0,
-        "rush_15_19": 0,
-        "pbp_20_total": 0,
-        "pbp_15_total": 0,
+    defs = {
+        "pass_20_plus": totals["pass_20_plus"],
+        "rush_20_plus": totals["rush_20_plus"],
+        "rush_15_19": totals["rush_15_19"],
+        "pbp_20_total": totals["pass_20_plus"] + totals["rush_20_plus"],
+        "pbp_15_total": totals["explosives"],
     }
     threshold_delta_text, _ = _explosive_delta(cfb_expl_total, float(defs["pbp_20_total"]))
     residual_text = "N/A"
@@ -359,11 +457,12 @@ def _team_html(team: dict) -> str:
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
-        l3_epg = last_n.get("explosives_per_game", 0) or 0
-        l3_ppg = last_n.get("explosive_passes_per_game", 0) or 0
-        l3_rpg = last_n.get("explosive_rushes_per_game", 0) or 0
-        season_epg = totals["explosives"] / len(games) if games else 0
         last_n_games = sorted(games, key=lambda x: x.get("game_number", 0))[-actual_n:] if actual_n else []
+        l3_totals = _aggregate_explosives(last_n_games, team_abbr=team_abbr)
+        l3_epg = (l3_totals["explosives"] / actual_n) if actual_n else 0
+        l3_ppg = (l3_totals["explosive_passes"] / actual_n) if actual_n else 0
+        l3_rpg = (l3_totals["explosive_rushes"] / actual_n) if actual_n else 0
+        season_epg = totals["explosives"] / len(games) if games else 0
         ne_last_n = _non_explosive_profile(last_n_games, team_abbr) if team_abbr and last_n_games else {"rush_avg": 0.0, "pass_avg": 0.0}
 
         epg_arrow = ""
@@ -421,7 +520,8 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- Explosives: N/A"
     games = _games(team)
-    totals = _aggregate_explosives(games)
+    team_abbr = _team_aliases(team)
+    totals = _aggregate_explosives(games, team_abbr=team_abbr)
     rankings_all = (
         (team.get("pbp_entry") or {})
         .get("cfbstats", {})
@@ -433,15 +533,14 @@ def _team_md(team: dict) -> str:
     cfb_expl_rank = expl_rank.get("rank")
     cfb_expl_total = _to_num(cfb_expl_raw)
     delta_text, delta_status = _explosive_delta(cfb_expl_total, float(totals["explosives"]))
-    team_abbr = _team_aliases(team)
     top_plays = _top_explosive_plays(games, team_abbr=team_abbr)[:3]
     ne_season = _non_explosive_profile(games, team_abbr) if team_abbr else {"rush_avg": 0.0, "pass_avg": 0.0}
-    defs = _explosive_definition_breakdown(games, team_abbr) if team_abbr else {
-        "pass_20_plus": 0,
-        "rush_20_plus": 0,
-        "rush_15_19": 0,
-        "pbp_20_total": 0,
-        "pbp_15_total": 0,
+    defs = {
+        "pass_20_plus": totals["pass_20_plus"],
+        "rush_20_plus": totals["rush_20_plus"],
+        "rush_15_19": totals["rush_15_19"],
+        "pbp_20_total": totals["pass_20_plus"] + totals["rush_20_plus"],
+        "pbp_15_total": totals["explosives"],
     }
     threshold_delta_text, _ = _explosive_delta(cfb_expl_total, float(defs["pbp_20_total"]))
     residual_text = "N/A"
@@ -454,7 +553,9 @@ def _team_md(team: dict) -> str:
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
         actual_n = last_n.get("actual_n", 0)
-        l3_epg = last_n.get("explosives_per_game", 0) or 0
+        last_n_games = sorted(games, key=lambda x: x.get("game_number", 0))[-actual_n:] if actual_n else []
+        l3_totals = _aggregate_explosives(last_n_games, team_abbr=team_abbr)
+        l3_epg = (l3_totals["explosives"] / actual_n) if actual_n else 0
         season_epg = totals["explosives"] / len(games) if games else 0
         if abs(l3_epg - season_epg) >= 0.8:
             explosives_suffix = f" (L{actual_n}: {l3_epg:.1f}/gm)"
