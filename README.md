@@ -71,6 +71,23 @@ Notes:
   - then two-token elimination for feed variants like `UW` vs `WAS`/`WASH`
   - if a new feed alias appears, extend the team's `abbr_aliases` rather than patching individual stat paths
 
+### Operator Dashboard
+
+The refresh pipeline now has a thin operator UI at [operator/index.html](./operator/index.html).
+
+- Deployed route: `/operator/`
+- Purpose: launch `Brief Live Refresh`, inspect the newest workflow run, and verify the rolling `brief-artifacts-<season>` release without introducing a new backend
+- Source of truth stays the same:
+  - GitHub Actions for live runs
+  - GitHub Releases for published artifacts
+  - `game_prep_pipeline_summary_<season>.json` for machine-readable run state
+- GitHub auth:
+  - dispatch requires a token
+  - private workflow/release reads also require a token
+  - the page stores a token in browser local storage only when you explicitly click `Save token locally`
+
+For workflow details, publication rules, freshness, and rollback, use [docs/demo-runbook.md](./docs/demo-runbook.md).
+
 ### Generate Data
 ```bash
 cd ~/clawd/pbp-parser
