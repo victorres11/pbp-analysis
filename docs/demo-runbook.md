@@ -173,6 +173,7 @@ To pause scheduled operations when needed:
 
 The published artifact contract is documented in [published-artifact-contract.md](./published-artifact-contract.md).
 The specific role of the `yr-data-api` bundle handoff path is documented in [yr-data-api-bundle-role.md](./yr-data-api-bundle-role.md).
+Supported-set readiness for Big Ten + Notre Dame is tracked in [bigten-nd-readiness-matrix.md](./bigten-nd-readiness-matrix.md) and the current operator warning policy is documented in [bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md).
 
 Short version:
 
@@ -184,6 +185,19 @@ Short version:
 - `artifact_contract` inside the summary JSON is the machine-readable source of truth for whether a run is publishable
 - `yr-data-api/data/pbp_stats_bundle.json` remains a local handoff path, not a published artifact path
 - `enrichment_contract` inside the summary JSON is the machine-readable source of truth for enrichment policy and status
+
+### Supported-Set Warning Triage
+
+For the current supported production scope, operators should read warnings through the triage lens in [bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md):
+
+- `must-fix`: blocks client-facing confidence until the linked follow-up issue is resolved
+- `known gap`: keep visible to operators, but do not block Big Ten + Notre Dame brief delivery on its own
+- `noise`: should be suppressed or reworded when convenient; not an operator decision point
+
+Current must-fix follow-ups:
+
+- [#229](https://github.com/victorres11/pbp-analysis/issues/229) restore Northwestern in the published bundle artifact
+- [#230](https://github.com/victorres11/pbp-analysis/issues/230) fix published verification artifact coverage for supported-set releases
 
 Direct brief runs follow the same contract by default:
 
