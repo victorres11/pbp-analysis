@@ -40,6 +40,10 @@ def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
 
 
+def stable_unique(items: list[str]) -> list[str]:
+    return list(dict.fromkeys(items))
+
+
 def find_python_bin_dir() -> Path | None:
     for parent in (ROOT, *ROOT.parents):
         candidate = parent / ".venv" / "bin"
@@ -157,9 +161,9 @@ def collect_warning_lines(stderr_lines: list[str], outputs: dict[str, str], *, m
                 else:
                     warning_lines.append(f"[warn] {banner}")
     except OSError:
-        return warning_lines
+        return stable_unique(warning_lines)
 
-    return warning_lines
+    return stable_unique(warning_lines)
 
 
 def run_matchup(
@@ -306,7 +310,8 @@ def build_report(
 
         for warning in result["warning_lines"]:
             for slug in warning_targets(warning, matchup_slugs):
-                team_entries[slug]["warning_lines"].append(warning)
+                if warning not in team_entries[slug]["warning_lines"]:
+                    team_entries[slug]["warning_lines"].append(warning)
                 team_entries[slug]["warning_kinds"].add(classify_warning(warning))
 
     normalized_teams: dict[str, Any] = {}

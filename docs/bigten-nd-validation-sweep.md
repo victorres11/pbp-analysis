@@ -1,6 +1,6 @@
 # Big Ten + Notre Dame Validation Sweep
 
-Generated: `2026-03-17T20:10:48.464035+00:00`
+Generated: `2026-03-17T21:03:13.757610+00:00`
 Season: `2025`
 Mode: `no-enrichment`
 Format: `markdown`
@@ -32,23 +32,23 @@ Output dir: `/tmp/bigten_nd_validation_sweep_no_enrichment`
 
 | Team | Conf | Warnings | Enrichment | Confidence | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Illinois | Big Ten | data quality | not checked | caution | 8 data-quality warning(s) |
-| Indiana | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
-| Iowa | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| Illinois | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
+| Indiana | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
+| Iowa | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
 | Maryland | Big Ten | data quality | not checked | caution | 2 data-quality warning(s) |
-| Michigan | Big Ten | data quality | not checked | caution | 6 data-quality warning(s) |
+| Michigan | Big Ten | data quality | not checked | caution | 5 data-quality warning(s) |
 | Michigan State | Big Ten | data quality | not checked | caution | 2 data-quality warning(s) |
 | Minnesota | Big Ten | data quality | not checked | caution | 2 data-quality warning(s) |
-| Nebraska | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| Nebraska | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
 | Northwestern | Big Ten | artifact gap | not checked | attention |  |
-| Notre Dame | Independent | data quality | not checked | caution | 4 data-quality warning(s) |
+| Notre Dame | Independent | data quality | not checked | caution | 3 data-quality warning(s) |
 | Ohio State | Big Ten | clean | not checked | ready |  |
-| Oregon | Big Ten | data quality | not checked | caution | 5 data-quality warning(s) |
-| Penn State | Big Ten | data quality | not checked | caution | 5 data-quality warning(s) |
-| Purdue | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| Oregon | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| Penn State | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| Purdue | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
 | Rutgers | Big Ten | data quality | not checked | caution | 1 data-quality warning(s) |
-| UCLA | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
-| USC | Big Ten | data quality | not checked | caution | 4 data-quality warning(s) |
+| UCLA | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
+| USC | Big Ten | data quality | not checked | caution | 3 data-quality warning(s) |
 | Washington | Big Ten | clean | not checked | ready |  |
 | Wisconsin | Big Ten | clean | not checked | ready |  |
 

@@ -60,6 +60,48 @@ def test_build_report_rolls_matchups_into_team_summary() -> None:
     assert "| UCLA | Big Ten | data quality | validated | caution | 1 data-quality warning(s) |" in markdown
 
 
+def test_build_report_dedupes_team_warning_lines_across_matchups() -> None:
+    report = build_report(
+        season=2025,
+        mode="no-enrichment",
+        format="markdown",
+        output_dir="/tmp/bigten",
+        matchup_results=[
+            {
+                "team1": "Illinois",
+                "team2": "Indiana",
+                "team1_slug": "illinois",
+                "team2_slug": "indiana",
+                "exit_code": 0,
+                "classification": "warning_data_quality",
+                "warning_lines": ["[warn] Illinois: 4th-down parity delta +5.4 pts"],
+                "warning_kinds": ["data_quality"],
+                "stderr_lines": [],
+                "stdout_lines": [],
+                "outputs": {"markdown": "/tmp/illinois_vs_indiana.md"},
+                "command": [],
+            },
+            {
+                "team1": "Northwestern",
+                "team2": "Illinois",
+                "team1_slug": "northwestern",
+                "team2_slug": "illinois",
+                "exit_code": 0,
+                "classification": "warning_artifact_gap",
+                "warning_lines": ["[warn] Illinois: 4th-down parity delta +5.4 pts"],
+                "warning_kinds": ["data_quality"],
+                "stderr_lines": [],
+                "stdout_lines": [],
+                "outputs": {"markdown": "/tmp/northwestern_vs_illinois.md"},
+                "command": [],
+            },
+        ],
+    )
+
+    assert report["teams"]["illinois"]["notes"] == "1 data-quality warning(s)"
+    assert report["teams"]["illinois"]["warning_lines"] == ["[warn] Illinois: 4th-down parity delta +5.4 pts"]
+
+
 def test_summarize_confidence_blocks_failed_runs() -> None:
     assert summarize_confidence([1], {"artifact_gap"}) == "blocked"
 
@@ -78,6 +120,23 @@ def test_collect_warning_lines_reads_rendered_markdown_banner(tmp_path: Path) ->
         "[warn] Northwestern: missing team payload in XML bundle",
         "[warn] Illinois: 4th-down parity delta +5.4 pts.",
     ]
+
+
+def test_collect_warning_lines_dedupes_stderr_and_rendered_duplicates(tmp_path: Path) -> None:
+    markdown_path = tmp_path / "brief.md"
+    markdown_path.write_text(
+        "🏈 *GAME PREP BRIEF v2*\n"
+        "⚠️ XML parity gaps detected: Illinois: 4th-down parity delta +5.4 pts\n",
+        encoding="utf-8",
+    )
+
+    warning_lines = collect_warning_lines(
+        ["[warn] Illinois: 4th-down parity delta +5.4 pts"],
+        {"markdown": str(markdown_path)},
+        mode="refresh-enrichment",
+    )
+
+    assert warning_lines == ["[warn] Illinois: 4th-down parity delta +5.4 pts"]
 
 
 def test_collect_warning_lines_skips_expected_partial_enrichment_banner_in_no_enrichment_mode(

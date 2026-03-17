@@ -41,8 +41,6 @@
         "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
         "[warn] Turnover reconciliation mismatch for Indiana: {'gained': -7, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': -24, 'pot_against': 10}",
         "[warn] Turnover game mismatches for Indiana: G2 KSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G6 ORE {'gained': -3, 'lost': 0, 'int_gained': -1, 'fum_gained': -2, 'pot_for': -21, 'pot_against': 7}, G9 UMD {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)",
-        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
         "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)"
       ]
     },
@@ -81,7 +79,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Iowa: {'gained': -2, 'lost': -2, 'int_lost': 0, 'fum_lost': -2, 'pot_for': 3, 'pot_against': 0}",
         "[warn] Turnover game mismatches for Iowa: G2 ISU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G9 ORE {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 MSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)",
         "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)"
       ]
     },
@@ -162,8 +159,7 @@
         "[warn] Turnover game mismatches for Michigan: G1 NM {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G2 OKL {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 USC {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)",
         "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
-        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)"
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}"
       ]
     },
     {
@@ -205,7 +201,6 @@
         "[warn] Turnover game mismatches for Minnesota: G3 CAL {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G7 NEB {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 MSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Turnover reconciliation mismatch for Nebraska: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': -7, 'pot_against': 9}",
         "[warn] Turnover game mismatches for Nebraska: G1 CIN {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 MSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G7 MINN {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)",
         "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)"
       ]
     },
@@ -246,8 +241,7 @@
         "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
         "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
-        "[warn] Northwestern: missing team payload in XML bundle",
-        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)"
+        "[warn] Northwestern: missing team payload in XML bundle"
       ]
     },
     {
@@ -291,8 +285,6 @@
         "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)",
         "[warn] Turnover reconciliation mismatch for Purdue: {'gained': 0, 'lost': -3, 'int_lost': 0, 'fum_lost': -3, 'pot_for': -4, 'pot_against': 3}",
         "[warn] Turnover game mismatches for Purdue: G5 ILL {'gained': 0, 'lost': -2, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G9 MICH {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)",
-        "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)",
         "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)"
       ]
     },
@@ -332,8 +324,7 @@
         "[warn] Turnover reconciliation mismatch for Penn State: {'gained': 0, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 15, 'pot_against': -4}",
         "[warn] Turnover game mismatches for Penn State: G4 ORE {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NU {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)",
-        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)",
-        "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)"
+        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)"
       ]
     },
     {
@@ -372,8 +363,7 @@
         "[warn] Turnover reconciliation mismatch for Oregon: {'gained': -5, 'lost': -5, 'int_lost': 1, 'fum_lost': -1, 'pot_for': 14, 'pot_against': -24}",
         "[warn] Turnover game mismatches for Oregon: G2 OSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 11, 'pot_against': 0}, G4 OSU {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G5 PSU {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)",
-        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)",
-        "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)"
+        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)"
       ]
     },
     {
@@ -417,8 +407,6 @@
         "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)",
         "[warn] Turnover reconciliation mismatch for USC: {'gained': -2, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 11, 'pot_against': 0}",
         "[warn] Turnover game mismatches for USC: G6 MICH {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 NU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)",
-        "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)",
         "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)"
       ]
     }
@@ -426,7 +414,7 @@
   "meta": {
     "artifact": "bigten_nd_validation_sweep",
     "format": "markdown",
-    "generated_at": "2026-03-17T20:10:48.464035+00:00",
+    "generated_at": "2026-03-17T21:03:13.757610+00:00",
     "matchup_count": 10,
     "mode": "no-enrichment",
     "output_dir": "/tmp/bigten_nd_validation_sweep_no_enrichment",
@@ -460,7 +448,7 @@
           "opponent": "Northwestern"
         }
       ],
-      "notes": "8 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Illinois",
       "warning_kinds": [
         "data_quality"
@@ -468,11 +456,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
-        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
-        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
-        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
-        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
         "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)"
       ],
       "warning_status": "data quality"
@@ -489,7 +472,7 @@
           "opponent": "Illinois"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Indiana",
       "warning_kinds": [
         "data_quality"
@@ -497,7 +480,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Indiana: {'gained': -7, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': -24, 'pot_against': 10}",
         "[warn] Turnover game mismatches for Indiana: G2 KSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G6 ORE {'gained': -3, 'lost': 0, 'int_gained': -1, 'fum_gained': -2, 'pot_for': -21, 'pot_against': 7}, G9 UMD {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)",
         "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)"
       ],
       "warning_status": "data quality"
@@ -514,7 +496,7 @@
           "opponent": "Wisconsin"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Iowa",
       "warning_kinds": [
         "data_quality"
@@ -522,7 +504,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Iowa: {'gained': -2, 'lost': -2, 'int_lost': 0, 'fum_lost': -2, 'pot_for': 3, 'pot_against': 0}",
         "[warn] Turnover game mismatches for Iowa: G2 ISU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G9 ORE {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 MSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)",
         "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)"
       ],
       "warning_status": "data quality"
@@ -562,7 +543,7 @@
           "opponent": "Michigan State"
         }
       ],
-      "notes": "6 data-quality warning(s)",
+      "notes": "5 data-quality warning(s)",
       "team_name": "Michigan",
       "warning_kinds": [
         "data_quality"
@@ -572,8 +553,7 @@
         "[warn] Turnover game mismatches for Michigan: G1 NM {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G2 OKL {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 USC {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)",
         "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
-        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)"
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}"
       ],
       "warning_status": "data quality"
     },
@@ -635,7 +615,7 @@
           "opponent": "Minnesota"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Nebraska",
       "warning_kinds": [
         "data_quality"
@@ -643,7 +623,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Nebraska: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': -7, 'pot_against': 9}",
         "[warn] Turnover game mismatches for Nebraska: G1 CIN {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 MSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G7 MINN {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)",
         "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)"
       ],
       "warning_status": "data quality"
@@ -682,7 +661,7 @@
           "opponent": "Purdue"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Notre Dame",
       "warning_kinds": [
         "data_quality"
@@ -690,7 +669,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Notre Dame: {'gained': -3, 'lost': 1, 'int_lost': 1, 'fum_lost': 0, 'pot_for': 7, 'pot_against': 5}",
         "[warn] Turnover game mismatches for Notre Dame: G5 BSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NCS {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': -3, 'pot_against': 2}, G10 PITT {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 7}",
-        "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)",
         "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)"
       ],
       "warning_status": "data quality"
@@ -725,7 +703,7 @@
           "opponent": "Washington"
         }
       ],
-      "notes": "5 data-quality warning(s)",
+      "notes": "4 data-quality warning(s)",
       "team_name": "Oregon",
       "warning_kinds": [
         "data_quality"
@@ -734,8 +712,7 @@
         "[warn] Turnover reconciliation mismatch for Oregon: {'gained': -5, 'lost': -5, 'int_lost': 1, 'fum_lost': -1, 'pot_for': 14, 'pot_against': -24}",
         "[warn] Turnover game mismatches for Oregon: G2 OSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 11, 'pot_against': 0}, G4 OSU {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G5 PSU {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)",
-        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)",
-        "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)"
+        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)"
       ],
       "warning_status": "data quality"
     },
@@ -751,7 +728,7 @@
           "opponent": "Ohio State"
         }
       ],
-      "notes": "5 data-quality warning(s)",
+      "notes": "4 data-quality warning(s)",
       "team_name": "Penn State",
       "warning_kinds": [
         "data_quality"
@@ -760,8 +737,7 @@
         "[warn] Turnover reconciliation mismatch for Penn State: {'gained': 0, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 15, 'pot_against': -4}",
         "[warn] Turnover game mismatches for Penn State: G4 ORE {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NU {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
         "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)",
-        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)",
-        "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)"
+        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)"
       ],
       "warning_status": "data quality"
     },
@@ -777,7 +753,7 @@
           "opponent": "Notre Dame"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "Purdue",
       "warning_kinds": [
         "data_quality"
@@ -785,7 +761,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for Purdue: {'gained': 0, 'lost': -3, 'int_lost': 0, 'fum_lost': -3, 'pot_for': -4, 'pot_against': 3}",
         "[warn] Turnover game mismatches for Purdue: G5 ILL {'gained': 0, 'lost': -2, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G9 MICH {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)",
         "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)"
       ],
       "warning_status": "data quality"
@@ -824,7 +799,7 @@
           "opponent": "USC"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "UCLA",
       "warning_kinds": [
         "data_quality"
@@ -832,7 +807,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for UCLA: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 0, 'pot_against': 14}",
         "[warn] Turnover game mismatches for UCLA: G2 UNLV {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G3 UNM {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -3, 'pot_against': 0}",
-        "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)",
         "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)"
       ],
       "warning_status": "data quality"
@@ -849,7 +823,7 @@
           "opponent": "UCLA"
         }
       ],
-      "notes": "4 data-quality warning(s)",
+      "notes": "3 data-quality warning(s)",
       "team_name": "USC",
       "warning_kinds": [
         "data_quality"
@@ -857,7 +831,6 @@
       "warning_lines": [
         "[warn] Turnover reconciliation mismatch for USC: {'gained': -2, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 11, 'pot_against': 0}",
         "[warn] Turnover game mismatches for USC: G6 MICH {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 NU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
-        "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)",
         "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)"
       ],
       "warning_status": "data quality"
