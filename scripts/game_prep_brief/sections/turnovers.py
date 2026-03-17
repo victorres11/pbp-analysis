@@ -34,6 +34,7 @@ def _post_turnover_drives(games: list[dict]) -> dict:
                 "result": d.get("drive_result", "?"),
                 "yards": d.get("total_yards", "?"),
                 "num_plays": d.get("num_plays", "?"),
+                "top": d.get("drive_top"),
                 "points": d.get("points_scored", 0),
                 "turnover_type": d.get("turnover_type", "?"),
             }
@@ -133,9 +134,11 @@ def _team_html(team: dict) -> str:
             def _drive_line(d: dict) -> str:
                 pts = d.get("points", 0) or 0
                 pts_str = f", {pts} pts" if pts else ""
+                top = d.get("top")
+                top_str = f", TOP {top}" if top else ""
                 return (
                     f"<li>{d['turnover_type']} \u2192 {d['result']}"
-                    f"{pts_str}, {d['yards']} yds, {d['num_plays']} plays</li>"
+                    f"{pts_str}, {d['yards']} yds, {d['num_plays']} plays{top_str}</li>"
                 )
             inner = "".join(_drive_line(d) for d in drives)
             parts.append(f"<ul>{inner}</ul></li>")
