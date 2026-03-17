@@ -34,6 +34,7 @@ SUPPORTED_TEAMS = (
 )
 
 PENDING_SWEEP = "pending sweep"
+DEFAULT_SWEEP_REPORT = Path("docs/bigten-nd-validation-sweep.json")
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,16 @@ def _load_artifact(source: str | None, *, logical_name: str, season: int) -> dic
     return payload
 
 
+def _load_optional_json(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    if not path.exists():
+        return None
+    with open(path, encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return payload if isinstance(payload, dict) else None
+
+
 def _team_present(artifact: dict[str, Any], team_slug: str, team_name: str) -> bool:
     teams = _artifact_team_map(artifact)
     if not isinstance(teams, dict):
@@ -134,15 +145,27 @@ def build_readiness_rows(
     bundle: dict[str, Any],
     snapshot: dict[str, Any],
     verification: dict[str, Any],
+    sweep_report: dict[str, Any] | None = None,
 ) -> list[TeamReadinessRow]:
+    sweep_teams = sweep_report.get("teams", {}) if isinstance(sweep_report, dict) else {}
     rows: list[TeamReadinessRow] = []
     for team in SUPPORTED_TEAMS:
         bundle_status = "present" if _team_present(bundle, team["slug"], team["name"]) else "missing"
         snapshot_status = "present" if _team_present(snapshot, team["slug"], team["name"]) else "missing"
         verification_status = "present" if _team_present(verification, team["slug"], team["name"]) else "missing"
+        sweep_payload = sweep_teams.get(team["slug"], {}) if isinstance(sweep_teams, dict) else {}
+        if not isinstance(sweep_payload, dict):
+            sweep_payload = {}
+        enrichment_status = sweep_payload.get("enrichment_status", PENDING_SWEEP)
+        warning_status = sweep_payload.get("warning_status", PENDING_SWEEP)
+        confidence = sweep_payload.get("confidence", PENDING_SWEEP)
         notes_parts: list[str] = []
         if "missing" in {bundle_status, snapshot_status, verification_status}:
             notes_parts.append("artifact gap")
+            confidence = "attention"
+        sweep_notes = sweep_payload.get("notes")
+        if isinstance(sweep_notes, str) and sweep_notes.strip():
+            notes_parts.append(sweep_notes.strip())
         rows.append(
             TeamReadinessRow(
                 conference=team["conference"],
@@ -151,9 +174,9 @@ def build_readiness_rows(
                 bundle=bundle_status,
                 snapshot=snapshot_status,
                 verification=verification_status,
-                enrichment=PENDING_SWEEP,
-                warnings=PENDING_SWEEP,
-                confidence=PENDING_SWEEP,
+                enrichment=enrichment_status,
+                warnings=warning_status,
+                confidence=confidence,
                 notes=", ".join(notes_parts) if notes_parts else "",
             )
         )
@@ -183,7 +206,7 @@ def render_markdown(
         "- Big Ten teams",
         "- Notre Dame",
         "",
-        "Artifact coverage is auto-derived from the current production artifacts. Enrichment, warning triage, and confidence are intentionally left as `pending sweep` until the supported-set validation pass is completed.",
+        "Artifact coverage is auto-derived from the current production artifacts. Enrichment, warning triage, and confidence merge current artifact state with the latest supported-set validation sweep when one is available.",
         "",
         "## Sources",
         "",
@@ -244,7 +267,8 @@ def render_markdown(
             "",
             "- `present` means the team resolves from the current artifact payload.",
             "- `missing` means the team could not be found in that artifact and should be treated as a production gap.",
-            "- `pending sweep` means the validation and operator triage work has not been completed for that dimension yet.",
+            "- `pending sweep` means the supported-set validation sweep has not been recorded for that dimension yet.",
+            "- `not checked` means the current sweep intentionally skipped enrichment validation.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -256,6 +280,7 @@ def build_findings(
     bundle: dict[str, Any],
     snapshot: dict[str, Any],
     verification: dict[str, Any],
+    sweep_report: dict[str, Any] | None = None,
 ) -> list[str]:
     findings: list[str] = []
     missing_bundle = [row.name for row in rows if row.bundle == "missing"]
@@ -295,6 +320,17 @@ def build_findings(
         if generated_at:
             findings.append(f"Bundle source was generated at {generated_at}.")
 
+    if isinstance(sweep_report, dict):
+        sweep_meta = sweep_report.get("meta")
+        sweep_summary = sweep_report.get("summary")
+        if isinstance(sweep_meta, dict) and isinstance(sweep_summary, dict):
+            findings.append(
+                "Latest supported-set sweep "
+                f"({sweep_meta.get('mode', 'unknown mode')}) recorded "
+                f"{sweep_summary.get('matchups_passed', 0)}/{sweep_meta.get('matchup_count', 0)} "
+                "successful matchup runs."
+            )
+
     return findings
 
 
@@ -304,6 +340,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bundle")
     parser.add_argument("--cfbstats-snapshot")
     parser.add_argument("--cfbstats-verification-report")
+    parser.add_argument(
+        "--sweep-report",
+        type=Path,
+        default=DEFAULT_SWEEP_REPORT,
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -321,12 +362,14 @@ def main() -> int:
         logical_name="cfbstats_verification_report",
         season=args.season,
     )
+    sweep_report = _load_optional_json(args.sweep_report)
 
     rows = build_readiness_rows(
         season=args.season,
         bundle=bundle,
         snapshot=snapshot,
         verification=verification,
+        sweep_report=sweep_report,
     )
     markdown = render_markdown(
         season=args.season,
@@ -339,6 +382,7 @@ def main() -> int:
             bundle=bundle,
             snapshot=snapshot,
             verification=verification,
+            sweep_report=sweep_report,
         ),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
