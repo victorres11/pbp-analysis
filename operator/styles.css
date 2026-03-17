@@ -96,6 +96,13 @@ h2 {
     font-size: 1rem;
 }
 
+.hero-scope {
+    margin-top: 0.9rem;
+    max-width: 44rem;
+    color: #edf5fb;
+    font-size: 0.95rem;
+}
+
 .hero-aside {
     padding: 1rem 1.1rem;
     border-radius: 18px;

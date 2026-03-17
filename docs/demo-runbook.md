@@ -21,6 +21,19 @@ python3 scripts/game_prep_brief/demo_runner.py \
 
 Use the pipeline helper when you want one canonical refresh or validation path.
 
+## Supported Scope
+
+For the current production phase, the supported client-facing set is:
+
+- Big Ten teams
+- Notre Dame
+
+Notes:
+
+- This is the scope we are actively validating in the readiness matrix and warning triage docs.
+- Other teams may still render successfully through the same pipeline, but they should be treated as exploratory or partial until broader coverage work lands.
+- Use [bigten-nd-readiness-matrix.md](./bigten-nd-readiness-matrix.md) and [bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md) as the operator-facing truth for current readiness.
+
 ### Live Refresh
 
 This is the operator/manual path. It rebuilds the canonical parser-owned artifacts and refreshes enrichment before rendering a smoke brief.
@@ -52,6 +65,13 @@ The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](.
 ### Operator Dashboard
 
 There is also a static operator dashboard at [operator/index.html](../operator/index.html). It is intentionally a thin control plane over the same GitHub-backed workflow and release contract.
+
+Current production-ready scope in that surface:
+
+- Big Ten teams
+- Notre Dame
+
+The dashboard can still dispatch runs for other teams, but operators should not assume equal readiness outside the supported set yet.
 
 What it does:
 

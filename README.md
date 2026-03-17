@@ -65,6 +65,8 @@ Notes:
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
 - `run-game-prep-brief.sh` automatically prefers a Python 3.10+ venv so upstream parser helpers are available.
+- Current production-ready support scope is Big Ten teams plus Notre Dame.
+  - Other teams may still render successfully, but should be treated as exploratory or partial until the broader coverage work lands.
 - Play-tree team/opp attribution uses a shared offense-token resolver:
   - direct team/opponent abbreviation match first
   - then known team alias fallback from `abbr_aliases`
@@ -77,6 +79,8 @@ The refresh pipeline now has a thin operator UI at [operator/index.html](./opera
 
 - Deployed route: `/operator/`
 - Purpose: launch `Brief Live Refresh`, inspect the newest workflow run, and verify the rolling `brief-artifacts-<season>` release without introducing a new backend
+- Current supported production scope: Big Ten teams plus Notre Dame
+  - The dashboard is the operator surface for that supported set first; broader FBS use is not yet promised as equally production-ready
 - Source of truth stays the same:
   - GitHub Actions for live runs
   - GitHub Releases for published artifacts
@@ -86,7 +90,7 @@ The refresh pipeline now has a thin operator UI at [operator/index.html](./opera
   - private workflow/release reads also require a token
   - the page stores a token in browser local storage only when you explicitly click `Save token locally`
 
-For workflow details, publication rules, freshness, and rollback, use [docs/demo-runbook.md](./docs/demo-runbook.md).
+For workflow details, publication rules, freshness, rollback, and supported-set readiness, use [docs/demo-runbook.md](./docs/demo-runbook.md), [docs/bigten-nd-readiness-matrix.md](./docs/bigten-nd-readiness-matrix.md), and [docs/bigten-nd-warning-triage.md](./docs/bigten-nd-warning-triage.md).
 
 ### Generate Data
 ```bash

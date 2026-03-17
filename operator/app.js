@@ -21,6 +21,8 @@ const WORKFLOW_PAGE = (repo) => `https://github.com/${repo}/actions/workflows/${
 const RELEASES_PAGE = (repo) => `https://github.com/${repo}/releases`;
 const RUNBOOK_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/demo-runbook.md`;
 const CONTRACT_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/published-artifact-contract.md`;
+const READINESS_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/bigten-nd-readiness-matrix.md`;
+const TRIAGE_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/bigten-nd-warning-triage.md`;
 const ALERTS_PAGE = (repo) =>
     `https://github.com/${repo}/issues?q=is%3Aissue%20state%3Aopen%20%22Brief%20Live%20Refresh%20Alerts%22`;
 
@@ -618,10 +620,12 @@ function renderOperatorNote(runsResult, publishedResult, repo, season) {
         noteParts.push("The published summary could not be loaded. A token may be required if the repo or release is private.");
     }
 
+    noteParts.push("Current production-ready support scope is Big Ten teams plus Notre Dame. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
+
     return `
         <div class="metric-title">Operator note</div>
         <div class="metric-value">Current vs last-known-good</div>
-        <div class="metric-subtitle">This page does not create its own state model.</div>
+        <div class="metric-subtitle">This page does not create its own state model or broaden the current support promise.</div>
         <div class="message-block">
             <p>${escapeHtml(noteParts.join(" "))}</p>
             <div class="asset-actions">
@@ -661,6 +665,16 @@ function refreshQuickLinks() {
             title: "Published contract",
             body: "Machine-readable artifact expectations and the season release contract.",
             href: CONTRACT_PAGE(repo),
+        },
+        {
+            title: "Readiness matrix",
+            body: "Current Big Ten + Notre Dame support coverage and readiness posture.",
+            href: READINESS_PAGE(repo),
+        },
+        {
+            title: "Warning triage",
+            body: "Operator severity guide for must-fix gaps, known gaps, and noise.",
+            href: TRIAGE_PAGE(repo),
         },
         {
             title: "Alerts thread",
