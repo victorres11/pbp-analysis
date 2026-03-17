@@ -107,6 +107,14 @@ def _load_optional_json(path: Path | None) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def triage_warning_status(status: str) -> str:
+    if status == "artifact gap":
+        return "must-fix"
+    if status == "data quality":
+        return "known gap"
+    return status
+
+
 def _team_present(artifact: dict[str, Any], team_slug: str, team_name: str) -> bool:
     teams = _artifact_team_map(artifact)
     if not isinstance(teams, dict):
@@ -157,7 +165,7 @@ def build_readiness_rows(
         if not isinstance(sweep_payload, dict):
             sweep_payload = {}
         enrichment_status = sweep_payload.get("enrichment_status", PENDING_SWEEP)
-        warning_status = sweep_payload.get("warning_status", PENDING_SWEEP)
+        warning_status = triage_warning_status(sweep_payload.get("warning_status", PENDING_SWEEP))
         confidence = sweep_payload.get("confidence", PENDING_SWEEP)
         notes_parts: list[str] = []
         if "missing" in {bundle_status, snapshot_status, verification_status}:
@@ -207,6 +215,8 @@ def render_markdown(
         "- Notre Dame",
         "",
         "Artifact coverage is auto-derived from the current production artifacts. Enrichment, warning triage, and confidence merge current artifact state with the latest supported-set validation sweep when one is available.",
+        "",
+        "Current operator warning policy is documented in [bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md).",
         "",
         "## Sources",
         "",

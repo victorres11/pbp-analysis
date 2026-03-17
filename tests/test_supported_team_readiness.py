@@ -54,6 +54,28 @@ def test_build_readiness_rows_merges_sweep_statuses() -> None:
     assert washington.confidence == "ready"
 
 
+def test_build_readiness_rows_triages_warning_status_for_operator_readiness() -> None:
+    rows = build_readiness_rows(
+        season=2025,
+        bundle={"teams": {"washington": {"team_name": "Washington"}}},
+        snapshot={"teams": {"washington": {"team_name": "Washington"}}},
+        verification={"teams": {"washington": {"team_name": "Washington"}}},
+        sweep_report={
+            "teams": {
+                "washington": {
+                    "enrichment_status": "not checked",
+                    "warning_status": "data quality",
+                    "confidence": "caution",
+                    "notes": "4 data-quality warning(s)",
+                }
+            }
+        },
+    )
+    washington = next(row for row in rows if row.slug == "washington")
+
+    assert washington.warnings == "known gap"
+
+
 def test_render_markdown_summarizes_supported_set() -> None:
     rows = build_readiness_rows(
         season=2025,
@@ -76,6 +98,7 @@ def test_render_markdown_summarizes_supported_set() -> None:
     assert "Bundle artifact is missing supported teams: Northwestern." in markdown
     assert "Big Ten teams" in markdown
     assert "Notre Dame" in markdown
+    assert "[bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md)" in markdown
     assert "| Team | Conf | Bundle | Snapshot | Verification | Enrichment | Warning triage | Confidence | Notes |" in markdown
     assert "| Washington | Big Ten | present | present | present | pending sweep | pending sweep | pending sweep |  |" in markdown
     assert "`not checked` means the current sweep intentionally skipped enrichment validation." in markdown
