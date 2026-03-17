@@ -1,0 +1,875 @@
+{
+  "matchups": [
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Illinois",
+        "Indiana",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/illinois_vs_indiana_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
+        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
+        "[warn] Turnover reconciliation mismatch for Indiana: {'gained': -7, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': -24, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Indiana: G2 KSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G6 ORE {'gained': -3, 'lost': 0, 'int_gained': -1, 'fum_gained': -2, 'pot_for': -21, 'pot_against': 7}, G9 UMD {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/illinois_vs_indiana_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Illinois",
+      "team1_slug": "illinois",
+      "team2": "Indiana",
+      "team2_slug": "indiana",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
+        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
+        "[warn] Turnover reconciliation mismatch for Indiana: {'gained': -7, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': -24, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Indiana: G2 KSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G6 ORE {'gained': -3, 'lost': 0, 'int_gained': -1, 'fum_gained': -2, 'pot_for': -21, 'pot_against': 7}, G9 UMD {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Iowa",
+        "Wisconsin",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/iowa_vs_wisconsin_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Iowa: {'gained': -2, 'lost': -2, 'int_lost': 0, 'fum_lost': -2, 'pot_for': 3, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Iowa: G2 ISU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G9 ORE {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 MSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/iowa_vs_wisconsin_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Iowa",
+      "team1_slug": "iowa",
+      "team2": "Wisconsin",
+      "team2_slug": "wisconsin",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Iowa: {'gained': -2, 'lost': -2, 'int_lost': 0, 'fum_lost': -2, 'pot_for': 3, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Iowa: G2 ISU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G9 ORE {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 MSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Maryland",
+        "Rutgers",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/maryland_vs_rutgers_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Maryland: {'gained': -1, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 28, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Maryland: G1 FAU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 0}, G8 IND {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 7}",
+        "[warn] Turnover game mismatches for Rutgers: G7 ORE {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': -7}, G12 PSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 7}",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/maryland_vs_rutgers_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Maryland",
+      "team1_slug": "maryland",
+      "team2": "Rutgers",
+      "team2_slug": "rutgers",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Maryland: {'gained': -1, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 28, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Maryland: G1 FAU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 0}, G8 IND {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 7}",
+        "[warn] Turnover game mismatches for Rutgers: G7 ORE {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': -7}, G12 PSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 7}"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Michigan",
+        "Michigan State",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/michigan_vs_michigan-state_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Michigan: {'gained': -2, 'lost': -5, 'int_lost': -1, 'fum_lost': -4, 'pot_for': -3, 'pot_against': -6}",
+        "[warn] Turnover game mismatches for Michigan: G1 NM {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G2 OKL {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 USC {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)",
+        "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/michigan_vs_michigan-state_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Michigan",
+      "team1_slug": "michigan",
+      "team2": "Michigan State",
+      "team2_slug": "michigan-state",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Michigan: {'gained': -2, 'lost': -5, 'int_lost': -1, 'fum_lost': -4, 'pot_for': -3, 'pot_against': -6}",
+        "[warn] Turnover game mismatches for Michigan: G1 NM {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G2 OKL {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 USC {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)",
+        "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Minnesota",
+        "Nebraska",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/minnesota_vs_nebraska_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Minnesota: {'gained': 0, 'lost': -1, 'int_lost': 1, 'fum_lost': -2, 'pot_for': 14, 'pot_against': 4}",
+        "[warn] Turnover game mismatches for Minnesota: G3 CAL {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G7 NEB {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 MSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover reconciliation mismatch for Nebraska: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': -7, 'pot_against': 9}",
+        "[warn] Turnover game mismatches for Nebraska: G1 CIN {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 MSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G7 MINN {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/minnesota_vs_nebraska_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Minnesota",
+      "team1_slug": "minnesota",
+      "team2": "Nebraska",
+      "team2_slug": "nebraska",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Minnesota: {'gained': 0, 'lost': -1, 'int_lost': 1, 'fum_lost': -2, 'pot_for': 14, 'pot_against': 4}",
+        "[warn] Turnover game mismatches for Minnesota: G3 CAL {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G7 NEB {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 MSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover reconciliation mismatch for Nebraska: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': -7, 'pot_against': 9}",
+        "[warn] Turnover game mismatches for Nebraska: G1 CIN {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 MSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G7 MINN {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)"
+      ]
+    },
+    {
+      "classification": "warning_artifact_gap",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Northwestern",
+        "Illinois",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/northwestern_vs_illinois_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
+        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/northwestern_vs_illinois_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Northwestern",
+      "team1_slug": "northwestern",
+      "team2": "Illinois",
+      "team2_slug": "illinois",
+      "warning_kinds": [
+        "artifact_gap",
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
+        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)",
+        "[warn] Northwestern: missing team payload in XML bundle"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Notre Dame",
+        "Purdue",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/notre-dame_vs_purdue_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Notre Dame: {'gained': -3, 'lost': 1, 'int_lost': 1, 'fum_lost': 0, 'pot_for': 7, 'pot_against': 5}",
+        "[warn] Turnover game mismatches for Notre Dame: G5 BSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NCS {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': -3, 'pot_against': 2}, G10 PITT {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 7}",
+        "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)",
+        "[warn] Turnover reconciliation mismatch for Purdue: {'gained': 0, 'lost': -3, 'int_lost': 0, 'fum_lost': -3, 'pot_for': -4, 'pot_against': 3}",
+        "[warn] Turnover game mismatches for Purdue: G5 ILL {'gained': 0, 'lost': -2, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G9 MICH {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/notre-dame_vs_purdue_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Notre Dame",
+      "team1_slug": "notre-dame",
+      "team2": "Purdue",
+      "team2_slug": "purdue",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Notre Dame: {'gained': -3, 'lost': 1, 'int_lost': 1, 'fum_lost': 0, 'pot_for': 7, 'pot_against': 5}",
+        "[warn] Turnover game mismatches for Notre Dame: G5 BSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NCS {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': -3, 'pot_against': 2}, G10 PITT {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 7}",
+        "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)",
+        "[warn] Turnover reconciliation mismatch for Purdue: {'gained': 0, 'lost': -3, 'int_lost': 0, 'fum_lost': -3, 'pot_for': -4, 'pot_against': 3}",
+        "[warn] Turnover game mismatches for Purdue: G5 ILL {'gained': 0, 'lost': -2, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G9 MICH {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Ohio State",
+        "Penn State",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/ohio-state_vs_penn-state_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Penn State: {'gained': 0, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 15, 'pot_against': -4}",
+        "[warn] Turnover game mismatches for Penn State: G4 ORE {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NU {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/ohio-state_vs_penn-state_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Ohio State",
+      "team1_slug": "ohio-state",
+      "team2": "Penn State",
+      "team2_slug": "penn-state",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Penn State: {'gained': 0, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 15, 'pot_against': -4}",
+        "[warn] Turnover game mismatches for Penn State: G4 ORE {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NU {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)",
+        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "Oregon",
+        "Washington",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/oregon_vs_washington_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for Oregon: {'gained': -5, 'lost': -5, 'int_lost': 1, 'fum_lost': -1, 'pot_for': 14, 'pot_against': -24}",
+        "[warn] Turnover game mismatches for Oregon: G2 OSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 11, 'pot_against': 0}, G4 OSU {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G5 PSU {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/oregon_vs_washington_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "Oregon",
+      "team1_slug": "oregon",
+      "team2": "Washington",
+      "team2_slug": "washington",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Oregon: {'gained': -5, 'lost': -5, 'int_lost': 1, 'fum_lost': -1, 'pot_for': 14, 'pot_against': -24}",
+        "[warn] Turnover game mismatches for Oregon: G2 OSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 11, 'pot_against': 0}, G4 OSU {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G5 PSU {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)",
+        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)"
+      ]
+    },
+    {
+      "classification": "warning_data_quality",
+      "command": [
+        "./scripts/run-game-prep-brief.sh",
+        "UCLA",
+        "USC",
+        "--season",
+        "2025",
+        "--format",
+        "markdown",
+        "--output-dir",
+        "/tmp/bigten_nd_validation_sweep_no_enrichment",
+        "--no-enrichment"
+      ],
+      "exit_code": 0,
+      "outputs": {
+        "markdown": "/tmp/bigten_nd_validation_sweep_no_enrichment/ucla_vs_usc_2025_v2.md"
+      },
+      "stderr_lines": [
+        "[warn] Turnover reconciliation mismatch for UCLA: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 0, 'pot_against': 14}",
+        "[warn] Turnover game mismatches for UCLA: G2 UNLV {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G3 UNM {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -3, 'pot_against': 0}",
+        "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)",
+        "[warn] Turnover reconciliation mismatch for USC: {'gained': -2, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 11, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for USC: G6 MICH {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 NU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)",
+        "[ok] Markdown \u2192 /tmp/bigten_nd_validation_sweep_no_enrichment/ucla_vs_usc_2025_v2.md"
+      ],
+      "stdout_lines": [],
+      "team1": "UCLA",
+      "team1_slug": "ucla",
+      "team2": "USC",
+      "team2_slug": "usc",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for UCLA: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 0, 'pot_against': 14}",
+        "[warn] Turnover game mismatches for UCLA: G2 UNLV {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G3 UNM {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -3, 'pot_against': 0}",
+        "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)",
+        "[warn] Turnover reconciliation mismatch for USC: {'gained': -2, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 11, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for USC: G6 MICH {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 NU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)"
+      ]
+    }
+  ],
+  "meta": {
+    "artifact": "bigten_nd_validation_sweep",
+    "format": "markdown",
+    "generated_at": "2026-03-17T21:03:13.757610+00:00",
+    "matchup_count": 10,
+    "mode": "no-enrichment",
+    "output_dir": "/tmp/bigten_nd_validation_sweep_no_enrichment",
+    "season": 2025,
+    "supported_team_count": 19
+  },
+  "summary": {
+    "classification_counts": {
+      "warning_artifact_gap": 1,
+      "warning_data_quality": 9
+    },
+    "matchups_failed": 0,
+    "matchups_passed": 10
+  },
+  "teams": {
+    "illinois": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "illinois_vs_indiana",
+          "opponent": "Indiana"
+        },
+        {
+          "classification": "warning_artifact_gap",
+          "exit_code": 0,
+          "matchup_id": "northwestern_vs_illinois",
+          "opponent": "Northwestern"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Illinois",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Illinois: {'gained': -3, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Illinois: G2 DU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 PUR {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -7, 'pot_against': 0}",
+        "[warn] Illinois: 4th-down parity delta +5.4 pts (PBP 13/21=61.9% vs CFBStats 56.5%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "indiana": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "illinois_vs_indiana",
+          "opponent": "Illinois"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Indiana",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Indiana: {'gained': -7, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': -24, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Indiana: G2 KSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G6 ORE {'gained': -3, 'lost': 0, 'int_gained': -1, 'fum_gained': -2, 'pot_for': -21, 'pot_against': 7}, G9 UMD {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Indiana: 4th-down parity delta +3.2 pts (PBP 10/17=58.8% vs CFBStats 55.6%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "iowa": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "iowa_vs_wisconsin",
+          "opponent": "Wisconsin"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Iowa",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Iowa: {'gained': -2, 'lost': -2, 'int_lost': 0, 'fum_lost': -2, 'pot_for': 3, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Iowa: G2 ISU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G9 ORE {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 MSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Iowa: 4th-down parity delta +3.9 pts (PBP 12/17=70.6% vs CFBStats 66.7%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "maryland": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "maryland_vs_rutgers",
+          "opponent": "Rutgers"
+        }
+      ],
+      "notes": "2 data-quality warning(s)",
+      "team_name": "Maryland",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Maryland: {'gained': -1, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 28, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for Maryland: G1 FAU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 0}, G8 IND {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 7}"
+      ],
+      "warning_status": "data quality"
+    },
+    "michigan": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "michigan_vs_michigan-state",
+          "opponent": "Michigan State"
+        }
+      ],
+      "notes": "5 data-quality warning(s)",
+      "team_name": "Michigan",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Michigan: {'gained': -2, 'lost': -5, 'int_lost': -1, 'fum_lost': -4, 'pot_for': -3, 'pot_against': -6}",
+        "[warn] Turnover game mismatches for Michigan: G1 NM {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G2 OKL {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G6 USC {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Michigan: 4th-down parity delta +2.3 pts (PBP 7/17=41.2% vs CFBStats 38.9%)",
+        "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}"
+      ],
+      "warning_status": "data quality"
+    },
+    "michigan-state": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "michigan_vs_michigan-state",
+          "opponent": "Michigan"
+        }
+      ],
+      "notes": "2 data-quality warning(s)",
+      "team_name": "Michigan State",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Michigan State: {'gained': -1, 'lost': -3, 'int_lost': -1, 'fum_lost': -2, 'pot_for': -4, 'pot_against': 10}",
+        "[warn] Turnover game mismatches for Michigan State: G2 BC {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 NEB {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G11 IOWA {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}"
+      ],
+      "warning_status": "data quality"
+    },
+    "minnesota": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "minnesota_vs_nebraska",
+          "opponent": "Nebraska"
+        }
+      ],
+      "notes": "2 data-quality warning(s)",
+      "team_name": "Minnesota",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Minnesota: {'gained': 0, 'lost': -1, 'int_lost': 1, 'fum_lost': -2, 'pot_for': 14, 'pot_against': 4}",
+        "[warn] Turnover game mismatches for Minnesota: G3 CAL {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G7 NEB {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 MSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 0}"
+      ],
+      "warning_status": "data quality"
+    },
+    "nebraska": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "minnesota_vs_nebraska",
+          "opponent": "Minnesota"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Nebraska",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Nebraska: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': -7, 'pot_against': 9}",
+        "[warn] Turnover game mismatches for Nebraska: G1 CIN {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': -7, 'pot_against': 0}, G5 MSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}, G7 MINN {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Nebraska: 4th-down parity delta +2.8 pts (PBP 10/26=38.5% vs CFBStats 35.7%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "northwestern": {
+      "conference": "Big Ten",
+      "confidence": "attention",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_artifact_gap",
+          "exit_code": 0,
+          "matchup_id": "northwestern_vs_illinois",
+          "opponent": "Illinois"
+        }
+      ],
+      "notes": "",
+      "team_name": "Northwestern",
+      "warning_kinds": [
+        "artifact_gap"
+      ],
+      "warning_lines": [
+        "[warn] Northwestern: missing team payload in XML bundle"
+      ],
+      "warning_status": "artifact gap"
+    },
+    "notre-dame": {
+      "conference": "Independent",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "notre-dame_vs_purdue",
+          "opponent": "Purdue"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Notre Dame",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Notre Dame: {'gained': -3, 'lost': 1, 'int_lost': 1, 'fum_lost': 0, 'pot_for': 7, 'pot_against': 5}",
+        "[warn] Turnover game mismatches for Notre Dame: G5 BSU {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NCS {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': -3, 'pot_against': 2}, G10 PITT {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 7, 'pot_against': 7}",
+        "[warn] Notre Dame: 4th-down parity delta -1.2 pts (PBP 15/28=53.6% vs CFBStats 54.8%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "ohio-state": {
+      "conference": "Big Ten",
+      "confidence": "ready",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "ohio-state_vs_penn-state",
+          "opponent": "Penn State"
+        }
+      ],
+      "notes": "",
+      "team_name": "Ohio State",
+      "warning_kinds": [],
+      "warning_lines": [],
+      "warning_status": "clean"
+    },
+    "oregon": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "oregon_vs_washington",
+          "opponent": "Washington"
+        }
+      ],
+      "notes": "4 data-quality warning(s)",
+      "team_name": "Oregon",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Oregon: {'gained': -5, 'lost': -5, 'int_lost': 1, 'fum_lost': -1, 'pot_for': 14, 'pot_against': -24}",
+        "[warn] Turnover game mismatches for Oregon: G2 OSU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 11, 'pot_against': 0}, G4 OSU {'gained': -2, 'lost': 0, 'int_gained': -2, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G5 PSU {'gained': 0, 'lost': 1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Oregon: 4th-down parity delta -1.4 pts (PBP 17/31=54.8% vs CFBStats 56.2%)",
+        "[warn] Oregon: derived two-point totals differ from XML (derived O 1/4, D 1/4 vs XML O 2/4, D 1/4)"
+      ],
+      "warning_status": "data quality"
+    },
+    "penn-state": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "ohio-state_vs_penn-state",
+          "opponent": "Ohio State"
+        }
+      ],
+      "notes": "4 data-quality warning(s)",
+      "team_name": "Penn State",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Penn State: {'gained': 0, 'lost': -1, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 15, 'pot_against': -4}",
+        "[warn] Turnover game mismatches for Penn State: G4 ORE {'gained': 1, 'lost': 0, 'int_gained': 1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G6 NU {'gained': -1, 'lost': -1, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Penn State: 4th-down parity delta -1.3 pts (PBP 18/31=58.1% vs CFBStats 59.4%)",
+        "[warn] Penn State: derived two-point totals differ from XML (derived O 1/4, D 3/7 vs XML O 1/4, D 4/7)"
+      ],
+      "warning_status": "data quality"
+    },
+    "purdue": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "notre-dame_vs_purdue",
+          "opponent": "Notre Dame"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "Purdue",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for Purdue: {'gained': 0, 'lost': -3, 'int_lost': 0, 'fum_lost': -3, 'pot_for': -4, 'pot_against': 3}",
+        "[warn] Turnover game mismatches for Purdue: G5 ILL {'gained': 0, 'lost': -2, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G9 MICH {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] Purdue: 4th-down parity delta -1.7 pts (PBP 14/24=58.3% vs CFBStats 60.0%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "rutgers": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "maryland_vs_rutgers",
+          "opponent": "Maryland"
+        }
+      ],
+      "notes": "1 data-quality warning(s)",
+      "team_name": "Rutgers",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover game mismatches for Rutgers: G7 ORE {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': -7}, G12 PSU {'gained': 1, 'lost': 0, 'int_gained': 0, 'fum_gained': 1, 'pot_for': 0, 'pot_against': 7}"
+      ],
+      "warning_status": "data quality"
+    },
+    "ucla": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "ucla_vs_usc",
+          "opponent": "USC"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "UCLA",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for UCLA: {'gained': -2, 'lost': -1, 'int_lost': 0, 'fum_lost': -1, 'pot_for': 0, 'pot_against': 14}",
+        "[warn] Turnover game mismatches for UCLA: G2 UNLV {'gained': 0, 'lost': -1, 'int_gained': 0, 'fum_gained': 0, 'pot_for': 0, 'pot_against': -7}, G3 UNM {'gained': -2, 'lost': 0, 'int_gained': 0, 'fum_gained': -2, 'pot_for': -3, 'pot_against': 0}",
+        "[warn] UCLA: 4th-down parity delta +5.4 pts (PBP 14/26=53.8% vs CFBStats 48.4%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "usc": {
+      "conference": "Big Ten",
+      "confidence": "caution",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "ucla_vs_usc",
+          "opponent": "UCLA"
+        }
+      ],
+      "notes": "3 data-quality warning(s)",
+      "team_name": "USC",
+      "warning_kinds": [
+        "data_quality"
+      ],
+      "warning_lines": [
+        "[warn] Turnover reconciliation mismatch for USC: {'gained': -2, 'lost': 0, 'int_lost': 0, 'fum_lost': 0, 'pot_for': 11, 'pot_against': 0}",
+        "[warn] Turnover game mismatches for USC: G6 MICH {'gained': -1, 'lost': 0, 'int_gained': -1, 'fum_gained': 0, 'pot_for': 0, 'pot_against': 0}, G9 NU {'gained': -1, 'lost': 0, 'int_gained': 0, 'fum_gained': -1, 'pot_for': 0, 'pot_against': 0}",
+        "[warn] USC: 4th-down parity delta -1.7 pts (PBP 13/21=61.9% vs CFBStats 63.6%)"
+      ],
+      "warning_status": "data quality"
+    },
+    "washington": {
+      "conference": "Big Ten",
+      "confidence": "ready",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "oregon_vs_washington",
+          "opponent": "Oregon"
+        }
+      ],
+      "notes": "",
+      "team_name": "Washington",
+      "warning_kinds": [],
+      "warning_lines": [],
+      "warning_status": "clean"
+    },
+    "wisconsin": {
+      "conference": "Big Ten",
+      "confidence": "ready",
+      "enrichment_status": "not checked",
+      "matchups": [
+        {
+          "classification": "warning_data_quality",
+          "exit_code": 0,
+          "matchup_id": "iowa_vs_wisconsin",
+          "opponent": "Iowa"
+        }
+      ],
+      "notes": "",
+      "team_name": "Wisconsin",
+      "warning_kinds": [],
+      "warning_lines": [],
+      "warning_status": "clean"
+    }
+  }
+}

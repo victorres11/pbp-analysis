@@ -27,6 +27,31 @@ def test_build_readiness_rows_marks_artifact_presence_and_missing() -> None:
     assert notre_dame.snapshot == "present"
     assert notre_dame.verification == "missing"
     assert notre_dame.notes == "artifact gap"
+    assert notre_dame.confidence == "attention"
+
+
+def test_build_readiness_rows_merges_sweep_statuses() -> None:
+    rows = build_readiness_rows(
+        season=2025,
+        bundle={"teams": {"washington": {"team_name": "Washington"}}},
+        snapshot={"teams": {"washington": {"team_name": "Washington"}}},
+        verification={"teams": {"washington": {"team_name": "Washington"}}},
+        sweep_report={
+            "teams": {
+                "washington": {
+                    "enrichment_status": "not checked",
+                    "warning_status": "clean",
+                    "confidence": "ready",
+                    "notes": "",
+                }
+            }
+        },
+    )
+    washington = next(row for row in rows if row.slug == "washington")
+
+    assert washington.enrichment == "not checked"
+    assert washington.warnings == "clean"
+    assert washington.confidence == "ready"
 
 
 def test_render_markdown_summarizes_supported_set() -> None:
@@ -53,3 +78,4 @@ def test_render_markdown_summarizes_supported_set() -> None:
     assert "Notre Dame" in markdown
     assert "| Team | Conf | Bundle | Snapshot | Verification | Enrichment | Warning triage | Confidence | Notes |" in markdown
     assert "| Washington | Big Ten | present | present | present | pending sweep | pending sweep | pending sweep |  |" in markdown
+    assert "`not checked` means the current sweep intentionally skipped enrichment validation." in markdown
