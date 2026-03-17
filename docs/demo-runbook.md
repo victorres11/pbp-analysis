@@ -49,6 +49,27 @@ Important: the `yr-data-api/data/pbp_stats_bundle.json` write is a **local hando
 
 The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](../.github/workflows/brief-live-refresh.yml). It runs the same `live-refresh` path as the local script, but publishes the season-core artifact set to a GitHub release instead of depending on `yr-data-api`.
 
+### Operator Dashboard
+
+There is also a static operator dashboard at [operator/index.html](../operator/index.html). It is intentionally a thin control plane over the same GitHub-backed workflow and release contract.
+
+What it does:
+
+- dispatches `Brief Live Refresh` on `main`
+- shows the latest workflow run and recent run list
+- shows the rolling `brief-artifacts-<season>` last-known-good release
+- computes freshness from the published summary JSON
+- links operators to the runbook, releases, alert thread, and workflow page
+
+Auth model:
+
+- dispatch always requires a GitHub token
+- private workflow/release reads also require a GitHub token
+- the page never proxies the token through a new service
+- `Save token locally` stores it in browser local storage only for that browser profile
+
+This keeps the dashboard aligned with the current operating model instead of inventing a second pipeline backend.
+
 Requirements:
 
 - run it from `main`

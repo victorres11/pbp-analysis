@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brief Pipeline Operator Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+        rel="stylesheet"
+    >
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="hero panel">
+            <div class="eyebrow">Operator Dashboard MVP</div>
+            <div class="hero-grid">
+                <div>
+                    <h1>Brief Refresh Control Plane</h1>
+                    <p class="hero-copy">
+                        Launch the live refresh workflow, inspect the newest run, and verify the
+                        published last-known-good artifact set without leaving one page.
+                    </p>
+                </div>
+                <div class="hero-aside">
+                    <p class="hero-note">
+                        The dashboard stays thin on purpose: GitHub Actions runs the pipeline,
+                        GitHub Releases hold the published artifacts, and the summary JSON stays
+                        the machine-readable source of truth.
+                    </p>
+                </div>
+            </div>
+            <div id="statusStrip" class="status-strip">
+                <span class="badge badge-neutral">Loading dashboard…</span>
+            </div>
+        </header>
+
+        <section class="panel-grid">
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Connection</div>
+                        <h2>GitHub Access</h2>
+                    </div>
+                </div>
+                <form id="settingsForm" class="stack">
+                    <label class="field">
+                        <span>Repository</span>
+                        <input id="repoInput" name="repo" type="text" value="victorres11/pbp-analysis" autocomplete="off">
+                    </label>
+                    <label class="field">
+                        <span>GitHub token</span>
+                        <input id="tokenInput" name="token" type="password" placeholder="Optional for public reads, required for dispatch/private data" autocomplete="off">
+                    </label>
+                    <div class="button-row">
+                        <button id="saveTokenButton" class="button secondary" type="button">Save token locally</button>
+                        <button id="clearTokenButton" class="button ghost" type="button">Clear token</button>
+                        <button id="refreshButton" class="button primary" type="button">Refresh dashboard</button>
+                    </div>
+                    <p class="field-help">
+                        The token never leaves your browser except in direct calls to GitHub’s API.
+                        Dispatch and private workflow data require auth. A classic `repo` token is
+                        the simplest operator path today.
+                    </p>
+                </form>
+                <div id="settingsMessage" class="inline-message"></div>
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Launch</div>
+                        <h2>Run Live Refresh</h2>
+                    </div>
+                    <span class="badge badge-info">Dispatches `brief-live-refresh.yml` on `main`</span>
+                </div>
+                <form id="dispatchForm" class="stack">
+                    <div class="field-grid two-up">
+                        <label class="field">
+                            <span>Team 1</span>
+                            <input id="team1Input" name="team1" type="text" value="Washington" autocomplete="off">
+                        </label>
+                        <label class="field">
+                            <span>Team 2</span>
+                            <input id="team2Input" name="team2" type="text" value="Ohio State" autocomplete="off">
+                        </label>
+                    </div>
+                    <div class="field-grid three-up">
+                        <label class="field">
+                            <span>Season</span>
+                            <input id="seasonInput" name="season" type="number" min="2025" step="1" value="2025">
+                        </label>
+                        <label class="field">
+                            <span>Last-N</span>
+                            <input id="lastNInput" name="last_n" type="number" min="1" step="1" value="3">
+                        </label>
+                        <label class="field">
+                            <span>Brief format</span>
+                            <select id="briefFormatInput" name="brief_format">
+                                <option value="markdown">markdown</option>
+                                <option value="html">html</option>
+                                <option value="both">both</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="toggle-grid">
+                        <label class="toggle">
+                            <input id="runTestsInput" name="run_tests" type="checkbox">
+                            <span>Run parser + analysis tests</span>
+                        </label>
+                        <label class="toggle">
+                            <input id="strictVerificationInput" name="strict_verification" type="checkbox" checked>
+                            <span>Fail on verification `fail` metrics</span>
+                        </label>
+                        <label class="toggle">
+                            <input id="includeEnrichmentInput" name="include_enrichment" type="checkbox" checked>
+                            <span>Refresh enrichment and require it</span>
+                        </label>
+                    </div>
+                    <div class="button-row">
+                        <button id="dispatchButton" class="button primary" type="submit">Run refresh</button>
+                    </div>
+                    <p class="field-help">
+                        If the latest run fails, the rolling release stays on the last-known-good
+                        artifact set. This page is just the control surface.
+                    </p>
+                </form>
+                <div id="dispatchMessage" class="inline-message"></div>
+            </section>
+        </section>
+
+        <section class="metric-grid">
+            <article id="latestRunCard" class="panel metric-card"></article>
+            <article id="publishedCard" class="panel metric-card"></article>
+            <article id="freshnessCard" class="panel metric-card"></article>
+            <article id="operatorNoteCard" class="panel metric-card"></article>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <div class="eyebrow">Current</div>
+                    <h2>Recent Workflow Runs</h2>
+                </div>
+                <a
+                    id="workflowLink"
+                    class="text-link"
+                    href="https://github.com/victorres11/pbp-analysis/actions/workflows/brief-live-refresh.yml"
+                    target="_blank"
+                    rel="noreferrer"
+                >Open workflow</a>
+            </div>
+            <div id="runsPanel" class="table-wrap"></div>
+        </section>
+
+        <section class="panel-grid">
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Last-known-good</div>
+                        <h2>Published Season Summary</h2>
+                    </div>
+                    <a
+                        id="rollingReleaseLink"
+                        class="text-link"
+                        href="https://github.com/victorres11/pbp-analysis/releases"
+                        target="_blank"
+                        rel="noreferrer"
+                    >Open rolling release</a>
+                </div>
+                <div id="publishedSummaryPanel" class="stack"></div>
+            </section>
+
+            <section class="panel">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Artifacts</div>
+                        <h2>Published Asset Links</h2>
+                    </div>
+                </div>
+                <div id="assetPanel" class="asset-grid"></div>
+            </section>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <div class="eyebrow">Shortcuts</div>
+                    <h2>Operator Links</h2>
+                </div>
+            </div>
+            <div id="quickLinksPanel" class="link-grid"></div>
+        </section>
+    </main>
+
+    <template id="emptyStateTemplate">
+        <div class="empty-state">
+            <p>Nothing to show yet.</p>
+        </div>
+    </template>
+
+    <script src="./app.js"></script>
+</body>
+</html>
