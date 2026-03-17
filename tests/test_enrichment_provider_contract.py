@@ -12,9 +12,13 @@ PIPELINE_FIXTURES = ROOT / "tests" / "fixtures" / "pipeline"
 
 
 def test_fetch_pff_snapshot_treats_zero_placeholder_as_partial_provider(monkeypatch) -> None:
+    seen_suffixes: list[str] = []
+
     def _fake_fetch(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        seen_suffixes.append(suffix)
         payloads = {
-            "pff/plays?side=both&format=text": "70,68",
+            "pff/plays?side=off&format=text": "70",
+            "pff/plays?side=def&format=text": "68",
             "pff/tackling-per-game?format=text": "0\t0\t0",
             "pff/sacks-allowed?format=text": "1.4",
             "pff/fmt?format=text": "11\t1.2",
@@ -35,6 +39,43 @@ def test_fetch_pff_snapshot_treats_zero_placeholder_as_partial_provider(monkeypa
     assert values["pff_hurry_up_pct"] == "27.0%"
     assert provider["status"] == "partial"
     assert "pff_tackling:zero_placeholder_response" in provider["reasons"]
+    assert seen_suffixes[:2] == [
+        "pff/plays?side=off&format=text",
+        "pff/plays?side=def&format=text",
+    ]
+
+
+def test_fetch_negative_play_stats_uses_supported_side_parameters(monkeypatch) -> None:
+    seen_suffixes: list[str] = []
+
+    def _fake_fetch(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        seen_suffixes.append(suffix)
+        payloads = {
+            "pbp/negative-plays?side=off&scope=season&format=text": "6.3",
+            "pbp/negative-plays?side=def&scope=season&format=text": "7.1",
+            "pbp/negative-plays?side=off&scope=last3&format=text": "5.0",
+            "pbp/negative-plays?side=def&scope=last3&format=text": "8.0",
+        }
+        text = payloads.get(suffix)
+        return {"text": text, "status": "ok" if text else "unavailable", "reason": None, "url": suffix}
+
+    monkeypatch.setattr(loaders, "_fetch_text_result_from_candidates", _fake_fetch)
+
+    values, provider = loaders._fetch_negative_play_stats("ucla", team_name="UCLA")
+
+    assert values == {
+        "negative_plays_pg_api": "6.3",
+        "negative_plays_forced_pg_api": "7.1",
+        "negative_plays_pg_last3_api": "5.0",
+        "negative_plays_forced_pg_last3_api": "8.0",
+    }
+    assert provider["status"] == "ok"
+    assert seen_suffixes == [
+        "pbp/negative-plays?side=off&scope=season&format=text",
+        "pbp/negative-plays?side=def&scope=season&format=text",
+        "pbp/negative-plays?side=off&scope=last3&format=text",
+        "pbp/negative-plays?side=def&scope=last3&format=text",
+    ]
 
 
 def test_merge_enrichment_payload_preserves_prior_values_and_failure_metadata() -> None:
