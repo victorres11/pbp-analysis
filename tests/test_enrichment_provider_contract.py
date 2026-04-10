@@ -5,6 +5,7 @@ from pathlib import Path
 from scripts.game_prep_brief import loaders
 from scripts.game_prep_brief.renderers import html as html_renderer
 from scripts.game_prep_brief.renderers import markdown as markdown_renderer
+from scripts.game_prep_brief.sections import situational
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,10 +40,69 @@ def test_fetch_pff_snapshot_treats_zero_placeholder_as_partial_provider(monkeypa
     assert values["pff_hurry_up_pct"] == "27.0%"
     assert provider["status"] == "partial"
     assert "pff_tackling:zero_placeholder_response" in provider["reasons"]
-    assert seen_suffixes[:2] == [
+    assert seen_suffixes[:3] == [
+        "games-played?format=text",
         "pff/plays?side=off&format=text",
         "pff/plays?side=def&format=text",
     ]
+
+
+def test_fetch_pff_snapshot_uses_json_payloads_and_games_played_fallback(monkeypatch) -> None:
+    def _fake_fetch_text(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        payloads = {
+            "games-played?format=text": "13",
+            "pff/plays?side=off&format=text": "66.7",
+            "pff/plays?side=def&format=text": "68.2",
+            "pff/play-clock?format=text": "13.463\t0.2803\t0.308\t0.2561",
+        }
+        text = payloads.get(suffix)
+        return {"text": text, "status": "ok" if text else "unavailable", "reason": None, "url": suffix}
+
+    def _fake_fetch_json(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        payloads = {
+            "pff/tackling-per-game": {
+                "data": {
+                    "games": 0,
+                    "missed_tackles": 139,
+                    "missed_tackles_per_game": 0,
+                    "tfl": 79,
+                    "tfl_per_game": 0,
+                    "sacks": 30,
+                    "sacks_per_game": 0,
+                }
+            },
+            "pff/fmt": {
+                "data": {
+                    "games": 0,
+                    "fmt": 102,
+                    "fmt_per_game": 0,
+                }
+            },
+            "pff/sacks-allowed": {
+                "data": {
+                    "games": 0,
+                    "sacks_allowed": 13,
+                    "sacks_allowed_per_game": 0,
+                }
+            },
+        }
+        payload = payloads.get(suffix)
+        return {"json": payload, "status": "ok" if payload else "unavailable", "reason": None, "url": suffix}
+
+    monkeypatch.setattr(loaders, "_fetch_text_result_from_candidates", _fake_fetch_text)
+    monkeypatch.setattr(loaders, "_fetch_json_result_from_candidates", _fake_fetch_json)
+
+    values, provider = loaders._fetch_pff_snapshot("michigan", team_name="Michigan")
+
+    assert values["pff_missed_tackles_pg"] == "10.7"
+    assert values["pff_tfl_pg"] == "6.1"
+    assert values["pff_sacks_pg"] == "2.3"
+    assert values["pff_fmt_total"] == "102"
+    assert values["pff_fmt_pg"] == "7.8"
+    assert values["pff_sacks_allowed_pg"] == "1.0"
+    assert values["pff_hurry_up_pct"] == "28.0%"
+    assert provider["status"] == "ok"
+    assert provider["reasons"] == []
 
 
 def test_fetch_negative_play_stats_uses_supported_side_parameters(monkeypatch) -> None:
@@ -196,3 +256,7 @@ def test_renderers_prefer_provider_metadata_for_enrichment_warning() -> None:
         assert "Enrichment snapshot issues:" in warning
         assert "Washington (PFF partial (placeholder zeros))" in warning
         assert "Ohio State (Blitz unavailable (timeout))" in warning
+
+
+def test_situational_display_preserves_percent_strings() -> None:
+    assert situational._display_or_unavailable("28.0%") == "28.0%"

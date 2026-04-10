@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter, defaultdict
+from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 
+from ..loaders import _build_play_side_resolver, slugify
 from ._sources import SRC_PBP, SRC_CFB
 
 PROCEDURAL_TERMS = (
@@ -47,13 +52,148 @@ _PENALTY_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         "Unsportsmanlike Conduct",
         re.compile(r"\bUNSPORTSMANLIKE\s+CONDUCT\b|\bUNSPORTSMANLIKE\b|\bUNS\b", re.IGNORECASE),
     ),
+    ("Targeting", re.compile(r"\bTARGETING\b", re.IGNORECASE)),
     ("Personal Foul", re.compile(r"\bPERSONAL\s+FOUL\b", re.IGNORECASE)),
 ]
+
+_PENALTY_CLAUSE_START_RE = re.compile(
+    r"(?:(?P<penalty_prefix>\bPENALTY\s+BEFORE\s+THE\s+SNAP,\s*|\bPENALTY\s+ON\s+|\bPENALTY\s+)"
+    r"|(?P<continuation>\b(?:DECLINED|OFFSETTING|ACCEPTED)\s+))(?P<team>[A-Z0-9-]{2,8})\b",
+    re.IGNORECASE,
+)
 
 
 def _games(team: dict) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
     return pbp.get("games", [])
+
+
+def _normalize_name_token(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+def _normalize_game_date(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return text
+
+
+def _raw_game_briefs_root() -> Path | None:
+    base = Path(__file__).resolve()
+    candidates = [
+        base.parents[4] / "pbp-parser" / "data" / "statbroadcast_game_briefs",
+        base.parents[3] / "data" / "statbroadcast_game_briefs",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+@lru_cache(maxsize=None)
+def _load_raw_game_penalty_totals(team_slug: str, team_name: str) -> dict[str, dict]:
+    root = _raw_game_briefs_root()
+    if root is None:
+        return {}
+
+    team_dir = root / team_slug
+    if not team_dir.exists():
+        return {}
+
+    team_name_norm = _normalize_name_token(team_name)
+    totals_by_date: dict[str, dict] = {}
+    for path in sorted(team_dir.glob("game_*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+
+        team_names = payload.get("team_names") or []
+        teams = payload.get("teams") or []
+        if not isinstance(team_names, list) or not isinstance(teams, list) or len(team_names) != len(teams):
+            continue
+
+        team_idx = next(
+            (
+                idx
+                for idx, name in enumerate(team_names)
+                if _normalize_name_token(name) == team_name_norm
+            ),
+            None,
+        )
+        if team_idx is None:
+            continue
+
+        team_token = str(teams[team_idx] or "").upper().strip()
+        if not team_token:
+            continue
+
+        team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
+        penalty_summary = (payload.get("penalty_summary") or {}).get(team_token) or {}
+        total_count = penalty_summary.get("total_penalties")
+        total_yards = penalty_summary.get("total_penalty_yards")
+        if total_count is None:
+            total_count = team_stats.get("penalties")
+        if total_yards is None:
+            total_yards = team_stats.get("penalty_yards")
+        if total_count is None and total_yards is None:
+            continue
+
+        date_key = _normalize_game_date((payload.get("meta") or {}).get("game_date"))
+        if not date_key:
+            continue
+        totals_by_date[date_key] = {
+            "total_count": int(total_count or 0),
+            "total_yards": int(total_yards or 0),
+            "source_path": str(path),
+        }
+    return totals_by_date
+
+
+def _game_penalty_totals_source(team: dict) -> dict[str, dict]:
+    injected = team.get("penalty_totals_by_game")
+    if isinstance(injected, dict):
+        return injected
+
+    pbp = team.get("pbp_entry") or {}
+    injected = pbp.get("penalty_totals_by_game")
+    if isinstance(injected, dict):
+        return injected
+
+    team_name = str(team.get("display_name") or pbp.get("name") or "").strip()
+    team_slug = str(team.get("slug") or slugify(team_name)).strip()
+    if not team_name or not team_slug:
+        return {}
+    return _load_raw_game_penalty_totals(team_slug, team_name)
+
+
+def _official_penalty_totals_for_game(team: dict, game: dict) -> dict | None:
+    sources = _game_penalty_totals_source(team)
+    if not sources:
+        return None
+
+    date_key = _normalize_game_date(game.get("date") or game.get("game_date"))
+    opponent = str(game.get("opponent") or game.get("opponent_abbr") or "").strip()
+    game_number = game.get("game_number")
+    candidates = [
+        f"date:{date_key}",
+        date_key,
+        f"opp:{opponent}",
+        opponent,
+    ]
+    if isinstance(game_number, int):
+        candidates.extend([f"game:{game_number}", game_number])
+    for key in candidates:
+        row = sources.get(key)
+        if isinstance(row, dict):
+            return row
+    return None
 
 
 def _abbr_set(value: object) -> set[str]:
@@ -73,6 +213,7 @@ def _abbr_set(value: object) -> set[str]:
 def _extract_penalized_team_token(desc: str) -> str:
     upper = desc.upper()
     patterns = [
+        r"\bPENALTY\s+BEFORE\s+THE\s+SNAP,\s*([A-Z0-9]{2,8})\b",
         r"\bPENALTY\s+ON\s+([A-Z0-9]{2,6})\b",
         r"\bPENALTY\s+([A-Z0-9]{2,6})\b",
     ]
@@ -83,40 +224,136 @@ def _extract_penalized_team_token(desc: str) -> str:
     return ""
 
 
-def _expand_aliases(base_set: set[str], *, game: dict | None = None, opp_aliases: set[str] | None = None) -> set[str]:
-    """Expand team abbreviations with raw-text aliases inferred from the game.
+def _penalty_team_token(pen: dict) -> str:
+    token = pen.get("team") or pen.get("penalized_team") or ""
+    normalized = re.sub(r"[^A-Z0-9]", "", str(token).upper())
+    if normalized:
+        return normalized
+    return _extract_penalized_team_token(str(pen.get("description") or ""))
 
-    Bundle play descriptions can use a different raw token than the normalized
-    team abbreviation carried elsewhere in the payload (e.g. `WASH` vs `UW`).
-    Keep this inference local to pbp-analysis so the brief path stays
-    deterministic without importing parser internals.
-    """
-    expanded = set(base_set)
-    if not game or not opp_aliases:
-        return expanded
 
-    inferred = Counter()
-    patterns = (
-        r"RECOVERED BY ([A-Z0-9]{2,6})\b",
-        r"TOUCHDOWN ([A-Z0-9]{2,6})\b",
-        r"([A-Z0-9]{2,6}) BALL ON\b",
-        r"\bPENALTY(?: ON)? ([A-Z0-9]{2,6})\b",
+def _penalty_yards_from_text(desc: str) -> int:
+    enforced = re.search(
+        r"\bENFORCED(?:\s+AT\s+THE\s+SPOT\s+OF\s+THE\s+FOUL\s+FOR)?\s+(\d+)\s+YARDS?\b",
+        desc,
+        re.IGNORECASE,
     )
-    for q in game.get("play_tree") or []:
-        for drive in q.get("drives") or []:
-            for play in drive.get("plays") or []:
-                token = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                if token and token not in expanded and token not in opp_aliases:
-                    inferred[token] += 1
-                desc_up = str(play.get("description") or "").upper()
-                for pattern in patterns:
-                    for match in re.finditer(pattern, desc_up):
-                        token = match.group(1)
-                        if token and token not in expanded and token not in opp_aliases:
-                            inferred[token] += 1
+    if enforced:
+        return int(enforced.group(1))
+    tail = re.split(r"\bPENALTY\b", desc, flags=re.IGNORECASE)[-1]
+    match = re.search(r"(\d+)\s+YARDS?", tail, re.IGNORECASE)
+    return int(match.group(1)) if match else 0
 
-    expanded.update(token for token, count in inferred.items() if count >= 2)
-    return expanded
+
+def _split_penalty_clauses(desc: str) -> list[str]:
+    review_marker = desc.upper().find("ORIGINAL PLAY:")
+    if review_marker != -1 and desc.upper().find("PENALTY", review_marker) != -1:
+        desc = desc[:review_marker].rstrip(" (")
+
+    upper = desc.upper()
+    if "PENALTY" not in upper:
+        return []
+
+    matches = list(_PENALTY_CLAUSE_START_RE.finditer(desc))
+    if not matches:
+        return [desc]
+
+    clauses: list[str] = []
+    for idx, match in enumerate(matches):
+        end = len(desc)
+        if idx + 1 < len(matches):
+            next_match = matches[idx + 1]
+            end = (
+                next_match.start("team")
+                if next_match.group("continuation")
+                else next_match.start("penalty_prefix")
+            )
+        if match.group("penalty_prefix"):
+            clause = desc[match.start("penalty_prefix"):end]
+        else:
+            clause = f"PENALTY {desc[match.start('team'):end]}"
+        clause = clause.strip(" ,;.")
+        if clause:
+            clauses.append(clause)
+    return clauses
+
+
+def _skip_non_enforced_penalty(desc: str, yards: int) -> bool:
+    upper = desc.upper()
+    if "DECLINED" in upper:
+        return True
+    return "OFFSETTING" in upper and yards == 0
+
+
+def _penalty_side_from_text(desc: str, default: str = "unknown") -> str:
+    normalized = default.lower().strip()
+    if normalized in {"offense", "defense", "special_teams", "special"}:
+        return "special_teams" if normalized == "special" else normalized
+
+    upper = desc.upper()
+    offense_terms = (
+        "FALSE START",
+        "DELAY OF GAME",
+        "ILLEGAL FORMATION",
+        "ILLEGAL SHIFT",
+        "ILLEGAL MOTION",
+        "ILLEGAL PROCEDURE",
+        "ILLEGAL SUBSTITUTION",
+        "INELIGIBLE",
+        "INTENTIONAL GROUNDING",
+        "OFFENSIVE HOLDING",
+        "OFFENSIVE PASS INTERFERENCE",
+    )
+    defense_terms = (
+        "DEFENSIVE HOLDING",
+        "DEFENSIVE PASS INTERFERENCE",
+        "OFFSIDE",
+        "OFFSIDES",
+        "ENCROACHMENT",
+        "NEUTRAL ZONE INFRACTION",
+    )
+    if any(term in upper for term in offense_terms):
+        return "offense"
+    if any(term in upper for term in defense_terms):
+        return "defense"
+    if "PASS INTERFERENCE" in upper:
+        return "defense"
+    return normalized or "unknown"
+
+
+def _resolve_penalty_owner(
+    token: str,
+    penalty_side: str,
+    offense_side: str | None,
+    *,
+    team_aliases: set[str],
+    opp_aliases: set[str],
+) -> str | None:
+    if token and not team_aliases and token not in opp_aliases:
+        return "team"
+    if token in team_aliases:
+        return "team"
+    if token in opp_aliases:
+        return "opp"
+    if penalty_side == "offense" and offense_side in {"team", "opp"}:
+        return offense_side
+    if penalty_side == "defense" and offense_side in {"team", "opp"}:
+        return "opp" if offense_side == "team" else "team"
+    return None
+
+
+def _game_penalty_aliases(base_team_aliases: set[str], game: dict) -> tuple[object, set[str], set[str]]:
+    opp_aliases = _abbr_set(game.get("opponent_abbr") or game.get("opponent"))
+    resolver = _build_play_side_resolver(game, team_aliases=base_team_aliases, opp_aliases=opp_aliases)
+    team_tokens = set(base_team_aliases)
+    team_tokens.update(
+        token
+        for token in resolver.team_aliases
+        if token in base_team_aliases or token in resolver.offense_tokens
+    )
+    opp_tokens = set(opp_aliases)
+    opp_tokens.update(token for token in resolver.opp_aliases if token in resolver.offense_tokens)
+    return resolver, team_tokens, opp_tokens
 
 
 def _penalty_stats_row(team: dict) -> dict | None:
@@ -204,55 +441,57 @@ def _aggregate(team: dict) -> dict:
     def_holding = 0
     def_holding_yards = 0
 
+    alias_votes_team = Counter()
+    alias_votes_opp = Counter()
+    game_penalty_payloads: list[tuple[dict, dict, list[dict], set[str], set[str]]] = []
+
     for g in games:
-        opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
+        resolver, known_team_aliases, known_opp_aliases = _game_penalty_aliases(team_aliases, g)
         game_row = {
             "game_number": g.get("game_number") or 0,
             "opponent": g.get("opponent") or "?",
+            "date": g.get("date") or g.get("game_date") or "",
             "count": 0,
             "yards": 0,
             "procedural_count": 0,
             "procedural_yards": 0,
             "live_ball_count": 0,
             "live_ball_yards": 0,
+            "official_count": None,
+            "official_yards": None,
+            "delta_count": 0,
+            "delta_yards": 0,
+            "official_source_path": "",
         }
-        game_team_aliases = _expand_aliases(team_aliases, game=g, opp_aliases=opp_aliases)
+        penalty_events: list[dict] = []
         details = g.get("penalty_details", []) or []
         for p in details:
             if not p.get("accepted", False):
                 continue
-
-            y = p.get("yards", 0) or 0
-            side = (p.get("offense_or_defense", "unknown") or "unknown").lower()
+            desc = str(p.get("description") or "")
+            token = _penalty_team_token(p)
+            y = int(p.get("yards", 0) or 0)
+            if _skip_non_enforced_penalty(desc, y):
+                continue
+            penalty_side = _penalty_side_from_text(desc, default=str(p.get("offense_or_defense", "unknown") or "unknown"))
             ptype = _simplify_penalty(p)
             if ptype == "Holding":
-                if side == "offense":
+                if penalty_side == "offense":
                     ptype = "Offensive Holding"
-                elif side == "defense":
+                elif penalty_side == "defense":
                     ptype = "Defensive Holding"
             group = _penalty_group(p)
-
-            total += 1
-            yards += y
-            by_side[side]["count"] += 1
-            by_side[side]["yards"] += y
-            by_group[group]["count"] += 1
-            by_group[group]["yards"] += y
-            by_type_count[ptype] += 1
-            by_type_yards[ptype] += y
-
-            game_row["count"] += 1
-            game_row["yards"] += y
-            if group == "procedural":
-                game_row["procedural_count"] += 1
-                game_row["procedural_yards"] += y
-            else:
-                game_row["live_ball_count"] += 1
-                game_row["live_ball_yards"] += y
-
-            q = p.get("quarter")
-            if q is not None:
-                by_quarter[q] += 1
+            penalty_events.append(
+                {
+                    "token": token,
+                    "yards": y,
+                    "penalty_side": penalty_side,
+                    "offense_side": None,
+                    "ptype": ptype,
+                    "group": group,
+                    "quarter": p.get("quarter"),
+                }
+            )
 
         # Fallback: derive penalty type/count from play descriptions when detail rows are absent.
         if not details and isinstance(g.get("play_tree"), list):
@@ -262,65 +501,149 @@ def _aggregate(team: dict) -> dict:
                         desc = str(play.get("description") or "")
                         if "PENALTY" not in desc.upper():
                             continue
-                        desc_up = desc.upper()
-                        pen_tok = _extract_penalized_team_token(desc_up)
-                        play_off = re.sub(r"[^A-Z0-9]", "", str(play.get("offense") or "").upper())
-                        is_team_penalty = pen_tok and pen_tok in game_team_aliases
+                        offense_side = resolver.resolve(play.get("offense"))
+                        for clause in _split_penalty_clauses(desc):
+                            token = _extract_penalized_team_token(clause.upper())
+                            penalty_side = _penalty_side_from_text(clause)
+                            yards_value = _penalty_yards_from_text(clause)
+                            if _skip_non_enforced_penalty(clause, yards_value):
+                                continue
+                            if (
+                                token
+                                and token not in known_team_aliases
+                                and token not in known_opp_aliases
+                                and penalty_side in {"offense", "defense"}
+                                and offense_side in {"team", "opp"}
+                            ):
+                                predicted = offense_side if penalty_side == "offense" else ("opp" if offense_side == "team" else "team")
+                                if predicted == "team":
+                                    alias_votes_team[token] += 1
+                                else:
+                                    alias_votes_opp[token] += 1
 
-                        # PI drawn/allowed tracking requires both teams' penalties.
-                        if "PASS INTERFERENCE" in desc_up:
-                            if pen_tok and pen_tok in game_team_aliases:
-                                pi_allowed += 1
-                            elif pen_tok and pen_tok in opp_aliases:
-                                pi_drawn += 1
-                            elif "DEFENSIVE PASS INTERFERENCE" in desc_up:
-                                if play_off and play_off in game_team_aliases:
-                                    pi_drawn += 1
-                                elif play_off and play_off in opp_aliases:
-                                    pi_allowed += 1
-                            elif "OFFENSIVE PASS INTERFERENCE" in desc_up:
-                                if play_off and play_off in game_team_aliases:
-                                    pi_allowed += 1
-                                elif play_off and play_off in opp_aliases:
-                                    pi_drawn += 1
-
-                        # Only count the team's own penalties in aggregates.
-                        if not is_team_penalty:
-                            continue
-
-                        pen_obj = {"description": desc}
-                        ptype = _simplify_penalty(pen_obj)
-                        if ptype == "Holding" and pen_tok and play_off:
-                            pen_is_offense = (
-                                pen_tok == play_off
-                                or (pen_tok in game_team_aliases and play_off in game_team_aliases)
+                            pen_obj = {"description": clause}
+                            ptype = _simplify_penalty(pen_obj)
+                            if ptype == "Holding":
+                                if penalty_side == "offense":
+                                    ptype = "Offensive Holding"
+                                elif penalty_side == "defense":
+                                    ptype = "Defensive Holding"
+                            penalty_events.append(
+                                {
+                                    "token": token,
+                                    "yards": yards_value,
+                                    "penalty_side": penalty_side,
+                                    "offense_side": offense_side if offense_side in {"team", "opp"} else None,
+                                    "ptype": ptype,
+                                    "group": _penalty_group(pen_obj),
+                                    "quarter": play.get("quarter") if play.get("quarter") is not None else q.get("quarter"),
+                                }
                             )
-                            ptype = "Offensive Holding" if pen_is_offense else "Defensive Holding"
-                        y_match = re.search(r"(\d+)\s*yards?", desc, re.IGNORECASE)
-                        y_val = int(y_match.group(1)) if y_match else 0
-                        if ptype == "Offensive Holding":
-                            off_holding += 1
-                            off_holding_yards += y_val
-                        elif ptype == "Defensive Holding":
-                            def_holding += 1
-                            def_holding_yards += y_val
-                        by_type_count[ptype] += 1
-                        by_type_yards[ptype] += y_val
-                        group = _penalty_group(pen_obj)
-                        by_group[group]["count"] += 1
-                        by_group[group]["yards"] += y_val
-                        total += 1
-                        yards += y_val
-                        game_row["count"] += 1
-                        game_row["yards"] += y_val
-                        if group == "procedural":
-                            game_row["procedural_count"] += 1
-                            game_row["procedural_yards"] += y_val
-                        else:
-                            game_row["live_ball_count"] += 1
-                            game_row["live_ball_yards"] += y_val
 
+        game_penalty_payloads.append((g, game_row, penalty_events, known_team_aliases, known_opp_aliases))
+
+    inferred_team_aliases = {
+        token
+        for token, votes in alias_votes_team.items()
+        if votes >= 2 and votes > alias_votes_opp.get(token, 0)
+    }
+    inferred_opp_aliases = {
+        token
+        for token, votes in alias_votes_opp.items()
+        if votes >= 2 and votes > alias_votes_team.get(token, 0)
+    }
+
+    for g, game_row, penalty_events, known_team_aliases, known_opp_aliases in game_penalty_payloads:
+        game_team_aliases = set(known_team_aliases) | inferred_team_aliases
+        game_opp_aliases = set(known_opp_aliases) | inferred_opp_aliases
+        for event in penalty_events:
+            owner = _resolve_penalty_owner(
+                event["token"],
+                event["penalty_side"],
+                event["offense_side"],
+                team_aliases=game_team_aliases,
+                opp_aliases=game_opp_aliases,
+            )
+            if event["ptype"] == "Pass Interference" and (
+                event["token"] in game_team_aliases or event["token"] in game_opp_aliases
+            ):
+                if owner == "team":
+                    pi_allowed += 1
+                elif owner == "opp":
+                    pi_drawn += 1
+            if owner != "team":
+                continue
+
+            y = int(event["yards"] or 0)
+            penalty_side = event["penalty_side"]
+            ptype = event["ptype"]
+            group = event["group"]
+            total += 1
+            yards += y
+            by_side[penalty_side]["count"] += 1
+            by_side[penalty_side]["yards"] += y
+            by_group[group]["count"] += 1
+            by_group[group]["yards"] += y
+            by_type_count[ptype] += 1
+            by_type_yards[ptype] += y
+            game_row["count"] += 1
+            game_row["yards"] += y
+            if group == "procedural":
+                game_row["procedural_count"] += 1
+                game_row["procedural_yards"] += y
+            else:
+                game_row["live_ball_count"] += 1
+                game_row["live_ball_yards"] += y
+            q = event.get("quarter")
+            if q is not None:
+                by_quarter[q] += 1
+            if ptype == "Offensive Holding":
+                off_holding += 1
+                off_holding_yards += y
+            elif ptype == "Defensive Holding":
+                def_holding += 1
+                def_holding_yards += y
         per_game.append(game_row)
+
+    parsed_total_count = sum(r["count"] for r in per_game)
+    parsed_total_yards = sum(r["yards"] for r in per_game)
+    official_candidates: list[tuple[dict, int, int, str]] = []
+    for game_row, game in zip(per_game, games):
+        official = _official_penalty_totals_for_game(team, game)
+        if not official:
+            continue
+        official_candidates.append(
+            (
+                game_row,
+                int(official.get("total_count", game_row["count"]) or 0),
+                int(official.get("total_yards", game_row["yards"]) or 0),
+                str(official.get("source_path") or ""),
+            )
+        )
+
+    apply_official_game_totals = bool(official_candidates)
+    if stats_row and official_candidates:
+        target_count = int(stats_row.get("total_penalties", parsed_total_count) or 0)
+        target_yards = int(stats_row.get("total_penalty_yards", parsed_total_yards) or 0)
+        adjusted_count = parsed_total_count + sum(official_count - row["count"] for row, official_count, _, _ in official_candidates)
+        adjusted_yards = parsed_total_yards + sum(official_yards - row["yards"] for row, _, official_yards, _ in official_candidates)
+        before_score = abs(target_count - parsed_total_count) + abs(target_yards - parsed_total_yards)
+        after_score = abs(target_count - adjusted_count) + abs(target_yards - adjusted_yards)
+        apply_official_game_totals = after_score < before_score
+
+    season_unattributed_count = 0
+    season_unattributed_yards = 0
+    if apply_official_game_totals:
+        for game_row, official_count, official_yards, source_path in official_candidates:
+            game_row["official_count"] = official_count
+            game_row["official_yards"] = official_yards
+            game_row["delta_count"] = official_count - game_row["count"]
+            game_row["delta_yards"] = official_yards - game_row["yards"]
+            game_row["official_source_path"] = source_path
+            if game_row["delta_count"] > 0:
+                season_unattributed_count += game_row["delta_count"]
+            if game_row["delta_yards"] > 0:
+                season_unattributed_yards += game_row["delta_yards"]
 
     # Prefer bundle-level penalty rollups when available (source of truth).
     has_group_breakdown = False
@@ -383,12 +706,19 @@ def _aggregate(team: dict) -> dict:
                 "defensive_holding",
             )
         ) and not (total > 0 and off_holding == 0 and def_holding == 0)
+        derived_group_count = derived_procedural["count"] + derived_live_ball["count"]
+        derived_group_yards = derived_procedural["yards"] + derived_live_ball["yards"]
+        structured_group_count = by_group["procedural"]["count"] + by_group["live_ball"]["count"]
+        structured_group_yards = by_group["procedural"]["yards"] + by_group["live_ball"]["yards"]
         # XML feeds can publish zeroed advanced splits while per-play details are present.
         if (
             total > 0
-            and by_group["procedural"]["count"] == 0
-            and by_group["live_ball"]["count"] == 0
             and (derived_procedural["count"] > 0 or derived_live_ball["count"] > 0)
+            and (
+                structured_group_count == 0
+                or structured_group_count != total
+                or structured_group_yards != yards
+            )
         ):
             by_group["procedural"] = derived_procedural
             by_group["live_ball"] = derived_live_ball
@@ -412,6 +742,20 @@ def _aggregate(team: dict) -> dict:
         has_pi_breakdown = bool(pi_drawn or pi_allowed)
         has_holding_breakdown = bool(off_holding or def_holding)
 
+    season_residual_count = 0
+    season_residual_yards = 0
+    if stats_row:
+        season_resolved_count = sum(
+            int(r["official_count"]) if isinstance(r.get("official_count"), int) else int(r["count"])
+            for r in per_game
+        )
+        season_resolved_yards = sum(
+            int(r["official_yards"]) if isinstance(r.get("official_yards"), int) else int(r["yards"])
+            for r in per_game
+        )
+        season_residual_count = int(stats_row.get("total_penalties", total) or 0) - season_resolved_count
+        season_residual_yards = int(stats_row.get("total_penalty_yards", yards) or 0) - season_resolved_yards
+
     return {
         "total": total,
         "yards": yards,
@@ -430,6 +774,10 @@ def _aggregate(team: dict) -> dict:
         "has_group_breakdown": has_group_breakdown,
         "has_pi_breakdown": has_pi_breakdown,
         "has_holding_breakdown": has_holding_breakdown,
+        "season_unattributed_count": season_unattributed_count,
+        "season_unattributed_yards": season_unattributed_yards,
+        "season_residual_count": season_residual_count,
+        "season_residual_yards": season_residual_yards,
     }
 
 
@@ -469,6 +817,8 @@ def _team_html(team: dict) -> str:
     defense = agg["by_side"].get("defense", {"count": 0, "yards": 0})
     procedural = agg["by_group"].get("procedural", {"count": 0, "yards": 0})
     live_ball = agg["by_group"].get("live_ball", {"count": 0, "yards": 0})
+    unattributed_count = agg.get("season_unattributed_count", 0)
+    unattributed_yards = agg.get("season_unattributed_yards", 0)
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
     show_holding = bool(agg.get("has_holding_breakdown"))
@@ -483,13 +833,41 @@ def _team_html(team: dict) -> str:
         f"<tr>"
         f"<td>G{r['game_number']}</td>"
         f"<td>{r['opponent']}</td>"
-        f"<td>{r['count']}</td>"
-        f"<td>{r['yards']}</td>"
+        f"<td>{r['official_count'] if isinstance(r.get('official_count'), int) else r['count']}{'*' if r.get('delta_count') else ''}</td>"
+        f"<td>{r['official_yards'] if isinstance(r.get('official_yards'), int) else r['yards']}{'*' if r.get('delta_yards') else ''}</td>"
         f"<td>{r['procedural_count']} ({r['procedural_yards']})</td>"
         f"<td>{r['live_ball_count']} ({r['live_ball_yards']})</td>"
         f"</tr>"
         for r in per_game_rows
     ) or "<tr><td colspan='6'>N/A</td></tr>"
+    delta_rows = [
+        r
+        for r in per_game_rows
+        if (r.get("delta_count") or 0) != 0 or (r.get("delta_yards") or 0) != 0
+    ]
+    delta_html = ""
+    if delta_rows:
+        delta_items = "".join(
+            "<li>"
+            f"G{r['game_number']} {r['opponent']}: "
+            f"{r.get('delta_count', 0):+d} penalties, {r.get('delta_yards', 0):+d} yards "
+            "between official game totals and play-attributed breakdown."
+            "</li>"
+            for r in delta_rows
+        )
+        delta_html = (
+            "<p class=\"section-note\">* Totals use official game summaries when available. "
+            "Procedural/live-ball splits remain play-attributed.</p>"
+            f"<ul class=\"section-note\">{delta_items}</ul>"
+        )
+    residual_html = ""
+    if agg.get("season_residual_count") or agg.get("season_residual_yards"):
+        residual_html = (
+            "<p class=\"section-note\">"
+            f"Season-source residual: {agg.get('season_residual_count', 0):+d} penalties, "
+            f"{agg.get('season_residual_yards', 0):+d} yards not attributable to a single game from available PBP detail."
+            "</p>"
+        )
 
     last_n_html = ""
     if _should_show_last_n(team):
@@ -586,6 +964,7 @@ def _team_html(team: dict) -> str:
           <li>Defense: {defense['count']} / {defense['yards']} yds{SRC_PBP}</li>
           <li>Procedural: {f"{procedural['count']} / {procedural['yards']} yds" if show_group else 'N/A'}{SRC_PBP}</li>
           <li>Live-ball: {f"{live_ball['count']} / {live_ball['yards']} yds" if show_group else 'N/A'}{SRC_PBP}</li>
+          <li>Unattributed from official game totals: {f"{unattributed_count} / {unattributed_yards} yds" if unattributed_count or unattributed_yards else '0 / 0 yds'}{SRC_PBP}</li>
           <li>PI Drawn: {agg['pi_drawn'] if show_pi else 'N/A'} | PI Allowed: {agg['pi_allowed'] if show_pi else 'N/A'}{SRC_PBP}</li>
           <li>Offensive Holding: {f"{agg['off_holding']} / {agg['off_holding_yards']} yds" if show_holding else 'N/A'} | Defensive Holding: {f"{agg['def_holding']} / {agg['def_holding_yards']} yds" if show_holding else 'N/A'}{SRC_PBP}</li>
           <li>CFBStats Rank: {_penalties_rank(team)}{SRC_CFB}</li>
@@ -611,6 +990,8 @@ def _team_html(team: dict) -> str:
           </thead>
           <tbody>{per_game_table}</tbody>
         </table>
+        {delta_html}
+        {residual_html}
       </div>
     </div>
     """
@@ -639,6 +1020,8 @@ def _team_md(team: dict) -> str:
     show_group = bool(agg.get("has_group_breakdown"))
     show_pi = bool(agg.get("has_pi_breakdown"))
     show_holding = bool(agg.get("has_holding_breakdown"))
+    unattributed_count = agg.get("season_unattributed_count", 0)
+    unattributed_yards = agg.get("season_unattributed_yards", 0)
 
     lines = [f"*{team['display_name']}*"]
     suffix = ""
@@ -663,6 +1046,25 @@ def _team_md(team: dict) -> str:
         f"- Off. Holding / Def. Holding: "
         f"{agg['off_holding'] if show_holding else 'N/A'} / {agg['def_holding'] if show_holding else 'N/A'}"
     )
+    lines.append(f"- Unattributed from official game totals: {unattributed_count} / {unattributed_yards} yds")
+    delta_rows = [
+        r
+        for r in agg["per_game"]
+        if (r.get("delta_count") or 0) != 0 or (r.get("delta_yards") or 0) != 0
+    ]
+    if delta_rows:
+        lines.append(
+            "- Game deltas: "
+            + "; ".join(
+                f"G{r['game_number']} {r['opponent']} ({r.get('delta_count', 0):+d} / {r.get('delta_yards', 0):+d})"
+                for r in delta_rows
+            )
+        )
+    if agg.get("season_residual_count") or agg.get("season_residual_yards"):
+        lines.append(
+            f"- Season-source residual: {agg.get('season_residual_count', 0):+d} penalties, "
+            f"{agg.get('season_residual_yards', 0):+d} yards"
+        )
     lines.append(f"- Top Penalty Type: {worst}")
     return "\n".join(lines)
 

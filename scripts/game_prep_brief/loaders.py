@@ -9,6 +9,7 @@ import urllib.request
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 from .published_artifacts import (
@@ -356,6 +357,40 @@ def _fetch_text_result_from_candidates(
         file=sys.stderr,
     )
     return {"text": None, "status": "unavailable", "reason": last_reason, "url": last_url}
+
+
+def _fetch_json_result_from_candidates(
+    candidates: list[str],
+    suffix: str,
+    timeout: int = 8,
+    attempts: int = 3,
+) -> dict[str, object]:
+    if not candidates:
+        return {"json": None, "status": "unavailable", "reason": "no_team_candidates", "url": None}
+    last_reason = "empty_response"
+    last_url: str | None = None
+    for candidate in candidates:
+        encoded = urllib.parse.quote(candidate)
+        url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
+        last_url = url
+        for attempt in range(1, attempts + 1):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    payload = json.loads(resp.read().decode("utf-8", errors="ignore") or "{}")
+                if isinstance(payload, dict):
+                    return {"json": payload, "status": "ok", "reason": None, "url": url}
+                last_reason = f"invalid_json_type via {candidate}"
+            except Exception as exc:
+                last_reason = f"{type(exc).__name__}: {exc}"
+                if attempt < attempts:
+                    time.sleep(0.2 * attempt)
+                continue
+    print(
+        f"[warn] yr-data-api fetch failed for {suffix}: {last_reason}",
+        file=sys.stderr,
+    )
+    return {"json": None, "status": "unavailable", "reason": last_reason, "url": last_url}
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -771,6 +806,30 @@ def _drive_top_seconds(drive_segments: list[tuple[int | None, list[dict]]]) -> i
     return last_elapsed - first_elapsed
 
 
+def _first_drive_segment_elapsed(drive_segments: list[tuple[int | None, list[dict]]]) -> int | None:
+    for quarter, plays in drive_segments:
+        valid_plays = [play for play in plays if not play.get("is_no_play") and play.get("clock")]
+        if not valid_plays:
+            continue
+        first_play = valid_plays[0]
+        return _clock_elapsed_seconds(
+            first_play.get("quarter") if isinstance(first_play.get("quarter"), int) else quarter,
+            first_play.get("clock"),
+        )
+    return None
+
+
+def _is_reasonable_post_turnover_match(entry: dict, drive_segments: list[tuple[int | None, list[dict]]]) -> bool:
+    if not drive_segments:
+        return False
+    turnover_elapsed = _clock_elapsed_seconds(entry.get("quarter"), entry.get("clock"))
+    first_segment_elapsed = _first_drive_segment_elapsed(drive_segments)
+    if turnover_elapsed is None or first_segment_elapsed is None:
+        return True
+    gap = first_segment_elapsed - turnover_elapsed
+    return 0 <= gap <= 75
+
+
 def _enrich_post_turnover_drives(
     raw_game: dict,
     entries: list[dict],
@@ -794,10 +853,13 @@ def _enrich_post_turnover_drives(
         if not isinstance(entry, dict):
             continue
         out = dict(entry)
-        segments = _matched_post_turnover_drive_segments(flat_drives, out, resolver)
-        top_seconds = _drive_top_seconds(segments)
-        if top_seconds is None and str(out.get("drive_result") or "").upper() == "DEF TD":
+        if str(out.get("drive_result") or "").upper() == "DEF TD":
             top_seconds = 0
+        else:
+            segments = _matched_post_turnover_drive_segments(flat_drives, out, resolver)
+            if not _is_reasonable_post_turnover_match(out, segments):
+                segments = []
+            top_seconds = _drive_top_seconds(segments)
         if top_seconds is not None:
             out["drive_top_seconds"] = top_seconds
             out["drive_top"] = _format_drive_top(top_seconds)
@@ -1212,6 +1274,22 @@ def _abbr_set(value: object) -> set[str]:
                 out.add(cleaned)
         return out
     return set()
+
+
+def _extract_penalty_team_token(desc: str) -> str:
+    upper = desc.upper()
+    patterns = (
+        r"\bPENALTY\s+BEFORE\s+THE\s+SNAP,\s*([A-Z0-9]{2,8})\b",
+        r"\bPENALTY\s+ON\s+([A-Z0-9]{2,8})\b",
+        r"\bPENALTY\s+([A-Z0-9]{2,8})\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, upper)
+        if match:
+            token = re.sub(r"[^A-Z0-9]", "", match.group(1))
+            if token != "BEFORE":
+                return token
+    return ""
 
 
 def _team_aliases_from_bundle(home_abbr: str | None, stats: object, games: object) -> set[str]:
@@ -1783,6 +1861,206 @@ def _apply_special_teams_play_tree_derivations(team_name: str, pbp_entry: dict |
     return warnings
 
 
+def _apply_turnover_xml_game_overrides(pbp_entry: dict | None) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+
+    xml_stats = pbp_entry.get("xml_stats") if isinstance(pbp_entry.get("xml_stats"), dict) else {}
+    tov_cat = xml_stats.get("turnovers") if isinstance(xml_stats.get("turnovers"), dict) else {}
+    pot_cat = (
+        xml_stats.get("points_off_turnovers")
+        if isinstance(xml_stats.get("points_off_turnovers"), dict)
+        else {}
+    )
+
+    def _set_if_numeric(game: dict, key: str, value: object) -> None:
+        if isinstance(value, (int, float)):
+            game[key] = int(value)
+
+    for game in games:
+        opp = str(game.get("opponent_abbr") or "").upper().strip()
+        if not opp:
+            continue
+        tov_row = tov_cat.get(opp) if isinstance(tov_cat.get(opp), dict) else {}
+        pot_row = pot_cat.get(opp) if isinstance(pot_cat.get(opp), dict) else {}
+        if tov_row:
+            _set_if_numeric(game, "turnovers_gained", tov_row.get("turnovers"))
+            _set_if_numeric(game, "turnovers_lost", tov_row.get("turnovers_forced"))
+            _set_if_numeric(game, "interceptions_gained", tov_row.get("interceptions"))
+            _set_if_numeric(game, "interceptions_lost", tov_row.get("interceptions_forced"))
+            _set_if_numeric(game, "fumbles_gained", tov_row.get("fumbles_lost"))
+            _set_if_numeric(game, "fumbles_lost", tov_row.get("fumbles_recovered"))
+        if pot_row:
+            _set_if_numeric(game, "points_off_turnovers_for", pot_row.get("points_off_turnovers_allowed"))
+            _set_if_numeric(game, "points_off_turnovers_against", pot_row.get("points_off_turnovers"))
+
+
+def _normalize_team_name_key(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+def _normalize_game_date_key(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return text
+
+
+def _raw_game_briefs_root() -> Path | None:
+    candidates = [
+        ROOT_DIR.parent / "pbp-parser" / "data" / "statbroadcast_game_briefs",
+        ROOT_DIR / "data" / "statbroadcast_game_briefs",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+@lru_cache(maxsize=None)
+def _load_raw_game_fourth_down_totals(team_slug: str, team_name: str) -> dict[str, dict]:
+    root = _raw_game_briefs_root()
+    if root is None:
+        return {}
+    team_dir = root / team_slug
+    if not team_dir.exists():
+        return {}
+
+    team_name_key = _normalize_team_name_key(team_name)
+    totals_by_date: dict[str, dict] = {}
+    for path in sorted(team_dir.glob("game_*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+        team_names = payload.get("team_names") or []
+        teams = payload.get("teams") or []
+        if not isinstance(team_names, list) or not isinstance(teams, list) or len(team_names) != len(teams):
+            continue
+        team_idx = next(
+            (
+                idx
+                for idx, candidate_name in enumerate(team_names)
+                if _normalize_team_name_key(candidate_name) == team_name_key
+            ),
+            None,
+        )
+        if team_idx is None:
+            continue
+        team_token = str(teams[team_idx] or "").upper().strip()
+        team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
+        if not team_stats:
+            continue
+        date_key = _normalize_game_date_key((payload.get("meta") or {}).get("game_date"))
+        if not date_key:
+            continue
+        totals_by_date[date_key] = {
+            "attempts": int(team_stats.get("fourth_down_attempts") or 0),
+            "conversions": int(team_stats.get("fourth_down_conversions") or 0),
+            "source_path": str(path),
+        }
+    return totals_by_date
+
+
+@lru_cache(maxsize=None)
+def _load_raw_game_third_down_totals(team_slug: str, team_name: str) -> dict[str, dict]:
+    root = _raw_game_briefs_root()
+    if root is None:
+        return {}
+    team_dir = root / team_slug
+    if not team_dir.exists():
+        return {}
+
+    team_name_key = _normalize_team_name_key(team_name)
+    totals_by_date: dict[str, dict] = {}
+    for path in sorted(team_dir.glob("game_*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+        team_names = payload.get("team_names") or []
+        teams = payload.get("teams") or []
+        if not isinstance(team_names, list) or not isinstance(teams, list) or len(team_names) != len(teams):
+            continue
+        team_idx = next(
+            (
+                idx
+                for idx, candidate_name in enumerate(team_names)
+                if _normalize_team_name_key(candidate_name) == team_name_key
+            ),
+            None,
+        )
+        if team_idx is None:
+            continue
+        team_token = str(teams[team_idx] or "").upper().strip()
+        team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
+        if not team_stats:
+            continue
+        date_key = _normalize_game_date_key((payload.get("meta") or {}).get("game_date"))
+        if not date_key:
+            continue
+        totals_by_date[date_key] = {
+            "attempts": int(team_stats.get("third_down_attempts") or 0),
+            "conversions": int(team_stats.get("third_down_conversions") or 0),
+            "source_path": str(path),
+        }
+    return totals_by_date
+
+
+def _apply_raw_game_fourth_down_overrides(
+    pbp_entry: dict | None,
+    *,
+    team_slug: str,
+    team_name: str,
+) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+    totals_by_date = _load_raw_game_fourth_down_totals(team_slug, team_name)
+    if not totals_by_date:
+        return
+    for game in games:
+        date_key = _normalize_game_date_key(game.get("date") or game.get("game_date"))
+        row = totals_by_date.get(date_key)
+        if not isinstance(row, dict):
+            continue
+        game["4th_down_attempts"] = int(row.get("attempts") or 0)
+        game["4th_down_conversions"] = int(row.get("conversions") or 0)
+
+
+def _apply_raw_game_third_down_overrides(
+    pbp_entry: dict | None,
+    *,
+    team_slug: str,
+    team_name: str,
+) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+    totals_by_date = _load_raw_game_third_down_totals(team_slug, team_name)
+    if not totals_by_date:
+        return
+    for game in games:
+        date_key = _normalize_game_date_key(game.get("date") or game.get("game_date"))
+        row = totals_by_date.get(date_key)
+        if not isinstance(row, dict):
+            continue
+        game["third_down_attempts"] = int(row.get("attempts") or 0)
+        game["third_down_conversions"] = int(row.get("conversions") or 0)
+
+
 def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
     if not pbp_entry:
         return [f"{team_name}: missing team payload in XML bundle"]
@@ -1992,18 +2270,27 @@ def _verification_from_artifact(
     }
 
 
-def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 1.0) -> str | None:
+def _down_rate_parity_gap(
+    team_name: str,
+    pbp_entry: dict | None,
+    *,
+    attempts_key: str,
+    conversions_key: str,
+    ranking_key: str,
+    label: str,
+    threshold: float,
+) -> str | None:
     if not isinstance(pbp_entry, dict):
         return None
     games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
-    attempts = sum(int(g.get("4th_down_attempts") or 0) for g in games)
-    conversions = sum(int(g.get("4th_down_conversions") or 0) for g in games)
+    attempts = sum(int(g.get(attempts_key) or 0) for g in games)
+    conversions = sum(int(g.get(conversions_key) or 0) for g in games)
     if attempts <= 0:
         return None
     pbp_pct = round((conversions / attempts) * 100.0, 1)
 
     rankings = ((pbp_entry.get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
-    cfb_row = rankings.get("fourth_down") if isinstance(rankings, dict) else {}
+    cfb_row = rankings.get(ranking_key) if isinstance(rankings, dict) else {}
     cfb_value = _to_float_number((cfb_row or {}).get("value"))
     if cfb_value is None:
         return None
@@ -2012,8 +2299,32 @@ def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: f
     if abs(delta) < threshold:
         return None
     return (
-        f"{team_name}: 4th-down parity delta {delta:+.1f} pts "
+        f"{team_name}: {label} parity delta {delta:+.1f} pts "
         f"(PBP {conversions}/{attempts}={pbp_pct}% vs CFBStats {cfb_pct}%)"
+    )
+
+
+def _third_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 0.25) -> str | None:
+    return _down_rate_parity_gap(
+        team_name,
+        pbp_entry,
+        attempts_key="third_down_attempts",
+        conversions_key="third_down_conversions",
+        ranking_key="third_down",
+        label="3rd-down",
+        threshold=threshold,
+    )
+
+
+def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 1.0) -> str | None:
+    return _down_rate_parity_gap(
+        team_name,
+        pbp_entry,
+        attempts_key="4th_down_attempts",
+        conversions_key="4th_down_conversions",
+        ranking_key="fourth_down",
+        label="4th-down",
+        threshold=threshold,
     )
 
 
@@ -2320,6 +2631,42 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     def _try_fetch(suffix: str) -> dict[str, object]:
         return _fetch_text_result_from_candidates(candidates, suffix)
 
+    def _try_fetch_json(suffix: str) -> dict[str, object]:
+        return _fetch_json_result_from_candidates(candidates, suffix)
+
+    def _parse_float(value: object) -> float | None:
+        try:
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _parse_games_played() -> int | None:
+        games_result = _try_fetch("games-played?format=text")
+        text = games_result.get("text")
+        try:
+            games = int(float(str(text).strip()))
+        except (TypeError, ValueError, AttributeError):
+            if games_result.get("reason"):
+                reasons.append(f"pff_games_played:{games_result.get('reason')}")
+            return None
+        return games if games > 0 else None
+
+    def _per_game_value(
+        total_value: object,
+        per_game_value: object,
+        *,
+        games: int | None,
+    ) -> str:
+        per_game = _parse_float(per_game_value)
+        total = _parse_float(total_value)
+        if per_game is not None and per_game > 0:
+            return f"{per_game:.1f}"
+        if total is not None and games:
+            return f"{round(total / games, 1):.1f}"
+        return "N/A"
+
+    games_played = _parse_games_played()
+
     plays_off_result = _try_fetch("pff/plays?side=off&format=text")
     plays_off = plays_off_result.get("text")
     if plays_off:
@@ -2334,41 +2681,100 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     else:
         reasons.append(f"pff_plays_def:{plays_def_result.get('reason') or 'unavailable'}")
 
-    tackling_result = _try_fetch("pff/tackling-per-game?format=text")
-    tackling_pg = tackling_result.get("text")
-    if tackling_pg:
-        parts = [p.strip() for p in str(tackling_pg).split("\t")]
-        if len(parts) >= 3:
-            first_three = parts[:3]
-            if all(part in {"0", "0.0", "0.00"} for part in first_three):
-                reasons.append("pff_tackling:zero_placeholder_response")
+    tackling_json_result = _try_fetch_json("pff/tackling-per-game")
+    tackling_payload = tackling_json_result.get("json")
+    tackling_data = tackling_payload.get("data") if isinstance(tackling_payload, dict) else None
+    if isinstance(tackling_data, dict):
+        effective_games = int(_parse_float(tackling_data.get("games")) or 0) or games_played
+        out["pff_missed_tackles_pg"] = _per_game_value(
+            tackling_data.get("missed_tackles"),
+            tackling_data.get("missed_tackles_per_game"),
+            games=effective_games,
+        )
+        out["pff_tfl_pg"] = _per_game_value(
+            tackling_data.get("tfl"),
+            tackling_data.get("tfl_per_game"),
+            games=effective_games,
+        )
+        out["pff_sacks_pg"] = _per_game_value(
+            tackling_data.get("sacks"),
+            tackling_data.get("sacks_per_game"),
+            games=effective_games,
+        )
+        if all(out[key] == "N/A" for key in ("pff_missed_tackles_pg", "pff_tfl_pg", "pff_sacks_pg")):
+            reasons.append("pff_tackling:zero_placeholder_response")
+    else:
+        tackling_result = _try_fetch("pff/tackling-per-game?format=text")
+        tackling_pg = tackling_result.get("text")
+        if tackling_pg:
+            parts = [p.strip() for p in str(tackling_pg).split("\t")]
+            if len(parts) >= 4 and games_played:
+                out["pff_missed_tackles_pg"] = _per_game_value(parts[0], None, games=games_played)
+                out["pff_tfl_pg"] = _per_game_value(parts[1], None, games=games_played)
+                out["pff_sacks_pg"] = _per_game_value(parts[2], None, games=games_played)
+            elif len(parts) >= 3:
+                first_three = parts[:3]
+                if all(part in {"0", "0.0", "0.00"} for part in first_three):
+                    reasons.append("pff_tackling:zero_placeholder_response")
+                else:
+                    out["pff_missed_tackles_pg"] = first_three[0] or "N/A"
+                    out["pff_tfl_pg"] = first_three[1] or "N/A"
+                    out["pff_sacks_pg"] = first_three[2] or "N/A"
             else:
-                out["pff_missed_tackles_pg"] = first_three[0] or "N/A"
-                out["pff_tfl_pg"] = first_three[1] or "N/A"
-                out["pff_sacks_pg"] = first_three[2] or "N/A"
+                reasons.append("pff_tackling:malformed_payload")
         else:
-            reasons.append("pff_tackling:malformed_payload")
-    else:
-        reasons.append(f"pff_tackling:{tackling_result.get('reason') or 'unavailable'}")
+            reasons.append(f"pff_tackling:{tackling_result.get('reason') or 'unavailable'}")
 
-    sacks_allowed_result = _try_fetch("pff/sacks-allowed?format=text")
-    sacks_allowed = sacks_allowed_result.get("text")
-    if sacks_allowed:
-        out["pff_sacks_allowed_pg"] = str(sacks_allowed).strip()
+    sacks_allowed_json_result = _try_fetch_json("pff/sacks-allowed")
+    sacks_allowed_payload = sacks_allowed_json_result.get("json")
+    sacks_allowed_data = sacks_allowed_payload.get("data") if isinstance(sacks_allowed_payload, dict) else None
+    if isinstance(sacks_allowed_data, dict):
+        effective_games = int(_parse_float(sacks_allowed_data.get("games")) or 0) or games_played
+        out["pff_sacks_allowed_pg"] = _per_game_value(
+            sacks_allowed_data.get("sacks_allowed"),
+            sacks_allowed_data.get("sacks_allowed_per_game"),
+            games=effective_games,
+        )
     else:
-        reasons.append(f"pff_sacks_allowed:{sacks_allowed_result.get('reason') or 'unavailable'}")
-
-    fmt_result = _try_fetch("pff/fmt?format=text")
-    fmt = fmt_result.get("text")
-    if fmt:
-        parts = [p.strip() for p in str(fmt).split("\t")]
-        if len(parts) >= 2:
-            out["pff_fmt_total"] = parts[0] or "N/A"
-            out["pff_fmt_pg"] = parts[1] or "N/A"
+        sacks_allowed_result = _try_fetch("pff/sacks-allowed?format=text")
+        sacks_allowed = sacks_allowed_result.get("text")
+        if sacks_allowed:
+            total_or_pg = _parse_float(sacks_allowed)
+            if total_or_pg is not None and total_or_pg > 5 and games_played:
+                out["pff_sacks_allowed_pg"] = _per_game_value(total_or_pg, None, games=games_played)
+            else:
+                out["pff_sacks_allowed_pg"] = str(sacks_allowed).strip()
         else:
-            reasons.append("pff_fmt:malformed_payload")
+            reasons.append(f"pff_sacks_allowed:{sacks_allowed_result.get('reason') or 'unavailable'}")
+
+    fmt_json_result = _try_fetch_json("pff/fmt")
+    fmt_payload = fmt_json_result.get("json")
+    fmt_data = fmt_payload.get("data") if isinstance(fmt_payload, dict) else None
+    if isinstance(fmt_data, dict):
+        total = _parse_float(fmt_data.get("fmt"))
+        effective_games = int(_parse_float(fmt_data.get("games")) or 0) or games_played
+        out["pff_fmt_total"] = str(int(total)) if total is not None else "N/A"
+        out["pff_fmt_pg"] = _per_game_value(
+            fmt_data.get("fmt"),
+            fmt_data.get("fmt_per_game"),
+            games=effective_games,
+        )
     else:
-        reasons.append(f"pff_fmt:{fmt_result.get('reason') or 'unavailable'}")
+        fmt_result = _try_fetch("pff/fmt?format=text")
+        fmt = fmt_result.get("text")
+        if fmt:
+            parts = [p.strip() for p in str(fmt).split("\t")]
+            if len(parts) >= 2:
+                out["pff_fmt_total"] = parts[0] or "N/A"
+                out["pff_fmt_pg"] = parts[1] or "N/A"
+            elif len(parts) == 1:
+                total = _parse_float(parts[0])
+                out["pff_fmt_total"] = parts[0] or "N/A"
+                out["pff_fmt_pg"] = _per_game_value(total, None, games=games_played)
+            else:
+                reasons.append("pff_fmt:malformed_payload")
+        else:
+            reasons.append(f"pff_fmt:{fmt_result.get('reason') or 'unavailable'}")
 
     play_clock_result = _try_fetch("pff/play-clock?format=text")
     play_clock = play_clock_result.get("text")
@@ -2567,6 +2973,15 @@ def compute_last_n_stats(games: list[dict], n: int = 3, team_aliases: object = N
         for p in g.get("penalty_details") or []:
             if not p.get("accepted"):
                 continue
+            token = re.sub(
+                r"[^A-Z0-9]",
+                "",
+                str(p.get("team") or p.get("penalized_team") or "").upper(),
+            )
+            if not token:
+                token = _extract_penalty_team_token(str(p.get("description") or ""))
+            if token and resolved_team_aliases and token not in resolved_team_aliases:
+                continue
             penalties_total += 1
             side = (p.get("offense_or_defense") or "").lower()
             if side == "offense":
@@ -2727,7 +3142,9 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
             "gained": 0,
             "lost": 0,
             "int_gained": 0,
+            "int_lost": 0,
             "fum_gained": 0,
+            "fum_lost": 0,
             "pot_for": 0,
             "pot_against": 0,
         }
@@ -2741,6 +3158,8 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
                 cfb_from_games[key] += int(cfb.get(key) or 0)
         cfb_totals["gained"] = int(cfb_from_games["gained"])
         cfb_totals["lost"] = int(cfb_from_games["lost"])
+        cfb_totals["int_lost"] = int(cfb_from_games["int_lost"])
+        cfb_totals["fum_lost"] = int(cfb_from_games["fum_lost"])
         cfb_totals["pot_for"] = int(cfb_from_games["pot_for"])
         cfb_totals["pot_against"] = int(cfb_from_games["pot_against"])
 
@@ -2787,7 +3206,9 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             "gained": int(game.get("turnovers_gained") or 0),
             "lost": int(game.get("turnovers_lost") or 0),
             "int_gained": int(game.get("interceptions_gained") or 0),
+            "int_lost": int(game.get("interceptions_lost") or 0),
             "fum_gained": int(game.get("fumbles_gained") or 0),
+            "fum_lost": int(game.get("fumbles_lost") or 0),
             "pot_for": int(game.get("points_off_turnovers_for") or 0),
             "pot_against": int(game.get("points_off_turnovers_against") or 0),
         }
@@ -2797,12 +3218,14 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             "gained": int(tov_row.get("turnovers") or 0),
             "lost": int(tov_row.get("turnovers_forced") or 0),
             "int_gained": int(tov_row.get("interceptions") or 0),
+            "int_lost": int(tov_row.get("interceptions_forced") or 0),
             "fum_gained": int(tov_row.get("fumbles_lost") or 0),
+            "fum_lost": int(tov_row.get("fumbles_recovered") or 0),
             "pot_for": int(pot_row.get("points_off_turnovers_allowed") or 0),
             "pot_against": int(pot_row.get("points_off_turnovers") or 0),
         }
         delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
-        count_keys = {"gained", "lost", "int_gained", "fum_gained"}
+        count_keys = {"gained", "lost", "int_gained", "int_lost", "fum_gained", "fum_lost"}
         in_sync = all(delta[k] == 0 for k in count_keys)
         report.append(
             {
@@ -2931,11 +3354,25 @@ def gather_team_data(
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)
         parity_gaps = _apply_special_teams_play_tree_derivations(team_name, pbp_entry)
+        _apply_turnover_xml_game_overrides(pbp_entry)
+        _apply_raw_game_third_down_overrides(
+            pbp_entry,
+            team_slug=school_slug,
+            team_name=team_name,
+        )
+        _apply_raw_game_fourth_down_overrides(
+            pbp_entry,
+            team_slug=school_slug,
+            team_name=team_name,
+        )
     else:
         parity_gaps = []
     parity_gaps.extend(_collect_parity_gaps(team_name, pbp_entry))
     alias_warnings = _collect_play_tree_alias_warnings(team_name, pbp_entry)
     parity_gaps.extend(alias_warnings)
+    third_down_gap = _third_down_parity_gap(team_name, pbp_entry)
+    if third_down_gap:
+        parity_gaps.append(third_down_gap)
     fourth_down_gap = _fourth_down_parity_gap(team_name, pbp_entry)
     if fourth_down_gap:
         parity_gaps.append(fourth_down_gap)
@@ -2982,6 +3419,8 @@ def gather_team_data(
             debug_flag = str(os.getenv("GAME_PREP_TURNOVER_DEBUG") or "").strip().lower()
             if debug_flag in {"1", "true", "yes", "on"}:
                 _print_turnover_debug(team_name, pbp_entry, mismatch_games, limit=3)
+        if third_down_gap:
+            print(f"[warn] {third_down_gap}", file=sys.stderr)
         if fourth_down_gap:
             print(f"[warn] {fourth_down_gap}", file=sys.stderr)
         for warning in alias_warnings:

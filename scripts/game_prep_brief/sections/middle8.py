@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 
+from ..loaders import _build_play_side_resolver
 from ._names import format_player_name
 from ._sources import SRC_PBP
 
@@ -169,7 +170,8 @@ def _scoring_plays(games: list[dict]) -> list[str]:
     plays = []
     for g in games:
         for p in g.get("middle8_scoring_plays", []) or []:
-            plays.append(p)
+            if _middle8_scoring_points(p) > 0:
+                plays.append(p)
     return plays
 
 
@@ -197,6 +199,82 @@ def _is_middle8_window(quarter: object, clock: object) -> bool:
     return False
 
 
+def _middle8_scoring_points(play: dict | str) -> int:
+    desc = play if isinstance(play, str) else str(
+        play.get("description") or play.get("play_text") or play.get("text") or ""
+    )
+    desc_up = desc.upper()
+    effective = desc_up.split("PLAY OVERTURNED", 1)[0]
+    if "TOUCHDOWN" in effective:
+        return 7
+    if "SAFETY" in effective:
+        return 2
+    if "FIELD GOAL" not in effective:
+        return 0
+    if any(bad in effective for bad in ("NO GOOD", "MISSED", "WIDE", "BLOCKED")):
+        return 0
+    return 3
+
+
+def _middle8_breakdown(team: dict) -> dict:
+    games = _games(team)
+    pbp = team.get("pbp_entry") or {}
+    team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
+    per_game: list[dict] = []
+    plays: list[dict] = []
+
+    for g in sorted(games, key=lambda x: x.get("game_number", 0)):
+        opp_aliases = _abbr_set(g.get("opponent_abbr") or g.get("opponent"))
+        resolver = _build_play_side_resolver(g, team_aliases=team_aliases, opp_aliases=opp_aliases)
+        pts_for = 0
+        pts_against = 0
+        game_plays: list[dict] = []
+
+        for quarter in g.get("play_tree") or []:
+            if not isinstance(quarter, dict):
+                continue
+            qnum = quarter.get("quarter")
+            for drive in quarter.get("drives") or []:
+                if not isinstance(drive, dict):
+                    continue
+                for play in drive.get("plays") or []:
+                    if not isinstance(play, dict) or play.get("is_no_play") or not play.get("is_scoring"):
+                        continue
+                    if not _is_middle8_window(qnum, play.get("clock")):
+                        continue
+                    points = _middle8_scoring_points(play)
+                    if points <= 0:
+                        continue
+                    derived = dict(play)
+                    derived["quarter"] = qnum
+                    derived["game_number"] = g.get("game_number")
+                    derived["opponent"] = g.get("opponent")
+                    game_plays.append(derived)
+                    side = resolver.resolve(play.get("offense"))
+                    if side == "team":
+                        pts_for += points
+                    elif side == "opp":
+                        pts_against += points
+
+        if not game_plays:
+            score_tuple = _middle8_game_score(team, g)
+            if score_tuple:
+                pts_for, pts_against = score_tuple
+        else:
+            plays.extend(game_plays)
+
+        per_game.append(
+            {
+                "game_number": g.get("game_number"),
+                "opponent": g.get("opponent") or "?",
+                "points_for": pts_for,
+                "points_against": pts_against,
+            }
+        )
+
+    return {"per_game": per_game, "plays": plays}
+
+
 def _derived_middle8_scoring_plays(team: dict, games: list[dict], limit: int = 6) -> list[dict]:
     pbp = team.get("pbp_entry") or {}
     team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
@@ -215,12 +293,9 @@ def _derived_middle8_scoring_plays(team: dict, games: list[dict], limit: int = 6
                         continue
                     if play.get("is_no_play") or not play.get("is_scoring"):
                         continue
-                    desc = str(play.get("description") or "")
-                    desc_up = desc.upper()
-                    effective = desc_up.split("PLAY OVERTURNED", 1)[0]
-                    if "TOUCHDOWN" not in effective and "FIELD GOAL" not in effective and "SAFETY" not in effective:
-                        continue
                     if not _is_middle8_window(qnum, play.get("clock")):
+                        continue
+                    if _middle8_scoring_points(play) <= 0:
                         continue
                     offense = str(play.get("offense") or "").upper()
                     derived = dict(play)
@@ -300,27 +375,34 @@ def _team_html(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"<div class=\"team-card\"><h3>{team['display_name']}</h3><p><em>No PBP data.</em></p></div>"
     games = _games(team)
+    breakdown = _middle8_breakdown(team)
+    per_game_data = breakdown["per_game"]
     xml_m8 = _xml_row(team, "middle_eight")
-    pts_for = xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for"))
-    pts_against = xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against"))
+    pts_for = sum(row["points_for"] for row in per_game_data)
+    pts_against = sum(row["points_against"] for row in per_game_data)
+    if not per_game_data or (pts_for == 0 and pts_against == 0 and xml_m8):
+        pts_for = int(xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for")) or 0)
+        pts_against = int(xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against")) or 0)
     margin = pts_for - pts_against
     per_game = []
-    for g in sorted(games, key=lambda x: x.get("game_number", 0)):
-        score_tuple = _middle8_game_score(team, g)
-        score = f"{score_tuple[0]}-{score_tuple[1]}" if score_tuple else "N/A"
-        per_game.append(f"G{g.get('game_number','?')} vs {g.get('opponent','?')}: {score}")
+    for row in per_game_data:
+        score = f"{row['points_for']}-{row['points_against']}"
+        per_game.append(f"G{row.get('game_number','?')} vs {row.get('opponent','?')}: {score}")
     per_game_html = "".join(f"<li>{l}</li>" for l in per_game) or "<li>N/A</li>"
-    plays = _scoring_plays(games)
+    plays = breakdown["plays"] or _scoring_plays(games)
     if not plays:
         plays = _derived_middle8_scoring_plays(team, games, limit=6)
     plays_html = "".join(_play_html(p) for p in plays[:6]) or "<li>N/A</li>"
     last_n_html = ""
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
-        actual_n = last_n.get("actual_n", 0)
-        l3_pts_for = last_n.get("middle8_points_for", 0)
-        l3_pts_against = last_n.get("middle8_points_against", 0)
+        actual_n = min(int(last_n.get("actual_n", 0) or 0), len(per_game_data))
+        recent_games = per_game_data[-actual_n:] if actual_n else []
+        l3_pts_for = sum(row["points_for"] for row in recent_games)
+        l3_pts_against = sum(row["points_against"] for row in recent_games)
         l3_margin = last_n.get("middle8_margin", 0)
+        if recent_games:
+            l3_margin = l3_pts_for - l3_pts_against
         trend_color = ""
         if l3_margin > margin:
             trend_color = " style=\"color: #1b7f2a;\""
@@ -363,18 +445,24 @@ def _team_md(team: dict) -> str:
     if not team.get("has_pbp"):
         return f"*{team['display_name']}*\n- Middle 8: N/A"
     games = _games(team)
+    breakdown = _middle8_breakdown(team)
+    per_game_data = breakdown["per_game"]
     xml_m8 = _xml_row(team, "middle_eight")
-    pts_for = xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for"))
-    pts_against = xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against"))
+    pts_for = sum(row["points_for"] for row in per_game_data)
+    pts_against = sum(row["points_against"] for row in per_game_data)
+    if not per_game_data or (pts_for == 0 and pts_against == 0 and xml_m8):
+        pts_for = int(xml_m8.get("middle_eight_points", _sum(games, "middle8_points_for")) or 0)
+        pts_against = int(xml_m8.get("middle_eight_points_allowed", _sum(games, "middle8_points_against")) or 0)
     margin = pts_for - pts_against
     last_n_note = ""
     if _should_show_last_n(team):
         last_n = team.get("last_n", {}) or {}
-        actual_n = last_n.get("actual_n", 0)
-        l3_margin = last_n.get("middle8_margin", 0)
+        actual_n = min(int(last_n.get("actual_n", 0) or 0), len(per_game_data))
+        recent_games = per_game_data[-actual_n:] if actual_n else []
+        l3_margin = sum(row["points_for"] - row["points_against"] for row in recent_games)
         if l3_margin != margin:
             last_n_note = f" (L{actual_n}: {l3_margin})"
-    plays = _scoring_plays(games)
+    plays = breakdown["plays"] or _scoring_plays(games)
     if not plays:
         plays = _derived_middle8_scoring_plays(team, games, limit=3)
     plays = plays[:3]

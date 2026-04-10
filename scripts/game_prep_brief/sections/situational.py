@@ -81,6 +81,10 @@ def _sanitize_charting_value(value: object) -> object:
 def _display_or_unavailable(value: object, suffix: str = "") -> str:
     if _is_na(value):
         return "Unavailable (API)"
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("%") and suffix == "":
+            return text
     return _num_display(value, suffix)
 
 
@@ -207,6 +211,15 @@ def _collect_target_tendencies(team: dict) -> dict:
 
 
 def _third_down_from_games(team: dict, games: list[dict]) -> tuple[int, int, float | str]:
+    if games and all(
+        isinstance(g.get("third_down_attempts"), int) and isinstance(g.get("third_down_conversions"), int)
+        for g in games
+    ):
+        attempts = sum(int(g.get("third_down_attempts") or 0) for g in games)
+        conversions = sum(int(g.get("third_down_conversions") or 0) for g in games)
+        pct = round((conversions / attempts) * 100, 1) if attempts else "N/A"
+        return conversions, attempts, pct
+
     pbp = team.get("pbp_entry") or {}
     team_aliases = _abbr_set(pbp.get("abbr_aliases") or pbp.get("abbr"))
     if not team_aliases:

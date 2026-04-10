@@ -83,7 +83,15 @@ def _render_golden_sections(
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_artifact_backed_brief_sections_match_golden_snapshots(
     case: dict,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Keep the golden render hermetic to the fixture artifacts in this repo.
+    monkeypatch.setattr(loaders, "_raw_game_briefs_root", lambda: None)
+    monkeypatch.setattr(penalties, "_raw_game_briefs_root", lambda: None)
+    loaders._load_raw_game_fourth_down_totals.cache_clear()
+    loaders._load_raw_game_third_down_totals.cache_clear()
+    penalties._load_raw_game_penalty_totals.cache_clear()
+
     expected = json.loads(case["expected"].read_text(encoding="utf-8"))
     actual = _render_golden_sections(
         bundle_path=case["bundle"],
@@ -97,3 +105,7 @@ def test_artifact_backed_brief_sections_match_golden_snapshots(
     assert actual.keys() == expected.keys()
     for section_key, expected_lines in expected.items():
         assert actual[section_key] == expected_lines, f"{case['name']} section={section_key}"
+
+    loaders._load_raw_game_fourth_down_totals.cache_clear()
+    loaders._load_raw_game_third_down_totals.cache_clear()
+    penalties._load_raw_game_penalty_totals.cache_clear()

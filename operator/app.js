@@ -138,11 +138,11 @@ function hydrateSettings() {
         elements.lastNInput.value = savedDispatch.lastN || DEFAULTS.lastN;
         elements.runTestsInput.checked = Boolean(savedDispatch.runTests);
         elements.strictVerificationInput.checked = savedDispatch.strictVerification !== false;
-        elements.includeEnrichmentInput.checked = savedDispatch.includeEnrichment !== false;
     } else {
         setSelectValue(elements.team1Input, DEFAULTS.team1, DEFAULTS.team1);
         setSelectValue(elements.team2Input, DEFAULTS.team2, DEFAULTS.team2);
     }
+    elements.includeEnrichmentInput.checked = DEFAULTS.includeEnrichment;
 }
 
 function bindEvents() {
@@ -197,7 +197,6 @@ function persistDispatchSettings() {
             lastN: elements.lastNInput.value.trim() || DEFAULTS.lastN,
             runTests: elements.runTestsInput.checked,
             strictVerification: elements.strictVerificationInput.checked,
-            includeEnrichment: elements.includeEnrichmentInput.checked,
         }),
     );
 }
