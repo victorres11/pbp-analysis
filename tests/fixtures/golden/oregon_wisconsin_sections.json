@@ -69,14 +69,20 @@
     "- Procedural vs Live-ball: 4 / 11",
     "- PI Drawn / Allowed: 3 / 0",
     "- Off. Holding / Def. Holding: 3 / 2",
-    "- Top Penalty Type: Offensive Holding",
+    "- Unattributed from official game totals: 7 / 45 yds",
+    "- Game deltas: G1 USC (+4 / +20); G2 PSU (-3 / -20); G3 UCLA (+3 / +25)",
+    "- Season-source residual: +4 penalties, +52 yards",
+    "- Top Penalty Type: Holding",
     "*Wisconsin*",
     "- Penalties/Game: 7.0",
     "- Penalty Yards/Game: 63.3",
     "- Procedural vs Live-ball: 6 / 15",
     "- PI Drawn / Allowed: 0 / 3",
     "- Off. Holding / Def. Holding: 5 / 2",
-    "- Top Penalty Type: Offensive Holding"
+    "- Unattributed from official game totals: 3 / 45 yds",
+    "- Game deltas: G1 IOWA (-3 / -25); G2 MINN (+3 / +45); G3 NEB (-1 / -15)",
+    "- Season-source residual: +13 penalties, +120 yards",
+    "- Top Penalty Type: Holding"
   ],
   "special_teams": [
     "*Special Teams*",
