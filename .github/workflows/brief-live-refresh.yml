@@ -31,7 +31,7 @@ on:
           - markdown
           - html
           - both
-        default: markdown
+        default: both
       run_tests:
         description: Run parser and analysis pytest suites before refresh
         required: true
