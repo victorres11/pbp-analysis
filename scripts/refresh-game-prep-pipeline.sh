@@ -644,7 +644,7 @@ PY
 }
 
 check_verification_report() {
-  "${PYTHON_BIN}" - "${VERIFICATION_REPORT_PATH}" "${VERIFICATION_COUNTS_FILE}" "${STRICT_VERIFICATION}" <<'PY'
+  "${PYTHON_BIN}" - "${VERIFICATION_REPORT_PATH}" "${VERIFICATION_COUNTS_FILE}" "${STRICT_VERIFICATION}" "${TEAM1_SLUG}" "${TEAM2_SLUG}" <<'PY'
 from pathlib import Path
 import json
 import sys
@@ -652,6 +652,7 @@ import sys
 report_path = Path(sys.argv[1]).expanduser()
 counts_path = Path(sys.argv[2]).expanduser()
 strict = sys.argv[3] == "1"
+selected_team_slugs = [slug for slug in sys.argv[4:] if slug]
 
 if not report_path.exists():
     raise SystemExit(f"Missing verification report at {report_path}")
@@ -663,18 +664,77 @@ summary = report.get("summary") if isinstance(report, dict) else None
 if not isinstance(summary, dict):
     raise SystemExit(f"Invalid verification report at {report_path}: missing summary")
 
+teams = report.get("teams") if isinstance(report.get("teams"), dict) else None
 metric_results = summary.get("metric_results") if isinstance(summary.get("metric_results"), dict) else {}
-counts = {
+overall_counts = {
     "pass": int(metric_results.get("pass") or 0),
     "warning": int(metric_results.get("warning") or 0),
     "fail": int(metric_results.get("fail") or 0),
 }
+
+selected_counts = dict(overall_counts)
+scope = "all_teams"
+unrelated_fail_team_slugs: list[str] = []
+unrelated_fail_metric_count = 0
+
+if selected_team_slugs and teams is not None:
+    missing_slugs = [slug for slug in selected_team_slugs if slug not in teams]
+    if missing_slugs:
+        raise SystemExit(
+            f"Verification report at {report_path} is missing selected teams: {', '.join(missing_slugs)}"
+        )
+
+    selected_counts = {"pass": 0, "warning": 0, "fail": 0}
+    for slug in selected_team_slugs:
+        team_summary = ((teams.get(slug) or {}).get("summary") or {})
+        team_metric_results = (
+            team_summary.get("metric_results")
+            if isinstance(team_summary.get("metric_results"), dict)
+            else {}
+        )
+        selected_counts["pass"] += int(team_metric_results.get("pass") or 0)
+        selected_counts["warning"] += int(team_metric_results.get("warning") or 0)
+        selected_counts["fail"] += int(team_metric_results.get("fail") or 0)
+
+    for slug, team_report in teams.items():
+        if slug in selected_team_slugs:
+            continue
+        team_summary = (team_report.get("summary") or {}) if isinstance(team_report, dict) else {}
+        team_metric_results = (
+            team_summary.get("metric_results")
+            if isinstance(team_summary.get("metric_results"), dict)
+            else {}
+        )
+        team_fail_count = int(team_metric_results.get("fail") or 0)
+        if team_fail_count > 0:
+            unrelated_fail_team_slugs.append(slug)
+            unrelated_fail_metric_count += team_fail_count
+
+    scope = "selected_teams"
+
+counts = {
+    **selected_counts,
+    "scope": scope,
+    "selected_teams": selected_team_slugs,
+    "overall_pass": overall_counts["pass"],
+    "overall_warning": overall_counts["warning"],
+    "overall_fail": overall_counts["fail"],
+    "unrelated_fail_team_slugs": unrelated_fail_team_slugs,
+    "unrelated_fail_metric_count": unrelated_fail_metric_count,
+}
 counts_path.write_text(json.dumps(counts, indent=2) + "\n", encoding="utf-8")
 
 print(
-    f"[ok] Verification summary -> pass={counts['pass']} warning={counts['warning']} fail={counts['fail']}"
+    f"[ok] Verification summary ({scope}) -> "
+    f"pass={selected_counts['pass']} warning={selected_counts['warning']} fail={selected_counts['fail']}"
 )
-if strict and counts["fail"] > 0:
+if unrelated_fail_team_slugs:
+    print(
+        "[warn] Verification report has fail metrics outside selected teams: "
+        f"{', '.join(unrelated_fail_team_slugs)} "
+        f"({unrelated_fail_metric_count} fail metric{'s' if unrelated_fail_metric_count != 1 else ''})"
+    )
+if strict and selected_counts["fail"] > 0:
     raise SystemExit(2)
 PY
 }
@@ -855,18 +915,65 @@ def _read_warning_lines(path: Path) -> list[str]:
 
 def _read_counts(path: Path) -> dict:
     if not path.exists():
-        return {"pass": 0, "warning": 0, "fail": 0}
+        return {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "scope": "all_teams",
+            "selected_teams": [],
+            "overall_pass": 0,
+            "overall_warning": 0,
+            "overall_fail": 0,
+            "unrelated_fail_team_slugs": [],
+            "unrelated_fail_metric_count": 0,
+        }
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return {"pass": 0, "warning": 0, "fail": 0}
+        return {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "scope": "all_teams",
+            "selected_teams": [],
+            "overall_pass": 0,
+            "overall_warning": 0,
+            "overall_fail": 0,
+            "unrelated_fail_team_slugs": [],
+            "unrelated_fail_metric_count": 0,
+        }
     if not isinstance(payload, dict):
-        return {"pass": 0, "warning": 0, "fail": 0}
-    return {
+        return {
+            "pass": 0,
+            "warning": 0,
+            "fail": 0,
+            "scope": "all_teams",
+            "selected_teams": [],
+            "overall_pass": 0,
+            "overall_warning": 0,
+            "overall_fail": 0,
+            "unrelated_fail_team_slugs": [],
+            "unrelated_fail_metric_count": 0,
+        }
+    counts = {
         "pass": int(payload.get("pass") or 0),
         "warning": int(payload.get("warning") or 0),
         "fail": int(payload.get("fail") or 0),
     }
+    counts["scope"] = str(payload.get("scope") or "all_teams")
+    selected_teams = payload.get("selected_teams")
+    counts["selected_teams"] = selected_teams if isinstance(selected_teams, list) else []
+    counts["overall_pass"] = int(payload.get("overall_pass") or counts["pass"])
+    counts["overall_warning"] = int(payload.get("overall_warning") or counts["warning"])
+    counts["overall_fail"] = int(payload.get("overall_fail") or counts["fail"])
+    unrelated_fail_team_slugs = payload.get("unrelated_fail_team_slugs")
+    counts["unrelated_fail_team_slugs"] = (
+        [str(slug) for slug in unrelated_fail_team_slugs]
+        if isinstance(unrelated_fail_team_slugs, list)
+        else []
+    )
+    counts["unrelated_fail_metric_count"] = int(payload.get("unrelated_fail_metric_count") or 0)
+    return counts
 
 
 def _read_enrichment_team_statuses(path: Path, required_team_slugs: list[str]) -> dict[str, str]:
@@ -1106,6 +1213,12 @@ summary = {
         "smoke_brief_passed": _stage_status(stages, "smoke_brief") == "passed",
         "verification_fail_count": verification_counts["fail"],
         "verification_warning_count": verification_counts["warning"],
+        "verification_scope": verification_counts["scope"],
+        "verification_selected_teams": verification_counts["selected_teams"],
+        "verification_overall_fail_count": verification_counts["overall_fail"],
+        "verification_overall_warning_count": verification_counts["overall_warning"],
+        "verification_unrelated_fail_team_slugs": verification_counts["unrelated_fail_team_slugs"],
+        "verification_unrelated_fail_metric_count": verification_counts["unrelated_fail_metric_count"],
     },
     "run_state": {
         "completed": not interrupted_stages,

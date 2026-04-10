@@ -90,7 +90,7 @@ The refresh pipeline now has a thin operator UI at [operator/index.html](./opera
   - private workflow/release reads also require a token
   - the page stores a token in browser local storage only when you explicitly click `Save token locally`
 
-For workflow details, publication rules, freshness, rollback, and supported-set readiness, use [docs/demo-runbook.md](./docs/demo-runbook.md), [docs/bigten-nd-readiness-matrix.md](./docs/bigten-nd-readiness-matrix.md), and [docs/bigten-nd-warning-triage.md](./docs/bigten-nd-warning-triage.md).
+For workflow details, publication rules, freshness, rollback, launcher scope, and warning handling, use [docs/demo-runbook.md](./docs/demo-runbook.md), [docs/operator-launch-policy.md](./docs/operator-launch-policy.md), and [docs/operator-warning-review.md](./docs/operator-warning-review.md).
 
 ### Generate Data
 ```bash

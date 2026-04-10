@@ -30,9 +30,9 @@ For the current production phase, the supported client-facing set is:
 
 Notes:
 
-- This is the scope we are actively validating in the readiness matrix and warning triage docs.
+- This is the scope we are actively validating in the operator launch policy and warning review docs.
 - Other teams may still render successfully through the same pipeline, but they should be treated as exploratory or partial until broader coverage work lands.
-- Use [bigten-nd-readiness-matrix.md](./bigten-nd-readiness-matrix.md) and [bigten-nd-warning-triage.md](./bigten-nd-warning-triage.md) as the operator-facing truth for current readiness.
+- Use [operator-launch-policy.md](./operator-launch-policy.md) and [operator-warning-review.md](./operator-warning-review.md) as the operator-facing truth for launcher scope and warning handling.
 
 ### Live Refresh
 
