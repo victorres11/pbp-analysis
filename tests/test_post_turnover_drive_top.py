@@ -172,6 +172,48 @@ def test_enrich_post_turnover_drives_sets_zero_top_for_defensive_touchdown() -> 
     assert enriched[0]["drive_top"] == "0:00"
 
 
+def test_enrich_post_turnover_drives_keeps_defensive_touchdown_top_zero_with_later_drive() -> None:
+    turnover_desc = "OSU pass intercepted by UW and returned for touchdown"
+    raw_game = _raw_game(
+        _quarter(
+            1,
+            _drive(
+                _play(turnover_desc, offense="OSU", clock="11:22", quarter=1, is_turnover=True),
+                offense="OSU",
+            ),
+            _drive(
+                _play("UW rush for 4", offense="UW", clock="10:40", quarter=1),
+                _play("UW punt", offense="UW", clock="10:05", quarter=1),
+                offense="UW",
+            ),
+        )
+    )
+
+    entries = [
+        {
+            "side": "team_gained",
+            "quarter": 1,
+            "clock": "11:22",
+            "turnover_description": turnover_desc,
+            "drive_result": "DEF TD",
+            "num_plays": 0,
+            "total_yards": 0,
+            "points_scored": 7,
+            "turnover_type": "INT",
+        }
+    ]
+
+    enriched = loaders._enrich_post_turnover_drives(
+        raw_game,
+        entries,
+        team_aliases={"UW"},
+        opp_aliases={"OSU"},
+    )
+
+    assert enriched[0]["drive_top_seconds"] == 0
+    assert enriched[0]["drive_top"] == "0:00"
+
+
 def test_enrich_post_turnover_drives_omits_top_for_overtime_drive() -> None:
     turnover_desc = "OSU rush fumbled and recovered by UW in overtime"
     raw_game = _raw_game(
@@ -200,6 +242,51 @@ def test_enrich_post_turnover_drives_omits_top_for_overtime_drive() -> None:
             "total_yards": 2,
             "points_scored": 3,
             "turnover_type": "FUM",
+        }
+    ]
+
+    enriched = loaders._enrich_post_turnover_drives(
+        raw_game,
+        entries,
+        team_aliases={"UW"},
+        opp_aliases={"OSU"},
+    )
+
+    assert "drive_top_seconds" not in enriched[0]
+    assert "drive_top" not in enriched[0]
+
+
+def test_enrich_post_turnover_drives_omits_top_for_implausible_match() -> None:
+    turnover_desc = "OSU pass intercepted by UW at the UW35"
+    raw_game = _raw_game(
+        _quarter(
+            1,
+            _drive(
+                _play(turnover_desc, offense="OSU", clock="10:00", quarter=1, is_turnover=True),
+                offense="OSU",
+            ),
+        ),
+        _quarter(
+            2,
+            _drive(
+                _play("UW rush for 4", offense="UW", clock="15:00", quarter=2),
+                _play("UW field goal good", offense="UW", clock="14:30", quarter=2),
+                offense="UW",
+            ),
+        ),
+    )
+
+    entries = [
+        {
+            "side": "team_gained",
+            "quarter": 1,
+            "clock": "10:00",
+            "turnover_description": turnover_desc,
+            "drive_result": "FG",
+            "num_plays": 2,
+            "total_yards": 10,
+            "points_scored": 3,
+            "turnover_type": "INT",
         }
     ]
 
