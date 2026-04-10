@@ -67,6 +67,10 @@ a {
     align-items: start;
 }
 
+.hero-grid.simple {
+    grid-template-columns: 1fr;
+}
+
 .eyebrow {
     font-size: 0.72rem;
     font-weight: 700;
@@ -184,6 +188,29 @@ h2 {
 .toggle span {
     font-size: 0.88rem;
     color: #dce7f0;
+}
+
+.advanced-panel {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.2rem 0.95rem 0.9rem;
+}
+
+.advanced-panel summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+    color: #dce7f0;
+    padding: 0.8rem 0 0.4rem;
+}
+
+.advanced-panel summary::-webkit-details-marker {
+    display: none;
+}
+
+.advanced-body {
+    padding-top: 0.5rem;
 }
 
 input,
@@ -427,8 +454,16 @@ tbody tr:hover {
     gap: 0.85rem;
 }
 
+.artifact-list,
+.warning-groups {
+    display: grid;
+    gap: 0.8rem;
+}
+
 .asset-card,
-.link-card {
+.link-card,
+.artifact-review-card,
+.warning-group {
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
@@ -436,9 +471,18 @@ tbody tr:hover {
 }
 
 .asset-card h3,
-.link-card h3 {
+.link-card h3,
+.artifact-review-card h3 {
     font-size: 1rem;
     margin-bottom: 0.35rem;
+}
+
+.artifact-review-head,
+.warning-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
 .asset-actions,
@@ -474,6 +518,25 @@ tbody tr:hover {
 
 .list li {
     color: #dce7f0;
+}
+
+.warning-list {
+    margin-top: 0.8rem;
+}
+
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.kv.compact {
+    margin-top: 0.55rem;
+}
+
+.kv.compact .kv-row {
+    padding: 0.35rem 0;
+    font-size: 0.84rem;
 }
 
 @media (max-width: 1100px) {

@@ -235,3 +235,124 @@ def test_offline_pipeline_summary_records_unavailable_enrichment_signal(tmp_path
         "washington": "unavailable",
         "ohio-state": "ok",
     }
+
+
+def test_offline_pipeline_scopes_verification_gate_to_selected_teams(tmp_path: Path) -> None:
+    summary_json = tmp_path / "game_prep_pipeline_summary.json"
+    output_dir = tmp_path / "brief"
+    bundle_path = FIXTURES / "pbp_stats_bundle_2025.json"
+    snapshot_path = FIXTURES / "cfbstats_2025_snapshot.json"
+    verification_path = tmp_path / "cfbstats_verification_scoped.json"
+
+    verification_report = json.loads(
+        (FIXTURES / "cfbstats_verification_2025_report.json").read_text(encoding="utf-8")
+    )
+    verification_report["summary"]["metric_results"]["fail"] = 1
+    verification_report["summary"]["team_results"]["fail"] = 1
+    verification_report["summary"]["has_failures"] = True
+    verification_report["summary"]["metric_mismatches"] = 1
+    verification_report["summary"]["mismatch"] = 1
+    verification_report["summary"]["metric_status_counts"]["mismatch"] = 1
+    verification_report["summary"]["team_status_counts"]["ok"] = 3
+    verification_report["summary"]["teams_checked"] = 3
+    verification_report["summary"]["metrics_checked"] = 11
+
+    verification_report["teams"]["northwestern"] = {
+        "team_slug": "northwestern",
+        "team_name": "northwestern",
+        "conference": "Big Ten",
+        "verifier_status": "ok",
+        "result": "fail",
+        "reason_id": None,
+        "summary": {
+            "metrics_checked": 1,
+            "metric_results": {
+                "pass": 0,
+                "warning": 0,
+                "fail": 1,
+            },
+            "status_counts": {
+                "mismatch": 1,
+            },
+            "result": "fail",
+        },
+        "flagged_metrics": ["scoring_margin_pg"],
+        "metrics": {
+            "scoring_margin_pg": {
+                "key": "scoring_margin_pg",
+                "label": "Scoring Margin",
+                "status": "mismatch",
+                "result": "fail",
+                "reason_id": None,
+                "note": None,
+                "comparison": {
+                    "parser_value": 1.6,
+                    "cfbstats_value": 3.6,
+                    "delta": -2.0,
+                    "tolerance": 0.11,
+                },
+                "bundle": {
+                    "team_abbr": "NU",
+                    "category": "scoring_margin",
+                    "field": "scoring_margin",
+                },
+                "cfbstats": {
+                    "category_id": 10,
+                    "side": "offense",
+                    "rank": "11",
+                    "conference": "Big Ten",
+                    "value": 3.6,
+                },
+            }
+        },
+    }
+    verification_path.write_text(json.dumps(verification_report), encoding="utf-8")
+
+    env = os.environ.copy()
+    env["PBP_PIPELINE_PYTHON"] = sys.executable
+
+    subprocess.run(
+        [
+            str(PIPELINE_SCRIPT),
+            "Washington",
+            "Ohio State",
+            "--season",
+            "2025",
+            "--mode",
+            "offline-validate",
+            "--bundle-path",
+            str(bundle_path),
+            "--reuse-bundle",
+            "--cfbstats-snapshot",
+            str(snapshot_path),
+            "--cfbstats-verification-report",
+            str(verification_path),
+            "--no-enrichment",
+            "--skip-tests",
+            "--brief-format",
+            "markdown",
+            "--output-dir",
+            str(output_dir),
+            "--summary-json",
+            str(summary_json),
+        ],
+        check=True,
+        cwd=ROOT,
+        env=env,
+    )
+
+    summary = json.loads(summary_json.read_text(encoding="utf-8"))
+    validation = summary["validation"]
+
+    assert validation["verification_scope"] == "selected_teams"
+    assert validation["verification_selected_teams"] == ["washington", "ohio-state"]
+    assert validation["verification_fail_count"] == 0
+    assert validation["verification_overall_fail_count"] == 1
+    assert validation["verification_unrelated_fail_team_slugs"] == ["northwestern"]
+    assert validation["verification_unrelated_fail_metric_count"] == 1
+    assert summary["exit_code"] == 0
+    assert validation["smoke_brief_passed"] is True
+    assert any(
+        "Verification report has fail metrics outside selected teams: northwestern" in warning
+        for warning in summary["warnings"]
+    )

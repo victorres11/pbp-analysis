@@ -12,25 +12,58 @@ const DEFAULTS = {
 };
 
 const STORAGE_KEYS = {
-    repo: "brief-operator-repo",
     token: "brief-operator-token",
     dispatch: "brief-operator-dispatch",
 };
+
+const SUPPORTED_TEAM_GROUPS = [
+    {
+        label: "Big Ten",
+        teams: [
+            "Illinois",
+            "Indiana",
+            "Iowa",
+            "Maryland",
+            "Michigan",
+            "Michigan State",
+            "Minnesota",
+            "Nebraska",
+            "Northwestern",
+            "Ohio State",
+            "Oregon",
+            "Penn State",
+            "Purdue",
+            "Rutgers",
+            "UCLA",
+            "USC",
+            "Washington",
+            "Wisconsin",
+        ],
+    },
+    {
+        label: "Independent",
+        teams: ["Notre Dame"],
+    },
+];
 
 const WORKFLOW_PAGE = (repo) => `https://github.com/${repo}/actions/workflows/${DEFAULTS.workflowFile}`;
 const RELEASES_PAGE = (repo) => `https://github.com/${repo}/releases`;
 const RUNBOOK_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/demo-runbook.md`;
 const CONTRACT_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/published-artifact-contract.md`;
-const READINESS_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/bigten-nd-readiness-matrix.md`;
-const TRIAGE_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/bigten-nd-warning-triage.md`;
+const LAUNCH_POLICY_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/operator-launch-policy.md`;
+const WARNING_REVIEW_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/operator-warning-review.md`;
+const ENRICHMENT_CONTRACT_PAGE = (repo) => `https://github.com/${repo}/blob/main/docs/enrichment-artifact-contract.md`;
 const ALERTS_PAGE = (repo) =>
     `https://github.com/${repo}/issues?q=is%3Aissue%20state%3Aopen%20%22Brief%20Live%20Refresh%20Alerts%22`;
 
 const elements = {};
 let loading = false;
+let dispatchRefreshTimer = null;
+let dispatchRefreshRemaining = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
     cacheElements();
+    populateTeamOptions();
     hydrateSettings();
     bindEvents();
     refreshDashboard();
@@ -38,13 +71,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function cacheElements() {
     for (const id of [
-        "repoInput",
         "tokenInput",
         "team1Input",
         "team2Input",
         "seasonInput",
         "lastNInput",
-        "briefFormatInput",
         "runTestsInput",
         "strictVerificationInput",
         "includeEnrichmentInput",
@@ -55,16 +86,11 @@ function cacheElements() {
         "settingsMessage",
         "dispatchMessage",
         "statusStrip",
-        "latestRunCard",
-        "publishedCard",
-        "freshnessCard",
-        "operatorNoteCard",
         "runsPanel",
-        "publishedSummaryPanel",
-        "assetPanel",
-        "quickLinksPanel",
+        "latestRunReviewPanel",
+        "warningReviewPanel",
+        "reviewMessage",
         "workflowLink",
-        "rollingReleaseLink",
         "settingsForm",
         "dispatchForm",
     ]) {
@@ -72,14 +98,31 @@ function cacheElements() {
     }
 }
 
+function populateTeamOptions() {
+    const optionMarkup = SUPPORTED_TEAM_GROUPS.map((group) => {
+        const options = group.teams
+            .map((team) => `<option value="${escapeAttribute(team)}">${escapeHtml(team)}</option>`)
+            .join("");
+        return `<optgroup label="${escapeAttribute(group.label)}">${options}</optgroup>`;
+    }).join("");
+
+    elements.team1Input.innerHTML = optionMarkup;
+    elements.team2Input.innerHTML = optionMarkup;
+    elements.team1Input.value = DEFAULTS.team1;
+    elements.team2Input.value = DEFAULTS.team2;
+}
+
+function setSelectValue(select, value, fallback) {
+    select.value = value;
+    if (!select.value) {
+        select.value = fallback;
+    }
+}
+
 function hydrateSettings() {
-    const savedRepo = localStorage.getItem(STORAGE_KEYS.repo);
     const savedToken = localStorage.getItem(STORAGE_KEYS.token);
     const savedDispatch = loadJsonStorage(STORAGE_KEYS.dispatch);
 
-    if (savedRepo) {
-        elements.repoInput.value = savedRepo;
-    }
     if (savedToken) {
         elements.tokenInput.value = savedToken;
         setInlineMessage(
@@ -89,14 +132,16 @@ function hydrateSettings() {
         );
     }
     if (savedDispatch) {
-        elements.team1Input.value = savedDispatch.team1 || DEFAULTS.team1;
-        elements.team2Input.value = savedDispatch.team2 || DEFAULTS.team2;
+        setSelectValue(elements.team1Input, savedDispatch.team1 || DEFAULTS.team1, DEFAULTS.team1);
+        setSelectValue(elements.team2Input, savedDispatch.team2 || DEFAULTS.team2, DEFAULTS.team2);
         elements.seasonInput.value = savedDispatch.season || DEFAULTS.season;
         elements.lastNInput.value = savedDispatch.lastN || DEFAULTS.lastN;
-        elements.briefFormatInput.value = savedDispatch.briefFormat || DEFAULTS.briefFormat;
         elements.runTestsInput.checked = Boolean(savedDispatch.runTests);
         elements.strictVerificationInput.checked = savedDispatch.strictVerification !== false;
         elements.includeEnrichmentInput.checked = savedDispatch.includeEnrichment !== false;
+    } else {
+        setSelectValue(elements.team1Input, DEFAULTS.team1, DEFAULTS.team1);
+        setSelectValue(elements.team2Input, DEFAULTS.team2, DEFAULTS.team2);
     }
 }
 
@@ -106,8 +151,8 @@ function bindEvents() {
     elements.clearTokenButton.addEventListener("click", clearSavedToken);
     elements.settingsForm.addEventListener("submit", (event) => event.preventDefault());
     elements.dispatchForm.addEventListener("submit", handleDispatch);
+    document.addEventListener("click", handleDocumentClick);
 
-    elements.repoInput.addEventListener("change", handleRepoChanged);
     elements.seasonInput.addEventListener("change", handleDispatchSettingsChanged);
     elements.tokenInput.addEventListener("input", syncActionButtons);
 
@@ -115,7 +160,6 @@ function bindEvents() {
         elements.team1Input,
         elements.team2Input,
         elements.lastNInput,
-        elements.briefFormatInput,
         elements.runTestsInput,
         elements.strictVerificationInput,
         elements.includeEnrichmentInput,
@@ -124,14 +168,23 @@ function bindEvents() {
     }
 }
 
-function handleRepoChanged() {
-    localStorage.setItem(STORAGE_KEYS.repo, normalizedRepo());
-    refreshQuickLinks();
+async function handleDocumentClick(event) {
+    const button = event.target.closest(".artifact-download-button");
+    if (!button) {
+        return;
+    }
+    event.preventDefault();
+    const downloadUrl = button.dataset.artifactUrl || "";
+    const filename = button.dataset.artifactName || "artifact.zip";
+    if (!downloadUrl) {
+        setInlineMessage(elements.reviewMessage, "Artifact download URL is missing for this run output.", "warning");
+        return;
+    }
+    await downloadArtifactArchive(button, downloadUrl, filename);
 }
 
 function handleDispatchSettingsChanged() {
     persistDispatchSettings();
-    refreshQuickLinks();
 }
 
 function persistDispatchSettings() {
@@ -142,12 +195,37 @@ function persistDispatchSettings() {
             team2: elements.team2Input.value.trim() || DEFAULTS.team2,
             season: elements.seasonInput.value.trim() || DEFAULTS.season,
             lastN: elements.lastNInput.value.trim() || DEFAULTS.lastN,
-            briefFormat: elements.briefFormatInput.value,
             runTests: elements.runTestsInput.checked,
             strictVerification: elements.strictVerificationInput.checked,
             includeEnrichment: elements.includeEnrichmentInput.checked,
         }),
     );
+}
+
+function normalizedDispatchInputs() {
+    return {
+        team1: elements.team1Input.value.trim() || DEFAULTS.team1,
+        team2: elements.team2Input.value.trim() || DEFAULTS.team2,
+        season: elements.seasonInput.value.trim() || DEFAULTS.season,
+        last_n: elements.lastNInput.value.trim() || DEFAULTS.lastN,
+        brief_format: DEFAULTS.briefFormat,
+        run_tests: String(elements.runTestsInput.checked),
+        strict_verification: String(elements.strictVerificationInput.checked),
+        include_enrichment: String(elements.includeEnrichmentInput.checked),
+    };
+}
+
+function validateDispatchInputs(inputs) {
+    if (!inputs.team1 || !inputs.team2) {
+        return "Choose both teams before dispatching a run.";
+    }
+    if (inputs.team1 === inputs.team2) {
+        return "Team 1 and Team 2 must be different.";
+    }
+    if (!/^\d{4}$/.test(inputs.season)) {
+        return "Season must be a four-digit year.";
+    }
+    return "";
 }
 
 function saveTokenLocally() {
@@ -182,16 +260,12 @@ async function handleDispatch(event) {
     }
 
     const repo = normalizedRepo();
-    const inputs = {
-        team1: elements.team1Input.value.trim() || DEFAULTS.team1,
-        team2: elements.team2Input.value.trim() || DEFAULTS.team2,
-        season: elements.seasonInput.value.trim() || DEFAULTS.season,
-        last_n: elements.lastNInput.value.trim() || DEFAULTS.lastN,
-        brief_format: elements.briefFormatInput.value || DEFAULTS.briefFormat,
-        run_tests: String(elements.runTestsInput.checked),
-        strict_verification: String(elements.strictVerificationInput.checked),
-        include_enrichment: String(elements.includeEnrichmentInput.checked),
-    };
+    const inputs = normalizedDispatchInputs();
+    const validationError = validateDispatchInputs(inputs);
+    if (validationError) {
+        setInlineMessage(elements.dispatchMessage, validationError, "warning");
+        return;
+    }
     persistDispatchSettings();
 
     elements.dispatchButton.disabled = true;
@@ -215,10 +289,10 @@ async function handleDispatch(event) {
         );
         setInlineMessage(
             elements.dispatchMessage,
-            `Dispatch accepted by GitHub. The new run should appear in a few seconds. Manual runs still publish only if they stay healthy and publishable.`,
+            `Dispatch accepted by GitHub. Refreshing run history automatically now.`,
             "success",
         );
-        window.setTimeout(() => refreshDashboard({ quiet: true }), 5000);
+        startDispatchRefreshLoop();
     } catch (error) {
         setInlineMessage(elements.dispatchMessage, formatError(error), "error");
     } finally {
@@ -226,33 +300,63 @@ async function handleDispatch(event) {
     }
 }
 
+function startDispatchRefreshLoop() {
+    if (dispatchRefreshTimer) {
+        window.clearTimeout(dispatchRefreshTimer);
+        dispatchRefreshTimer = null;
+    }
+
+    dispatchRefreshRemaining = 8;
+
+    const tick = async () => {
+        await refreshDashboard({ quiet: true });
+        dispatchRefreshRemaining -= 1;
+
+        if (dispatchRefreshRemaining <= 0) {
+            dispatchRefreshTimer = null;
+            return;
+        }
+
+        dispatchRefreshTimer = window.setTimeout(tick, 2500);
+    };
+
+    dispatchRefreshTimer = window.setTimeout(tick, 500);
+}
+
 async function refreshDashboard({ quiet = false } = {}) {
     const repo = normalizedRepo();
     const season = normalizedSeason();
     const token = elements.tokenInput.value.trim();
 
-    localStorage.setItem(STORAGE_KEYS.repo, repo);
     persistDispatchSettings();
 
-    refreshQuickLinks();
+    setInlineMessage(elements.reviewMessage, "");
     setLoadingState(true);
 
     const [runsResult, publishedResult] = await Promise.allSettled([
         fetchWorkflowRuns(repo, token),
         fetchPublishedSeason(repo, season, token),
     ]);
+    const latestRun = runsResult.status === "fulfilled" ? runsResult.value.runs[0] : null;
+    const latestRunArtifactsResult = latestRun
+        ? await Promise.allSettled([fetchRunArtifacts(repo, latestRun.id, token)]).then((results) => results[0])
+        : null;
 
     renderLatestRunBlock(runsResult, repo);
-    renderPublishedBlock(publishedResult, repo, season);
-    renderOverviewCards(runsResult, publishedResult, repo, season);
+    renderStatusStrip(runsResult, publishedResult);
+    renderReviewPanels(runsResult, publishedResult, latestRunArtifactsResult, repo, season);
 
     if (!quiet) {
-        const successCount = [runsResult, publishedResult].filter((result) => result.status === "fulfilled").length;
+        const resultSet = [runsResult, publishedResult];
+        if (latestRunArtifactsResult) {
+            resultSet.push(latestRunArtifactsResult);
+        }
+        const successCount = resultSet.filter((result) => result.status === "fulfilled").length;
         const message =
-            successCount === 2
+            successCount === resultSet.length
                 ? "Dashboard refreshed from GitHub."
                 : "Dashboard refreshed with partial data. Add a token if you need private workflow or release access.";
-        const tone = successCount === 2 ? "success" : "warning";
+        const tone = successCount === resultSet.length ? "success" : "warning";
         setInlineMessage(elements.settingsMessage, message, tone);
     }
 
@@ -294,6 +398,41 @@ async function fetchPublishedSeason(repo, season, token) {
         summary,
         summaryAsset,
     };
+}
+
+async function fetchRunArtifacts(repo, runId, token) {
+    const payload = await githubRequest(
+        `/repos/${encodeRepo(repo)}/actions/runs/${encodeURIComponent(String(runId))}/artifacts?per_page=20`,
+        { token },
+    );
+    return Array.isArray(payload.artifacts) ? payload.artifacts : [];
+}
+
+function renderStatusStrip(runsResult, publishedResult) {
+    const badges = [];
+
+    if (runsResult.status === "fulfilled" && runsResult.value.runs.length) {
+        const latestRun = runsResult.value.runs[0];
+        badges.push(badgeHtml(`latest run: ${workflowLabel(latestRun)}`, workflowTone(latestRun)));
+    } else {
+        badges.push(badgeHtml("latest run unavailable", "warning"));
+    }
+
+    if (publishedResult.status === "fulfilled" && publishedResult.value.summary) {
+        const summary = publishedResult.value.summary;
+        const warningCount = Array.isArray(summary.warnings) ? summary.warnings.length : 0;
+        badges.push(
+            badgeHtml(
+                `published: ${summary.artifact_contract?.publishable ? "publishable" : "non-publishable"}`,
+                summary.artifact_contract?.publishable ? "success" : "warning",
+            ),
+        );
+        badges.push(badgeHtml(`${warningCount} warning${warningCount === 1 ? "" : "s"}`, warningCount ? "warning" : "success"));
+    } else {
+        badges.push(badgeHtml("published summary unavailable", "warning"));
+    }
+
+    elements.statusStrip.innerHTML = badges.join("");
 }
 
 async function githubRequest(pathOrUrl, { method = "GET", token = "", accept = "application/vnd.github+json", body } = {}) {
@@ -352,6 +491,45 @@ async function extractErrorMessage(response) {
     return fallback;
 }
 
+async function downloadArtifactArchive(button, downloadUrl, filename) {
+    const token = elements.tokenInput.value.trim();
+    const headers = {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    };
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    button.disabled = true;
+    setInlineMessage(elements.reviewMessage, `Downloading ${filename}…`, "warning");
+
+    try {
+        const response = await fetch(downloadUrl, {
+            method: "GET",
+            headers,
+        });
+        if (!response.ok) {
+            throw new Error(await extractErrorMessage(response));
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = filename;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        setInlineMessage(elements.reviewMessage, `Downloaded ${filename}.`, "success");
+    } catch (error) {
+        setInlineMessage(elements.reviewMessage, formatError(error), "error");
+    } finally {
+        button.disabled = false;
+    }
+}
+
 function renderLatestRunBlock(result, repo) {
     elements.workflowLink.href = WORKFLOW_PAGE(repo);
 
@@ -404,6 +582,287 @@ function renderLatestRunBlock(result, repo) {
             </thead>
             <tbody>${rows}</tbody>
         </table>
+    `;
+}
+
+function renderReviewPanels(runsResult, publishedResult, latestRunArtifactsResult, repo, season) {
+    renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult);
+    renderWarningReviewPanel(runsResult, publishedResult, repo, season);
+}
+
+function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
+    if (runsResult.status === "rejected") {
+        elements.latestRunReviewPanel.innerHTML = renderErrorBlock(
+            `Could not load the latest run. ${escapeHtml(formatError(runsResult.reason))}`,
+        );
+        return;
+    }
+
+    const latestRun = runsResult.value.runs[0];
+    if (!latestRun) {
+        elements.latestRunReviewPanel.innerHTML = renderEmptyState("Run evidence will appear after the first workflow execution.");
+        return;
+    }
+
+    const artifacts = latestRunArtifactsResult?.status === "fulfilled" ? latestRunArtifactsResult.value : [];
+    const artifactError = latestRunArtifactsResult?.status === "rejected"
+        ? formatError(latestRunArtifactsResult.reason)
+        : "";
+    const investigationArtifacts = prioritizedArtifacts(artifacts);
+
+    elements.latestRunReviewPanel.innerHTML = `
+        <div class="message-block">
+            <div class="button-row">
+                ${badgeHtml(workflowLabel(latestRun), workflowTone(latestRun))}
+                ${badgeHtml(latestRun.event || "unknown", "info")}
+                ${badgeHtml(relativeTime(latestRun.updated_at), workflowTone(latestRun))}
+            </div>
+            <div class="kv">
+                ${kvRow("Run", `<a class="text-link mono" href="${escapeAttribute(latestRun.html_url)}" target="_blank" rel="noreferrer">#${escapeHtml(String(latestRun.run_number || "—"))}</a>`)}
+                ${kvRow("Updated", `${formatDateTime(latestRun.updated_at)} (${relativeTime(latestRun.updated_at)})`)}
+                ${kvRow("Actor", latestRun.actor?.login || "unknown")}
+                ${kvRow("Branch", latestRun.head_branch || "main")}
+            </div>
+            <div class="asset-actions">
+                <a class="button secondary" href="${escapeAttribute(latestRun.html_url)}" target="_blank" rel="noreferrer">Open workflow run</a>
+                <a class="button ghost" href="${escapeAttribute(latestRun.html_url)}#artifacts" target="_blank" rel="noreferrer">Open run artifacts</a>
+            </div>
+        </div>
+        ${
+            investigationArtifacts.length
+                ? `
+                    <div class="message-block">
+                        <h3>Latest run artifacts</h3>
+                        <div class="artifact-list">
+                            ${investigationArtifacts.map((artifact) => renderArtifactReviewCard(artifact)).join("")}
+                        </div>
+                    </div>
+                `
+                : renderEmptyState(
+                    artifactError
+                        ? `Could not load run artifacts. ${artifactError}`
+                        : "No artifacts are visible yet for the latest run.",
+                )
+        }
+        <div class="message-block">
+            <h3>Operator review path</h3>
+            <ul class="list">
+                <li>Start with the status view artifact for publication posture and warning counts.</li>
+                <li>Use the pipeline summary artifact when you need exact non-publishable reasons and raw warning strings.</li>
+                <li>Use the smoke brief artifact to inspect the actual client-facing attachment candidate.</li>
+            </ul>
+        </div>
+    `;
+}
+
+function renderWarningReviewPanel(runsResult, publishedResult, repo, season) {
+    if (publishedResult.status === "rejected") {
+        elements.warningReviewPanel.innerHTML = renderErrorBlock(
+            `Could not load warning posture. ${escapeHtml(formatError(publishedResult.reason))}`,
+        );
+        return;
+    }
+
+    const summary = publishedResult.value.summary;
+    const release = publishedResult.value.release;
+    if (!summary) {
+        elements.warningReviewPanel.innerHTML = renderEmptyState(
+            "Published warning review depends on the rolling release summary JSON.",
+        );
+        return;
+    }
+
+    const warnings = Array.isArray(summary.warnings) ? summary.warnings : [];
+    const groupedWarnings = groupWarningsByCategory(warnings);
+    const validation = summary.validation || {};
+    const artifactContract = summary.artifact_contract || {};
+    const nonPublishableReasons = Array.isArray(artifactContract.non_publishable_reasons)
+        ? artifactContract.non_publishable_reasons
+        : [];
+    const latestRun = runsResult.status === "fulfilled" ? runsResult.value.runs[0] : null;
+    const summaryAsset = publishedResult.value.summaryAsset;
+    const verificationAsset = findReleaseAsset(release, "cfbstats_verification_");
+
+    elements.warningReviewPanel.innerHTML = `
+        <div class="message-block">
+            <div class="button-row">
+                ${badgeHtml(artifactContract.publishable ? "publishable" : "non-publishable", artifactContract.publishable ? "success" : "warning")}
+                ${badgeHtml(`${validation.verification_warning_count ?? 0} verification warn`, Number(validation.verification_warning_count || 0) ? "warning" : "success")}
+                ${badgeHtml(`${warnings.length} summary warning${warnings.length === 1 ? "" : "s"}`, warnings.length ? "warning" : "success")}
+            </div>
+            <div class="kv">
+                ${kvRow("Generated", `${formatDateTime(summary.generated_at)} (${relativeTime(summary.generated_at)})`)}
+                ${kvRow("Artifact set", `<span class="mono">${escapeHtml(artifactContract.artifact_set_id || "unknown")}</span>`)}
+                ${kvRow("Verification fails", String(validation.verification_fail_count ?? "unknown"))}
+                ${kvRow("Enrichment", summary.enrichment_contract?.artifact_status || "unknown")}
+            </div>
+            <div class="asset-actions">
+                <a class="button secondary" href="${escapeAttribute(release.html_url || `https://github.com/${repo}/releases/tag/brief-artifacts-${season}`)}" target="_blank" rel="noreferrer">Open rolling release</a>
+                ${
+                    summaryAsset?.browser_download_url
+                        ? `<a class="button ghost" href="${escapeAttribute(summaryAsset.browser_download_url)}" target="_blank" rel="noreferrer">Open summary JSON</a>`
+                        : ""
+                }
+                ${
+                    verificationAsset?.browser_download_url
+                        ? `<a class="button ghost" href="${escapeAttribute(verificationAsset.browser_download_url)}" target="_blank" rel="noreferrer">Open verification report</a>`
+                        : ""
+                }
+                ${
+                    latestRun?.html_url
+                        ? `<a class="button ghost" href="${escapeAttribute(latestRun.html_url)}" target="_blank" rel="noreferrer">Open latest workflow run</a>`
+                        : ""
+                }
+                <a class="button ghost" href="${escapeAttribute(ALERTS_PAGE(repo))}" target="_blank" rel="noreferrer">Open alerts thread</a>
+            </div>
+        </div>
+        ${
+            warnings.length
+                ? `
+                    <div class="message-block warning">
+                        <h3>Published warning groups</h3>
+                        <div class="warning-groups">
+                            ${groupedWarnings.map((group) => renderWarningGroup(group)).join("")}
+                        </div>
+                    </div>
+                `
+                : `
+                    <div class="message-block success">
+                        <h3>Published warning groups</h3>
+                        <p>No summary warnings are recorded on the rolling release right now.</p>
+                    </div>
+                `
+        }
+        ${
+            nonPublishableReasons.length
+                ? `
+                    <div class="message-block warning">
+                        <h3>Non-publishable reasons</h3>
+                        <div class="chip-list">
+                            ${nonPublishableReasons.map((reason) => badgeHtml(reason, "warning")).join("")}
+                        </div>
+                    </div>
+                `
+                : ""
+        }
+        <div class="message-block">
+            <h3>Review standard</h3>
+            <ul class="list">
+                <li>Warnings are visible by design. They are the review queue, not an implementation detail.</li>
+                <li>Expected special cases can be accepted, but they should still be explainable from the summary, verification report, or smoke brief.</li>
+                <li>If a warning cannot be explained from those artifacts, treat it as investigate-first before client delivery.</li>
+            </ul>
+        </div>
+    `;
+}
+
+function prioritizedArtifacts(artifacts) {
+    const order = new Map([
+        ["brief-live-refresh-status-view", 0],
+        ["brief-live-refresh-summary", 1],
+        ["brief-live-refresh-smoke-brief", 2],
+        ["brief-live-refresh-published-artifacts", 3],
+        ["brief-live-refresh-scratch-artifacts", 4],
+    ]);
+    return [...artifacts].sort((left, right) => {
+        const leftRank = order.has(left.name) ? order.get(left.name) : 99;
+        const rightRank = order.has(right.name) ? order.get(right.name) : 99;
+        return leftRank - rightRank;
+    });
+}
+
+function renderArtifactReviewCard(artifact) {
+    const expired = Boolean(artifact.expired);
+    const tone = expired ? "warning" : "info";
+    return `
+        <article class="artifact-review-card">
+            <div class="artifact-review-head">
+                <h3>${escapeHtml(runArtifactLabel(artifact.name || "artifact"))}</h3>
+                ${badgeHtml(expired ? "expired" : "available", tone)}
+            </div>
+            <p class="muted mono">${escapeHtml(artifact.name || "unknown-artifact")}</p>
+            <div class="kv compact">
+                ${kvRow("Updated", formatDateTime(artifact.updated_at))}
+                ${kvRow("Size", formatBytes(artifact.size_in_bytes))}
+            </div>
+            <div class="asset-actions">
+                <button
+                    class="button secondary artifact-download-button"
+                    type="button"
+                    data-artifact-url="${escapeAttribute(artifact.archive_download_url || "")}"
+                    data-artifact-name="${escapeAttribute(artifact.name || "artifact")}.zip"
+                    ${expired ? "disabled" : ""}
+                >Download in dashboard</button>
+            </div>
+        </article>
+    `;
+}
+
+function runArtifactLabel(name) {
+    const labels = {
+        "brief-live-refresh-status-view": "Status view",
+        "brief-live-refresh-summary": "Pipeline summary",
+        "brief-live-refresh-smoke-brief": "Smoke brief bundle",
+        "brief-live-refresh-published-artifacts": "Published artifact set",
+        "brief-live-refresh-scratch-artifacts": "Scratch artifact set",
+    };
+    return labels[name] || name;
+}
+
+function findReleaseAsset(release, prefix) {
+    const assets = Array.isArray(release?.assets) ? release.assets : [];
+    return assets.find((asset) => typeof asset?.name === "string" && asset.name.startsWith(prefix)) || null;
+}
+
+function classifyWarning(warning) {
+    const text = String(warning || "").toLowerCase();
+    if (text.includes("turnover")) {
+        return { key: "turnovers", label: "Turnovers", tone: "warning" };
+    }
+    if (text.includes("parity") || text.includes("mismatch")) {
+        return { key: "parity", label: "Parity", tone: "warning" };
+    }
+    if (text.includes("verification") || text.includes("cfbstats")) {
+        return { key: "verification", label: "Verification", tone: "warning" };
+    }
+    if (text.includes("enrichment") || text.includes("pff") || text.includes("api")) {
+        return { key: "enrichment", label: "Enrichment", tone: "info" };
+    }
+    if (text.includes("duration budget") || text.includes("[heartbeat]") || text.includes("interrupted")) {
+        return { key: "runtime", label: "Runtime", tone: "info" };
+    }
+    if (text.includes("alias") || text.includes("offense token") || text.includes("play tree")) {
+        return { key: "parser", label: "Parser", tone: "warning" };
+    }
+    return { key: "other", label: "Other", tone: "neutral" };
+}
+
+function groupWarningsByCategory(warnings) {
+    const grouped = new Map();
+    for (const warning of warnings) {
+        const category = classifyWarning(warning);
+        if (!grouped.has(category.key)) {
+            grouped.set(category.key, {
+                ...category,
+                warnings: [],
+            });
+        }
+        grouped.get(category.key).warnings.push(warning);
+    }
+    return [...grouped.values()];
+}
+
+function renderWarningGroup(group) {
+    return `
+        <section class="warning-group">
+            <div class="warning-group-head">
+                ${badgeHtml(group.label, group.tone)}
+                <span class="muted">${escapeHtml(String(group.warnings.length))} item${group.warnings.length === 1 ? "" : "s"}</span>
+            </div>
+            <ul class="list warning-list">
+                ${group.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}
+            </ul>
+        </section>
     `;
 }
 
@@ -662,19 +1121,24 @@ function refreshQuickLinks() {
             href: RUNBOOK_PAGE(repo),
         },
         {
+            title: "Launch policy",
+            body: "Supported scope, launcher defaults, and the official operator path for v1.",
+            href: LAUNCH_POLICY_PAGE(repo),
+        },
+        {
+            title: "Warning review",
+            body: "How to interpret parity gaps, enrichment issues, and runtime warnings before delivery.",
+            href: WARNING_REVIEW_PAGE(repo),
+        },
+        {
             title: "Published contract",
             body: "Machine-readable artifact expectations and the season release contract.",
             href: CONTRACT_PAGE(repo),
         },
         {
-            title: "Readiness matrix",
-            body: "Current Big Ten + Notre Dame support coverage and readiness posture.",
-            href: READINESS_PAGE(repo),
-        },
-        {
-            title: "Warning triage",
-            body: "Operator severity guide for must-fix gaps, known gaps, and noise.",
-            href: TRIAGE_PAGE(repo),
+            title: "Enrichment contract",
+            body: "What enrichment is allowed to do, when it is required, and how missing data is handled.",
+            href: ENRICHMENT_CONTRACT_PAGE(repo),
         },
         {
             title: "Alerts thread",
@@ -803,7 +1267,7 @@ function assetLabel(filename) {
 }
 
 function normalizedRepo() {
-    return (elements.repoInput.value.trim() || DEFAULTS.repo).replace(/^https:\/\/github\.com\//, "").replace(/\/+$/, "");
+    return DEFAULTS.repo;
 }
 
 function normalizedSeason() {
@@ -841,6 +1305,20 @@ function formatDateTime(timestamp) {
         dateStyle: "medium",
         timeStyle: "short",
     }).format(date);
+}
+
+function formatBytes(value) {
+    const bytes = Number(value);
+    if (!Number.isFinite(bytes) || bytes < 0) {
+        return "unknown";
+    }
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function relativeTime(timestamp) {
