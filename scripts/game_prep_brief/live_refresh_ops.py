@@ -16,7 +16,7 @@ DEFAULT_RUN_CONFIG = {
     "team2": "Ohio State",
     "season": "2025",
     "last_n": "3",
-    "brief_format": "markdown",
+    "brief_format": "both",
     "run_tests": "false",
     "strict_verification": "true",
     "include_enrichment": "true",

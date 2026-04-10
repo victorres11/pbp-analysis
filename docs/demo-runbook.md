@@ -153,7 +153,7 @@ The scheduled run uses repository variables when present and falls back to these
 - `BRIEF_LIVE_REFRESH_TEAM2` or `Ohio State`
 - `BRIEF_LIVE_REFRESH_SEASON` or `2025`
 - `BRIEF_LIVE_REFRESH_LAST_N` or `3`
-- `BRIEF_LIVE_REFRESH_BRIEF_FORMAT` or `markdown`
+- `BRIEF_LIVE_REFRESH_BRIEF_FORMAT` or `both`
 - `BRIEF_LIVE_REFRESH_RUN_TESTS` or `false`
 - `BRIEF_LIVE_REFRESH_STRICT_VERIFICATION` or `true`
 - `BRIEF_LIVE_REFRESH_INCLUDE_ENRICHMENT` or `true`

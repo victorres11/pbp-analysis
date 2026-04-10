@@ -11,7 +11,7 @@ YR_DATA_API_ROOT=${YR_DATA_API_ROOT:-"${WORKSPACE_ROOT}/yr-data-api"}
 MODE="live-refresh"
 SEASON=2025
 LAST_N=3
-BRIEF_FORMAT="markdown"
+BRIEF_FORMAT="both"
 RUN_TESTS=0
 STRICT_VERIFICATION=1
 NO_ENRICHMENT=0
@@ -40,7 +40,7 @@ Modes:
 Options:
   --season <year>                        Season year (default: 2025)
   --last-n <count>                       Last-N trend window for the brief (default: 3)
-  --brief-format <markdown|html|both>    Smoke brief format (default: markdown)
+  --brief-format <markdown|html|both>    Smoke brief format (default: both)
   --output-dir <path>                    Brief output directory
   --summary-json <path>                  Write machine-readable pipeline summary JSON
   --scan-dir <path>                      StatBroadcast game brief scan directory

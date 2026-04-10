@@ -5,7 +5,7 @@ const DEFAULTS = {
     team2: "Ohio State",
     season: "2025",
     lastN: "3",
-    briefFormat: "markdown",
+    briefFormat: "both",
     runTests: false,
     strictVerification: true,
     includeEnrichment: true,
@@ -609,6 +609,8 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
         ? formatError(latestRunArtifactsResult.reason)
         : "";
     const investigationArtifacts = prioritizedArtifacts(artifacts);
+    const briefArtifact = investigationArtifacts.find((artifact) => artifact.name === "brief-live-refresh-smoke-brief") || null;
+    const supportingArtifacts = investigationArtifacts.filter((artifact) => artifact.name !== "brief-live-refresh-smoke-brief");
 
     elements.latestRunReviewPanel.innerHTML = `
         <div class="message-block">
@@ -629,27 +631,61 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
             </div>
         </div>
         ${
-            investigationArtifacts.length
+            briefArtifact
                 ? `
-                    <div class="message-block">
-                        <h3>Latest run artifacts</h3>
-                        <div class="artifact-list">
-                            ${investigationArtifacts.map((artifact) => renderArtifactReviewCard(artifact)).join("")}
+                    <div class="message-block success">
+                        <div class="artifact-review-head">
+                            <h3>Client brief bundle</h3>
+                            ${badgeHtml(Boolean(briefArtifact.expired) ? "expired" : "ready", Boolean(briefArtifact.expired) ? "warning" : "success")}
+                        </div>
+                        <p>${escapeHtml(
+                            Boolean(briefArtifact.expired)
+                                ? "The latest brief artifact has expired in GitHub. Open the run artifacts page if you need retention details."
+                                : "This is the attachment bundle from the latest run. Manual launches now default to both HTML and Markdown; older runs may still contain only one format.",
+                        )}</p>
+                        <div class="kv compact">
+                            ${kvRow("Updated", formatDateTime(briefArtifact.updated_at))}
+                            ${kvRow("Size", formatBytes(briefArtifact.size_in_bytes))}
+                            ${kvRow("Artifact", `<span class="mono">${escapeHtml(briefArtifact.name || "brief-live-refresh-smoke-brief")}</span>`)}
+                        </div>
+                        <div class="asset-actions">
+                            <button
+                                class="button primary artifact-download-button"
+                                type="button"
+                                data-artifact-url="${escapeAttribute(briefArtifact.archive_download_url || "")}"
+                                data-artifact-name="${escapeAttribute(briefArtifact.name || "brief")}.zip"
+                                ${briefArtifact.expired ? "disabled" : ""}
+                            >Download brief zip</button>
+                            <a class="button ghost" href="${escapeAttribute(latestRun.html_url)}#artifacts" target="_blank" rel="noreferrer">Open run artifacts</a>
                         </div>
                     </div>
                 `
-                : renderEmptyState(
+                : ""
+        }
+        ${
+            supportingArtifacts.length
+                ? `
+                    <div class="message-block">
+                        <h3>Supporting artifacts</h3>
+                        <div class="artifact-list">
+                            ${supportingArtifacts.map((artifact) => renderArtifactReviewCard(artifact)).join("")}
+                        </div>
+                    </div>
+                `
+                : !briefArtifact
+                    ? renderEmptyState(
                     artifactError
                         ? `Could not load run artifacts. ${artifactError}`
                         : "No artifacts are visible yet for the latest run.",
                 )
+                    : ""
         }
         <div class="message-block">
             <h3>Operator review path</h3>
             <ul class="list">
                 <li>Start with the status view artifact for publication posture and warning counts.</li>
                 <li>Use the pipeline summary artifact when you need exact non-publishable reasons and raw warning strings.</li>
-                <li>Use the smoke brief artifact to inspect the actual client-facing attachment candidate.</li>
+                <li>Use the client brief bundle to inspect and download the actual client-facing attachment candidate.</li>
             </ul>
         </div>
     `;
@@ -792,7 +828,7 @@ function renderArtifactReviewCard(artifact) {
                     data-artifact-url="${escapeAttribute(artifact.archive_download_url || "")}"
                     data-artifact-name="${escapeAttribute(artifact.name || "artifact")}.zip"
                     ${expired ? "disabled" : ""}
-                >Download in dashboard</button>
+                >${escapeHtml(artifactDownloadLabel(artifact.name || "artifact"))}</button>
             </div>
         </article>
     `;
@@ -802,11 +838,18 @@ function runArtifactLabel(name) {
     const labels = {
         "brief-live-refresh-status-view": "Status view",
         "brief-live-refresh-summary": "Pipeline summary",
-        "brief-live-refresh-smoke-brief": "Smoke brief bundle",
+        "brief-live-refresh-smoke-brief": "Client brief bundle",
         "brief-live-refresh-published-artifacts": "Published artifact set",
         "brief-live-refresh-scratch-artifacts": "Scratch artifact set",
     };
     return labels[name] || name;
+}
+
+function artifactDownloadLabel(name) {
+    if (name === "brief-live-refresh-smoke-brief") {
+        return "Download brief zip";
+    }
+    return "Download in dashboard";
 }
 
 function findReleaseAsset(release, prefix) {
