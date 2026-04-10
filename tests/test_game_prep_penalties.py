@@ -1,3 +1,5 @@
+import json
+
 from scripts.game_prep_brief.sections import penalties
 
 
@@ -337,3 +339,157 @@ def test_aggregate_skips_official_game_totals_when_they_worsen_season_reconcilia
     assert agg["per_game"][0]["official_yards"] is None
     assert agg["per_game"][0]["delta_count"] == 0
     assert agg["per_game"][0]["delta_yards"] == 0
+
+
+def test_load_raw_game_penalty_totals_prefers_penalty_summary_over_team_stats(
+    tmp_path, monkeypatch
+) -> None:
+    team_dir = tmp_path / "sample-team"
+    team_dir.mkdir()
+    payload = {
+        "meta": {"game_date": "2025-08-30"},
+        "team_names": ["Old Dominion", "Indiana"],
+        "teams": ["ODU", "IND"],
+        "team_stats": {
+            "IND": {
+                "penalties": 3,
+                "penalty_yards": 25,
+            }
+        },
+        "penalty_summary": {
+            "IND": {
+                "total_penalties": 2,
+                "total_penalty_yards": 20,
+            }
+        },
+    }
+    (team_dir / "game_1.json").write_text(json.dumps(payload))
+    penalties._load_raw_game_penalty_totals.cache_clear()
+    monkeypatch.setattr(penalties, "_raw_game_briefs_root", lambda: tmp_path)
+
+    totals = penalties._load_raw_game_penalty_totals("sample-team", "Indiana")
+
+    assert totals["2025-08-30"]["total_count"] == 2
+    assert totals["2025-08-30"]["total_yards"] == 20
+    penalties._load_raw_game_penalty_totals.cache_clear()
+
+
+def test_aggregate_recovers_accepted_penalties_after_declined_clauses() -> None:
+    team = {
+        "slug": "michigan",
+        "display_name": "Michigan",
+        "penalty_totals_by_game": {
+            "date:2025-11-08": {"total_count": 4, "total_yards": 39},
+        },
+        "pbp_entry": {
+            "abbr": "UM",
+            "abbr_aliases": ["MICH", "UM", "UOM", "U-M"],
+            "games": [
+                {
+                    "game_number": 11,
+                    "date": "2025-11-08",
+                    "opponent": "OPP",
+                    "opponent_abbr": "OPP",
+                    "play_tree": [
+                        {
+                            "quarter": 2,
+                            "drives": [
+                                {
+                                    "plays": [
+                                        {
+                                            "quarter": 2,
+                                            "offense": "OPP",
+                                            "description": "Pass incomplete PENALTY MICH Offside declined MICH Personal Foul (Pierce,Trey) 15 yards from OPP27 to OPP42, 1ST DOWN. NO PLAY.",
+                                            "is_no_play": True,
+                                        },
+                                        {
+                                            "quarter": 4,
+                                            "offense": "OPP",
+                                            "description": "Pass deep right complete PENALTY UM Offsides on BARHAM, Jaishawn declined UM Targeting on HILLMAN, Brandyn enforced half the distance from the goal, 2 yards from the end of the play at the UM3 to the UM1 and results in automatic 1ST DOWN.",
+                                            "is_no_play": False,
+                                        },
+                                        {
+                                            "quarter": 3,
+                                            "offense": "OPP",
+                                            "description": "Pass incomplete PENALTY UOM Offside declined UOM Pass Interference (Hill,Jyaire) 7 yards from UOM09 to UOM02, 1ST DOWN. NO PLAY.",
+                                            "is_no_play": True,
+                                        },
+                                        {
+                                            "quarter": 1,
+                                            "offense": "UM",
+                                            "description": "PENALTY UM Unsportsmanlike Conduct on LINK, Evan enforced 15 yards from the UM12 to the UM27, clock 09:49.",
+                                            "is_no_play": True,
+                                        },
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "stats": {
+                "penalties": {
+                    "TEAM": {
+                        "games": 1,
+                        "total_penalties": 4,
+                        "total_penalty_yards": 39,
+                    }
+                }
+            },
+        },
+    }
+
+    agg = penalties._aggregate(team)
+
+    assert agg["total"] == 4
+    assert agg["yards"] == 39
+    assert agg["pi_allowed"] == 1
+    assert agg["season_unattributed_count"] == 0
+    assert agg["season_unattributed_yards"] == 0
+    assert agg["per_game"][0]["count"] == 4
+    assert agg["per_game"][0]["yards"] == 39
+    assert agg["per_game"][0]["official_count"] is None
+    assert agg["per_game"][0]["official_yards"] is None
+    assert agg["per_game"][0]["delta_count"] == 0
+    assert agg["per_game"][0]["delta_yards"] == 0
+
+
+def test_aggregate_ignores_penalties_inside_original_play_review_notes() -> None:
+    team = {
+        "pbp_entry": {
+            "abbr": "IND",
+            "abbr_aliases": ["IND"],
+            "games": [
+                {
+                    "game_number": 9,
+                    "date": "2025-11-01",
+                    "opponent": "UMD",
+                    "opponent_abbr": "UMD",
+                    "play_tree": [
+                        {
+                            "quarter": 4,
+                            "drives": [
+                                {
+                                    "plays": [
+                                        {
+                                            "quarter": 4,
+                                            "offense": "UMD",
+                                            "description": "After official review, the ruling on the field was overturned: Fumble (Original Play: (00:54) No Huddle-Shotgun #12 K.Martin pass complete short right to #81 J.Powell-Wonson caught at IND40, for 10 yards to the IND40 (#16 J.Boyd; #38 K.McConnell), 1ST DOWN, PENALTY IND Personal Foul (#33 G.Reese) 15 yards from IND40 to IND25, 1ST DOWN).",
+                                            "is_no_play": False,
+                                        }
+                                    ]
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    }
+
+    agg = penalties._aggregate(team)
+
+    assert agg["total"] == 0
+    assert agg["yards"] == 0
+    assert agg["per_game"][0]["count"] == 0
+    assert agg["per_game"][0]["yards"] == 0

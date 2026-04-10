@@ -52,8 +52,15 @@ _PENALTY_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         "Unsportsmanlike Conduct",
         re.compile(r"\bUNSPORTSMANLIKE\s+CONDUCT\b|\bUNSPORTSMANLIKE\b|\bUNS\b", re.IGNORECASE),
     ),
+    ("Targeting", re.compile(r"\bTARGETING\b", re.IGNORECASE)),
     ("Personal Foul", re.compile(r"\bPERSONAL\s+FOUL\b", re.IGNORECASE)),
 ]
+
+_PENALTY_CLAUSE_START_RE = re.compile(
+    r"(?:(?P<penalty_prefix>\bPENALTY\s+BEFORE\s+THE\s+SNAP,\s*|\bPENALTY\s+ON\s+|\bPENALTY\s+)"
+    r"|(?P<continuation>\b(?:DECLINED|OFFSETTING|ACCEPTED)\s+))(?P<team>[A-Z0-9-]{2,8})\b",
+    re.IGNORECASE,
+)
 
 
 def _games(team: dict) -> list[dict]:
@@ -129,12 +136,12 @@ def _load_raw_game_penalty_totals(team_slug: str, team_name: str) -> dict[str, d
 
         team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
         penalty_summary = (payload.get("penalty_summary") or {}).get(team_token) or {}
-        total_count = team_stats.get("penalties")
-        total_yards = team_stats.get("penalty_yards")
+        total_count = penalty_summary.get("total_penalties")
+        total_yards = penalty_summary.get("total_penalty_yards")
         if total_count is None:
-            total_count = penalty_summary.get("total_penalties")
+            total_count = team_stats.get("penalties")
         if total_yards is None:
-            total_yards = penalty_summary.get("total_penalty_yards")
+            total_yards = team_stats.get("penalty_yards")
         if total_count is None and total_yards is None:
             continue
 
@@ -238,8 +245,44 @@ def _penalty_yards_from_text(desc: str) -> int:
     return int(match.group(1)) if match else 0
 
 
-def _skip_offsetting_penalty(desc: str, yards: int) -> bool:
-    return "OFFSETTING" in desc.upper() and yards == 0
+def _split_penalty_clauses(desc: str) -> list[str]:
+    review_marker = desc.upper().find("ORIGINAL PLAY:")
+    if review_marker != -1 and desc.upper().find("PENALTY", review_marker) != -1:
+        desc = desc[:review_marker].rstrip(" (")
+
+    upper = desc.upper()
+    if "PENALTY" not in upper:
+        return []
+
+    matches = list(_PENALTY_CLAUSE_START_RE.finditer(desc))
+    if not matches:
+        return [desc]
+
+    clauses: list[str] = []
+    for idx, match in enumerate(matches):
+        end = len(desc)
+        if idx + 1 < len(matches):
+            next_match = matches[idx + 1]
+            end = (
+                next_match.start("team")
+                if next_match.group("continuation")
+                else next_match.start("penalty_prefix")
+            )
+        if match.group("penalty_prefix"):
+            clause = desc[match.start("penalty_prefix"):end]
+        else:
+            clause = f"PENALTY {desc[match.start('team'):end]}"
+        clause = clause.strip(" ,;.")
+        if clause:
+            clauses.append(clause)
+    return clauses
+
+
+def _skip_non_enforced_penalty(desc: str, yards: int) -> bool:
+    upper = desc.upper()
+    if "DECLINED" in upper:
+        return True
+    return "OFFSETTING" in upper and yards == 0
 
 
 def _penalty_side_from_text(desc: str, default: str = "unknown") -> str:
@@ -428,7 +471,7 @@ def _aggregate(team: dict) -> dict:
             desc = str(p.get("description") or "")
             token = _penalty_team_token(p)
             y = int(p.get("yards", 0) or 0)
-            if _skip_offsetting_penalty(desc, y):
+            if _skip_non_enforced_penalty(desc, y):
                 continue
             penalty_side = _penalty_side_from_text(desc, default=str(p.get("offense_or_defense", "unknown") or "unknown"))
             ptype = _simplify_penalty(p)
@@ -456,46 +499,46 @@ def _aggregate(team: dict) -> dict:
                 for drive in q.get("drives") or []:
                     for play in drive.get("plays") or []:
                         desc = str(play.get("description") or "")
-                        desc_up = desc.upper()
-                        if "PENALTY" not in desc_up or "DECLINED" in desc_up:
+                        if "PENALTY" not in desc.upper():
                             continue
-                        token = _extract_penalized_team_token(desc_up)
-                        penalty_side = _penalty_side_from_text(desc)
                         offense_side = resolver.resolve(play.get("offense"))
-                        yards_value = _penalty_yards_from_text(desc)
-                        if _skip_offsetting_penalty(desc, yards_value):
-                            continue
-                        if (
-                            token
-                            and token not in known_team_aliases
-                            and token not in known_opp_aliases
-                            and penalty_side in {"offense", "defense"}
-                            and offense_side in {"team", "opp"}
-                        ):
-                            predicted = offense_side if penalty_side == "offense" else ("opp" if offense_side == "team" else "team")
-                            if predicted == "team":
-                                alias_votes_team[token] += 1
-                            else:
-                                alias_votes_opp[token] += 1
+                        for clause in _split_penalty_clauses(desc):
+                            token = _extract_penalized_team_token(clause.upper())
+                            penalty_side = _penalty_side_from_text(clause)
+                            yards_value = _penalty_yards_from_text(clause)
+                            if _skip_non_enforced_penalty(clause, yards_value):
+                                continue
+                            if (
+                                token
+                                and token not in known_team_aliases
+                                and token not in known_opp_aliases
+                                and penalty_side in {"offense", "defense"}
+                                and offense_side in {"team", "opp"}
+                            ):
+                                predicted = offense_side if penalty_side == "offense" else ("opp" if offense_side == "team" else "team")
+                                if predicted == "team":
+                                    alias_votes_team[token] += 1
+                                else:
+                                    alias_votes_opp[token] += 1
 
-                        pen_obj = {"description": desc}
-                        ptype = _simplify_penalty(pen_obj)
-                        if ptype == "Holding":
-                            if penalty_side == "offense":
-                                ptype = "Offensive Holding"
-                            elif penalty_side == "defense":
-                                ptype = "Defensive Holding"
-                        penalty_events.append(
-                            {
-                                "token": token,
-                                "yards": yards_value,
-                                "penalty_side": penalty_side,
-                                "offense_side": offense_side if offense_side in {"team", "opp"} else None,
-                                "ptype": ptype,
-                                "group": _penalty_group(pen_obj),
-                                "quarter": play.get("quarter") if play.get("quarter") is not None else q.get("quarter"),
-                            }
-                        )
+                            pen_obj = {"description": clause}
+                            ptype = _simplify_penalty(pen_obj)
+                            if ptype == "Holding":
+                                if penalty_side == "offense":
+                                    ptype = "Offensive Holding"
+                                elif penalty_side == "defense":
+                                    ptype = "Defensive Holding"
+                            penalty_events.append(
+                                {
+                                    "token": token,
+                                    "yards": yards_value,
+                                    "penalty_side": penalty_side,
+                                    "offense_side": offense_side if offense_side in {"team", "opp"} else None,
+                                    "ptype": ptype,
+                                    "group": _penalty_group(pen_obj),
+                                    "quarter": play.get("quarter") if play.get("quarter") is not None else q.get("quarter"),
+                                }
+                            )
 
         game_penalty_payloads.append((g, game_row, penalty_events, known_team_aliases, known_opp_aliases))
 
