@@ -338,18 +338,45 @@ async function refreshDashboard({ quiet = false } = {}) {
         fetchPublishedSeason(repo, season, token),
     ]);
     const latestRun = runsResult.status === "fulfilled" ? runsResult.value.runs[0] : null;
-    const latestRunArtifactsResult = latestRun
-        ? await Promise.allSettled([fetchRunArtifacts(repo, latestRun.id, token)]).then((results) => results[0])
+    const latestCompletedRun = runsResult.status === "fulfilled"
+        ? runsResult.value.runs.find((run) => isCompletedRun(run)) || null
         : null;
+
+    let latestRunArtifactsResult = null;
+    let latestCompletedRunArtifactsResult = null;
+
+    if (latestRun && latestCompletedRun && latestRun.id !== latestCompletedRun.id) {
+        const artifactResults = await Promise.allSettled([
+            fetchRunArtifacts(repo, latestRun.id, token),
+            fetchRunArtifacts(repo, latestCompletedRun.id, token),
+        ]);
+        latestRunArtifactsResult = artifactResults[0];
+        latestCompletedRunArtifactsResult = artifactResults[1];
+    } else if (latestRun) {
+        latestRunArtifactsResult = await Promise.allSettled([fetchRunArtifacts(repo, latestRun.id, token)]).then(
+            (results) => results[0],
+        );
+        latestCompletedRunArtifactsResult = latestRunArtifactsResult;
+    }
 
     renderLatestRunBlock(runsResult, repo);
     renderStatusStrip(runsResult, publishedResult);
-    renderReviewPanels(runsResult, publishedResult, latestRunArtifactsResult, repo, season);
+    renderReviewPanels(
+        runsResult,
+        publishedResult,
+        latestRunArtifactsResult,
+        latestCompletedRunArtifactsResult,
+        repo,
+        season,
+    );
 
     if (!quiet) {
         const resultSet = [runsResult, publishedResult];
         if (latestRunArtifactsResult) {
             resultSet.push(latestRunArtifactsResult);
+        }
+        if (latestCompletedRunArtifactsResult && latestCompletedRunArtifactsResult !== latestRunArtifactsResult) {
+            resultSet.push(latestCompletedRunArtifactsResult);
         }
         const successCount = resultSet.filter((result) => result.status === "fulfilled").length;
         const message =
@@ -585,12 +612,19 @@ function renderLatestRunBlock(result, repo) {
     `;
 }
 
-function renderReviewPanels(runsResult, publishedResult, latestRunArtifactsResult, repo, season) {
-    renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult);
+function renderReviewPanels(
+    runsResult,
+    publishedResult,
+    latestRunArtifactsResult,
+    latestCompletedRunArtifactsResult,
+    repo,
+    season,
+) {
+    renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult, latestCompletedRunArtifactsResult);
     renderWarningReviewPanel(runsResult, publishedResult, repo, season);
 }
 
-function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
+function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult, latestCompletedRunArtifactsResult) {
     if (runsResult.status === "rejected") {
         elements.latestRunReviewPanel.innerHTML = renderErrorBlock(
             `Could not load the latest run. ${escapeHtml(formatError(runsResult.reason))}`,
@@ -604,13 +638,25 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
         return;
     }
 
-    const artifacts = latestRunArtifactsResult?.status === "fulfilled" ? latestRunArtifactsResult.value : [];
-    const artifactError = latestRunArtifactsResult?.status === "rejected"
+    const latestCompletedRun = runsResult.value.runs.find((run) => isCompletedRun(run)) || null;
+    const latestRunCompleted = isCompletedRun(latestRun);
+    const currentArtifacts = latestRunArtifactsResult?.status === "fulfilled" ? latestRunArtifactsResult.value : [];
+    const currentArtifactError = latestRunArtifactsResult?.status === "rejected"
         ? formatError(latestRunArtifactsResult.reason)
         : "";
-    const investigationArtifacts = prioritizedArtifacts(artifacts);
+    const completedArtifacts = latestCompletedRunArtifactsResult?.status === "fulfilled"
+        ? latestCompletedRunArtifactsResult.value
+        : [];
+    const completedArtifactError = latestCompletedRunArtifactsResult?.status === "rejected"
+        ? formatError(latestCompletedRunArtifactsResult.reason)
+        : "";
+    const evidenceRun = latestRunCompleted ? latestRun : latestCompletedRun;
+    const evidenceArtifacts = latestRunCompleted ? currentArtifacts : completedArtifacts;
+    const evidenceArtifactError = latestRunCompleted ? currentArtifactError : completedArtifactError;
+    const investigationArtifacts = prioritizedArtifacts(evidenceArtifacts);
     const briefArtifact = investigationArtifacts.find((artifact) => artifact.name === "brief-live-refresh-smoke-brief") || null;
     const supportingArtifacts = investigationArtifacts.filter((artifact) => artifact.name !== "brief-live-refresh-smoke-brief");
+    const showingPreviousCompletedRun = Boolean(evidenceRun && evidenceRun.id !== latestRun.id);
 
     elements.latestRunReviewPanel.innerHTML = `
         <div class="message-block">
@@ -624,6 +670,14 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
                 ${kvRow("Updated", `${formatDateTime(latestRun.updated_at)} (${relativeTime(latestRun.updated_at)})`)}
                 ${kvRow("Actor", latestRun.actor?.login || "unknown")}
                 ${kvRow("Branch", latestRun.head_branch || "main")}
+                ${
+                    showingPreviousCompletedRun && evidenceRun
+                        ? kvRow(
+                            "Previous completed run",
+                            `<a class="text-link mono" href="${escapeAttribute(evidenceRun.html_url)}" target="_blank" rel="noreferrer">#${escapeHtml(String(evidenceRun.run_number || "—"))}</a>`,
+                        )
+                        : ""
+                }
             </div>
             <div class="asset-actions">
                 <a class="button secondary" href="${escapeAttribute(latestRun.html_url)}" target="_blank" rel="noreferrer">Open workflow run</a>
@@ -631,19 +685,43 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
             </div>
         </div>
         ${
-            briefArtifact
+            !latestRunCompleted
                 ? `
-                    <div class="message-block success">
+                    <div class="message-block warning">
+                        <h3>Current run still generating artifacts</h3>
+                        <p>${escapeHtml(
+                            showingPreviousCompletedRun
+                                ? "The current run has not reached artifact upload yet. Any bundle shown below is from the previous completed run and is reference-only until this run finishes."
+                                : "The current run has not reached artifact upload yet. Brief downloads will appear here after the workflow finishes the upload steps.",
+                        )}</p>
+                    </div>
+                `
+                : ""
+        }
+        ${
+            briefArtifact && evidenceRun
+                ? `
+                    <div class="message-block ${showingPreviousCompletedRun ? "warning" : "success"}">
                         <div class="artifact-review-head">
-                            <h3>Client brief bundle</h3>
-                            ${badgeHtml(Boolean(briefArtifact.expired) ? "expired" : "ready", Boolean(briefArtifact.expired) ? "warning" : "success")}
+                            <h3>${showingPreviousCompletedRun ? "Previous completed brief bundle" : "Client brief bundle"}</h3>
+                            ${badgeHtml(
+                                Boolean(briefArtifact.expired)
+                                    ? "expired"
+                                    : showingPreviousCompletedRun
+                                        ? "reference only"
+                                        : "ready",
+                                Boolean(briefArtifact.expired) ? "warning" : showingPreviousCompletedRun ? "info" : "success",
+                            )}
                         </div>
                         <p>${escapeHtml(
                             Boolean(briefArtifact.expired)
-                                ? "The latest brief artifact has expired in GitHub. Open the run artifacts page if you need retention details."
-                                : "This is the attachment bundle from the latest run. Manual launches now default to both HTML and Markdown; older runs may still contain only one format.",
+                                ? "The brief artifact has expired in GitHub. Open the run artifacts page if you need retention details."
+                                : showingPreviousCompletedRun
+                                    ? "This bundle belongs to the previous completed run, not the run currently in progress."
+                                    : "This is the attachment bundle from the latest run. Manual launches now default to both HTML and Markdown; older runs may still contain only one format.",
                         )}</p>
                         <div class="kv compact">
+                            ${kvRow("From run", `<a class="text-link mono" href="${escapeAttribute(evidenceRun.html_url)}" target="_blank" rel="noreferrer">#${escapeHtml(String(evidenceRun.run_number || "—"))}</a>`)}
                             ${kvRow("Updated", formatDateTime(briefArtifact.updated_at))}
                             ${kvRow("Size", formatBytes(briefArtifact.size_in_bytes))}
                             ${kvRow("Artifact", `<span class="mono">${escapeHtml(briefArtifact.name || "brief-live-refresh-smoke-brief")}</span>`)}
@@ -656,7 +734,7 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
                                 data-artifact-name="${escapeAttribute(briefArtifact.name || "brief")}.zip"
                                 ${briefArtifact.expired ? "disabled" : ""}
                             >Download brief zip</button>
-                            <a class="button ghost" href="${escapeAttribute(latestRun.html_url)}#artifacts" target="_blank" rel="noreferrer">Open run artifacts</a>
+                            <a class="button ghost" href="${escapeAttribute(evidenceRun.html_url)}#artifacts" target="_blank" rel="noreferrer">Open run artifacts</a>
                         </div>
                     </div>
                 `
@@ -666,7 +744,7 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
             supportingArtifacts.length
                 ? `
                     <div class="message-block">
-                        <h3>Supporting artifacts</h3>
+                        <h3>${showingPreviousCompletedRun ? "Supporting artifacts from previous completed run" : "Supporting artifacts"}</h3>
                         <div class="artifact-list">
                             ${supportingArtifacts.map((artifact) => renderArtifactReviewCard(artifact)).join("")}
                         </div>
@@ -674,9 +752,11 @@ function renderLatestRunReviewPanel(runsResult, latestRunArtifactsResult) {
                 `
                 : !briefArtifact
                     ? renderEmptyState(
-                    artifactError
-                        ? `Could not load run artifacts. ${artifactError}`
-                        : "No artifacts are visible yet for the latest run.",
+                    evidenceArtifactError
+                        ? `Could not load run artifacts. ${evidenceArtifactError}`
+                        : latestRunCompleted
+                            ? "No artifacts are visible yet for the latest run."
+                            : "No artifacts are visible for the current run yet. Wait for the upload steps to complete.",
                 )
                     : ""
         }
@@ -716,10 +796,27 @@ function renderWarningReviewPanel(runsResult, publishedResult, repo, season) {
         ? artifactContract.non_publishable_reasons
         : [];
     const latestRun = runsResult.status === "fulfilled" ? runsResult.value.runs[0] : null;
+    const latestCompletedRun = runsResult.status === "fulfilled"
+        ? runsResult.value.runs.find((run) => isCompletedRun(run)) || null
+        : null;
     const summaryAsset = publishedResult.value.summaryAsset;
     const verificationAsset = findReleaseAsset(release, "cfbstats_verification_");
 
     elements.warningReviewPanel.innerHTML = `
+        ${
+            latestRun && !isCompletedRun(latestRun)
+                ? `
+                    <div class="message-block warning">
+                        <h3>Published warnings lag the current run</h3>
+                        <p>${escapeHtml(
+                            latestCompletedRun && latestCompletedRun.id !== latestRun.id
+                                ? "A newer workflow run is still in progress. The rolling release and warning summary below still belong to the previous completed artifact set until publication finishes."
+                                : "A workflow run is still in progress. The rolling release and warning summary below will not update until publication finishes.",
+                        )}</p>
+                    </div>
+                `
+                : ""
+        }
         <div class="message-block">
             <div class="button-row">
                 ${badgeHtml(artifactContract.publishable ? "publishable" : "non-publishable", artifactContract.publishable ? "success" : "warning")}
@@ -805,6 +902,10 @@ function prioritizedArtifacts(artifacts) {
         const rightRank = order.has(right.name) ? order.get(right.name) : 99;
         return leftRank - rightRank;
     });
+}
+
+function isCompletedRun(run) {
+    return String(run?.status || "").toLowerCase() === "completed";
 }
 
 function renderArtifactReviewCard(artifact) {
