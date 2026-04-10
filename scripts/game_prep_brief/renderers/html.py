@@ -407,7 +407,7 @@ def render(
       <h1>Game Prep Brief v2</h1>
       <div class="subtitle">{week_str}{season} Season · {team1['display_name']} vs {team2['display_name']} · Generated {now}</div>
       {"<div class='warning'><strong>Data Notice:</strong> " + warning_text + "</div>" if warning_text else ""}
-      <div class="source-legend"><sup class="src">pbp</sup> Play-by-Play Parser · <sup class="src">cfb</sup> CFBStats · <sup class="src">pff</sup> PFF/API</div>
+      <div class="source-legend"><sup class="src">pbp</sup> Game-level derived · <sup class="src">xml</sup> Official XML rollup · <sup class="src">cfb</sup> CFBStats · <sup class="src">pff</sup>/<sup class="src">api</sup> Enrichment</div>
     </div>
   </header>
 
