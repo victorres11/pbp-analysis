@@ -1875,10 +1875,23 @@ def _apply_turnover_xml_game_overrides(pbp_entry: dict | None) -> None:
         if isinstance(xml_stats.get("points_off_turnovers"), dict)
         else {}
     )
+    opponent_counts: dict[str, int] = {}
+    for game in games:
+        opp = str(game.get("opponent_abbr") or "").upper().strip()
+        if opp:
+            opponent_counts[opp] = opponent_counts.get(opp, 0) + 1
 
     def _set_if_numeric(game: dict, key: str, value: object) -> None:
         if isinstance(value, (int, float)):
             game[key] = int(value)
+
+    def _single_game_row(row: dict, opp: str) -> bool:
+        if not isinstance(row, dict):
+            return False
+        if opponent_counts.get(opp, 0) > 1:
+            return False
+        games_value = row.get("games")
+        return not isinstance(games_value, (int, float)) or int(games_value) <= 1
 
     for game in games:
         opp = str(game.get("opponent_abbr") or "").upper().strip()
@@ -1886,16 +1899,26 @@ def _apply_turnover_xml_game_overrides(pbp_entry: dict | None) -> None:
             continue
         tov_row = tov_cat.get(opp) if isinstance(tov_cat.get(opp), dict) else {}
         pot_row = pot_cat.get(opp) if isinstance(pot_cat.get(opp), dict) else {}
-        if tov_row:
+        if _single_game_row(tov_row, opp):
             _set_if_numeric(game, "turnovers_gained", tov_row.get("turnovers"))
             _set_if_numeric(game, "turnovers_lost", tov_row.get("turnovers_forced"))
             _set_if_numeric(game, "interceptions_gained", tov_row.get("interceptions"))
             _set_if_numeric(game, "interceptions_lost", tov_row.get("interceptions_forced"))
             _set_if_numeric(game, "fumbles_gained", tov_row.get("fumbles_lost"))
             _set_if_numeric(game, "fumbles_lost", tov_row.get("fumbles_recovered"))
-        if pot_row:
+        if _single_game_row(pot_row, opp):
             _set_if_numeric(game, "points_off_turnovers_for", pot_row.get("points_off_turnovers_allowed"))
             _set_if_numeric(game, "points_off_turnovers_against", pot_row.get("points_off_turnovers"))
+
+    if all(
+        isinstance(game.get("turnovers_gained"), int) and isinstance(game.get("turnovers_lost"), int)
+        for game in games
+    ):
+        aggregates = pbp_entry.get("aggregates") if isinstance(pbp_entry.get("aggregates"), dict) else {}
+        aggregates["turnover_margin"] = sum(int(game.get("turnovers_gained") or 0) for game in games) - sum(
+            int(game.get("turnovers_lost") or 0) for game in games
+        )
+        pbp_entry["aggregates"] = aggregates
 
 
 def _normalize_team_name_key(value: object) -> str:
@@ -3137,7 +3160,7 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
         "pot_for": _pick_int(xml_pot.get("points_off_turnovers"), None),
         "pot_against": _pick_int(xml_pot.get("points_off_turnovers_allowed"), None),
     }
-    if isinstance(game_recon, list) and game_recon:
+    if isinstance(game_recon, list) and game_recon and len(game_recon) == len(games):
         cfb_from_games = {
             "gained": 0,
             "lost": 0,
@@ -3191,6 +3214,11 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
         tov_cat = {}
     if not isinstance(pot_cat, dict):
         pot_cat = {}
+    opponent_counts: dict[str, int] = {}
+    for game in games:
+        opp = str(game.get("opponent_abbr") or "").upper().strip()
+        if opp:
+            opponent_counts[opp] = opponent_counts.get(opp, 0) + 1
 
     report: list[dict] = []
     for game in games:
@@ -3199,6 +3227,11 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             continue
         tov_row = tov_cat.get(opp) if isinstance(tov_cat.get(opp), dict) else {}
         pot_row = pot_cat.get(opp) if isinstance(pot_cat.get(opp), dict) else {}
+        if opponent_counts.get(opp, 0) > 1:
+            if isinstance(tov_row, dict) and isinstance(tov_row.get("games"), (int, float)) and int(tov_row.get("games") or 0) > 1:
+                continue
+            if isinstance(pot_row, dict) and isinstance(pot_row.get("games"), (int, float)) and int(pot_row.get("games") or 0) > 1:
+                continue
         if not tov_row and not pot_row:
             continue
 
