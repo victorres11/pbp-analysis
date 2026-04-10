@@ -359,6 +359,40 @@ def _fetch_text_result_from_candidates(
     return {"text": None, "status": "unavailable", "reason": last_reason, "url": last_url}
 
 
+def _fetch_json_result_from_candidates(
+    candidates: list[str],
+    suffix: str,
+    timeout: int = 8,
+    attempts: int = 3,
+) -> dict[str, object]:
+    if not candidates:
+        return {"json": None, "status": "unavailable", "reason": "no_team_candidates", "url": None}
+    last_reason = "empty_response"
+    last_url: str | None = None
+    for candidate in candidates:
+        encoded = urllib.parse.quote(candidate)
+        url = f"{YR_DATA_API_BASE}/yr/{encoded}/{suffix}"
+        last_url = url
+        for attempt in range(1, attempts + 1):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    payload = json.loads(resp.read().decode("utf-8", errors="ignore") or "{}")
+                if isinstance(payload, dict):
+                    return {"json": payload, "status": "ok", "reason": None, "url": url}
+                last_reason = f"invalid_json_type via {candidate}"
+            except Exception as exc:
+                last_reason = f"{type(exc).__name__}: {exc}"
+                if attempt < attempts:
+                    time.sleep(0.2 * attempt)
+                continue
+    print(
+        f"[warn] yr-data-api fetch failed for {suffix}: {last_reason}",
+        file=sys.stderr,
+    )
+    return {"json": None, "status": "unavailable", "reason": last_reason, "url": last_url}
+
+
 def _deep_merge(base: dict, overlay: dict) -> dict:
     merged = dict(base)
     for key, val in overlay.items():
@@ -2597,6 +2631,42 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     def _try_fetch(suffix: str) -> dict[str, object]:
         return _fetch_text_result_from_candidates(candidates, suffix)
 
+    def _try_fetch_json(suffix: str) -> dict[str, object]:
+        return _fetch_json_result_from_candidates(candidates, suffix)
+
+    def _parse_float(value: object) -> float | None:
+        try:
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _parse_games_played() -> int | None:
+        games_result = _try_fetch("games-played?format=text")
+        text = games_result.get("text")
+        try:
+            games = int(float(str(text).strip()))
+        except (TypeError, ValueError, AttributeError):
+            if games_result.get("reason"):
+                reasons.append(f"pff_games_played:{games_result.get('reason')}")
+            return None
+        return games if games > 0 else None
+
+    def _per_game_value(
+        total_value: object,
+        per_game_value: object,
+        *,
+        games: int | None,
+    ) -> str:
+        per_game = _parse_float(per_game_value)
+        total = _parse_float(total_value)
+        if per_game is not None and per_game > 0:
+            return f"{per_game:.1f}"
+        if total is not None and games:
+            return f"{round(total / games, 1):.1f}"
+        return "N/A"
+
+    games_played = _parse_games_played()
+
     plays_off_result = _try_fetch("pff/plays?side=off&format=text")
     plays_off = plays_off_result.get("text")
     if plays_off:
@@ -2611,41 +2681,100 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     else:
         reasons.append(f"pff_plays_def:{plays_def_result.get('reason') or 'unavailable'}")
 
-    tackling_result = _try_fetch("pff/tackling-per-game?format=text")
-    tackling_pg = tackling_result.get("text")
-    if tackling_pg:
-        parts = [p.strip() for p in str(tackling_pg).split("\t")]
-        if len(parts) >= 3:
-            first_three = parts[:3]
-            if all(part in {"0", "0.0", "0.00"} for part in first_three):
-                reasons.append("pff_tackling:zero_placeholder_response")
+    tackling_json_result = _try_fetch_json("pff/tackling-per-game")
+    tackling_payload = tackling_json_result.get("json")
+    tackling_data = tackling_payload.get("data") if isinstance(tackling_payload, dict) else None
+    if isinstance(tackling_data, dict):
+        effective_games = int(_parse_float(tackling_data.get("games")) or 0) or games_played
+        out["pff_missed_tackles_pg"] = _per_game_value(
+            tackling_data.get("missed_tackles"),
+            tackling_data.get("missed_tackles_per_game"),
+            games=effective_games,
+        )
+        out["pff_tfl_pg"] = _per_game_value(
+            tackling_data.get("tfl"),
+            tackling_data.get("tfl_per_game"),
+            games=effective_games,
+        )
+        out["pff_sacks_pg"] = _per_game_value(
+            tackling_data.get("sacks"),
+            tackling_data.get("sacks_per_game"),
+            games=effective_games,
+        )
+        if all(out[key] == "N/A" for key in ("pff_missed_tackles_pg", "pff_tfl_pg", "pff_sacks_pg")):
+            reasons.append("pff_tackling:zero_placeholder_response")
+    else:
+        tackling_result = _try_fetch("pff/tackling-per-game?format=text")
+        tackling_pg = tackling_result.get("text")
+        if tackling_pg:
+            parts = [p.strip() for p in str(tackling_pg).split("\t")]
+            if len(parts) >= 4 and games_played:
+                out["pff_missed_tackles_pg"] = _per_game_value(parts[0], None, games=games_played)
+                out["pff_tfl_pg"] = _per_game_value(parts[1], None, games=games_played)
+                out["pff_sacks_pg"] = _per_game_value(parts[2], None, games=games_played)
+            elif len(parts) >= 3:
+                first_three = parts[:3]
+                if all(part in {"0", "0.0", "0.00"} for part in first_three):
+                    reasons.append("pff_tackling:zero_placeholder_response")
+                else:
+                    out["pff_missed_tackles_pg"] = first_three[0] or "N/A"
+                    out["pff_tfl_pg"] = first_three[1] or "N/A"
+                    out["pff_sacks_pg"] = first_three[2] or "N/A"
             else:
-                out["pff_missed_tackles_pg"] = first_three[0] or "N/A"
-                out["pff_tfl_pg"] = first_three[1] or "N/A"
-                out["pff_sacks_pg"] = first_three[2] or "N/A"
+                reasons.append("pff_tackling:malformed_payload")
         else:
-            reasons.append("pff_tackling:malformed_payload")
-    else:
-        reasons.append(f"pff_tackling:{tackling_result.get('reason') or 'unavailable'}")
+            reasons.append(f"pff_tackling:{tackling_result.get('reason') or 'unavailable'}")
 
-    sacks_allowed_result = _try_fetch("pff/sacks-allowed?format=text")
-    sacks_allowed = sacks_allowed_result.get("text")
-    if sacks_allowed:
-        out["pff_sacks_allowed_pg"] = str(sacks_allowed).strip()
+    sacks_allowed_json_result = _try_fetch_json("pff/sacks-allowed")
+    sacks_allowed_payload = sacks_allowed_json_result.get("json")
+    sacks_allowed_data = sacks_allowed_payload.get("data") if isinstance(sacks_allowed_payload, dict) else None
+    if isinstance(sacks_allowed_data, dict):
+        effective_games = int(_parse_float(sacks_allowed_data.get("games")) or 0) or games_played
+        out["pff_sacks_allowed_pg"] = _per_game_value(
+            sacks_allowed_data.get("sacks_allowed"),
+            sacks_allowed_data.get("sacks_allowed_per_game"),
+            games=effective_games,
+        )
     else:
-        reasons.append(f"pff_sacks_allowed:{sacks_allowed_result.get('reason') or 'unavailable'}")
-
-    fmt_result = _try_fetch("pff/fmt?format=text")
-    fmt = fmt_result.get("text")
-    if fmt:
-        parts = [p.strip() for p in str(fmt).split("\t")]
-        if len(parts) >= 2:
-            out["pff_fmt_total"] = parts[0] or "N/A"
-            out["pff_fmt_pg"] = parts[1] or "N/A"
+        sacks_allowed_result = _try_fetch("pff/sacks-allowed?format=text")
+        sacks_allowed = sacks_allowed_result.get("text")
+        if sacks_allowed:
+            total_or_pg = _parse_float(sacks_allowed)
+            if total_or_pg is not None and total_or_pg > 5 and games_played:
+                out["pff_sacks_allowed_pg"] = _per_game_value(total_or_pg, None, games=games_played)
+            else:
+                out["pff_sacks_allowed_pg"] = str(sacks_allowed).strip()
         else:
-            reasons.append("pff_fmt:malformed_payload")
+            reasons.append(f"pff_sacks_allowed:{sacks_allowed_result.get('reason') or 'unavailable'}")
+
+    fmt_json_result = _try_fetch_json("pff/fmt")
+    fmt_payload = fmt_json_result.get("json")
+    fmt_data = fmt_payload.get("data") if isinstance(fmt_payload, dict) else None
+    if isinstance(fmt_data, dict):
+        total = _parse_float(fmt_data.get("fmt"))
+        effective_games = int(_parse_float(fmt_data.get("games")) or 0) or games_played
+        out["pff_fmt_total"] = str(int(total)) if total is not None else "N/A"
+        out["pff_fmt_pg"] = _per_game_value(
+            fmt_data.get("fmt"),
+            fmt_data.get("fmt_per_game"),
+            games=effective_games,
+        )
     else:
-        reasons.append(f"pff_fmt:{fmt_result.get('reason') or 'unavailable'}")
+        fmt_result = _try_fetch("pff/fmt?format=text")
+        fmt = fmt_result.get("text")
+        if fmt:
+            parts = [p.strip() for p in str(fmt).split("\t")]
+            if len(parts) >= 2:
+                out["pff_fmt_total"] = parts[0] or "N/A"
+                out["pff_fmt_pg"] = parts[1] or "N/A"
+            elif len(parts) == 1:
+                total = _parse_float(parts[0])
+                out["pff_fmt_total"] = parts[0] or "N/A"
+                out["pff_fmt_pg"] = _per_game_value(total, None, games=games_played)
+            else:
+                reasons.append("pff_fmt:malformed_payload")
+        else:
+            reasons.append(f"pff_fmt:{fmt_result.get('reason') or 'unavailable'}")
 
     play_clock_result = _try_fetch("pff/play-clock?format=text")
     play_clock = play_clock_result.get("text")

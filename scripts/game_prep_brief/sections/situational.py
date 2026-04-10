@@ -81,6 +81,10 @@ def _sanitize_charting_value(value: object) -> object:
 def _display_or_unavailable(value: object, suffix: str = "") -> str:
     if _is_na(value):
         return "Unavailable (API)"
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("%") and suffix == "":
+            return text
     return _num_display(value, suffix)
 
 
