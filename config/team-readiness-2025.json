@@ -17,48 +17,55 @@
     "michigan": {
       "display_name": "Michigan",
       "conference": "Big Ten",
-      "status": "existing_supported",
+      "status": "production_ready_2025",
       "deliverable_status": "ready_with_warnings",
       "statbroadcast": {
-        "status": "ready",
+        "status": "complete",
         "expected_games": 13,
         "found_games": 13,
-        "source": "current local bundle"
+        "source": "current local bundle / StatBroadcast normalized game briefs"
       },
       "cfbstats": {
-        "status": "ready",
+        "status": "verified",
         "conference_scope": "Big Ten",
         "snapshot_present": true
       },
       "pff": {
-        "status": "ready",
-        "slug": "michigan-wolverines"
+        "status": "partial",
+        "slug": "michigan-wolverines",
+        "notes": [
+          "Michigan vs Utah enrichment artifact validates, but PFF FMT fields are unavailable for Michigan."
+        ]
       },
       "verification": {
-        "status": "warning",
+        "status": "passed_with_warnings",
         "failures": 0,
-        "warnings": null,
+        "warnings": 4,
         "notes": [
-          "Current local verification report includes warning-level metrics."
+          "Current local verification report has zero fail metrics.",
+          "Michigan warnings are bounded third-down and defensive-yardage source/parity special cases."
         ]
       },
       "notes": [
-        "Current local bundle has 13 Michigan games."
+        "Current local bundle has 13 Michigan games through 2025-12-31.",
+        "CFBStats snapshot maps Michigan to Big Ten for conference ranking context.",
+        "Operator-approved Michigan vs Utah deliverable passed selected-matchup quality review.",
+        "Michigan vs Utah enrichment includes PFF play-clock and hurry-up fields; PFF FMT remains unavailable."
       ]
     },
     "notre-dame": {
       "display_name": "Notre Dame",
       "conference": "Independents",
-      "status": "existing_supported",
+      "status": "production_ready_2025",
       "deliverable_status": "ready_with_warnings",
       "statbroadcast": {
-        "status": "ready",
+        "status": "complete",
         "expected_games": 12,
         "found_games": 12,
-        "source": "current local bundle"
+        "source": "current local bundle / StatBroadcast normalized game briefs"
       },
       "cfbstats": {
-        "status": "ready",
+        "status": "verified",
         "conference_scope": "Independents",
         "snapshot_present": true
       },
@@ -67,15 +74,19 @@
         "slug": "notre-dame-fighting-irish"
       },
       "verification": {
-        "status": "warning",
+        "status": "passed_with_warnings",
         "failures": 0,
-        "warnings": null,
+        "warnings": 8,
         "notes": [
-          "Current local verification report includes warning-level metrics."
+          "Current local verification report has zero fail metrics.",
+          "Notre Dame warnings are bounded source-total drift and source-internal two-point disagreement special cases."
         ]
       },
       "notes": [
-        "Current local bundle has 12 Notre Dame games."
+        "Current local bundle has 12 Notre Dame games through 2025-11-29.",
+        "CFBStats snapshot maps Notre Dame to Independents for conference ranking context.",
+        "Notre Dame vs UConn selected-matchup run exits 0 with enrichment required.",
+        "Notre Dame vs UConn enrichment artifact validates with Notre Dame PFF provider ok."
       ]
     },
     "utah": {
