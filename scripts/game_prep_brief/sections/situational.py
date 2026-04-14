@@ -55,6 +55,12 @@ def _pct_display(value: object) -> str:
 
 
 def _num_display(value: object, suffix: str = "") -> str:
+    if isinstance(value, str):
+        text = value.strip()
+        if suffix and text.endswith(suffix):
+            value = text[: -len(suffix)].strip()
+        elif not suffix and re.fullmatch(r"-?\d+(?:\.\d+)?%", text):
+            return text
     try:
         return f"{float(value):.1f}{suffix}"
     except (TypeError, ValueError):

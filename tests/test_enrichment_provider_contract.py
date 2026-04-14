@@ -5,6 +5,7 @@ from pathlib import Path
 from scripts.game_prep_brief import loaders
 from scripts.game_prep_brief.renderers import html as html_renderer
 from scripts.game_prep_brief.renderers import markdown as markdown_renderer
+from scripts.game_prep_brief.sections import situational
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +44,11 @@ def test_fetch_pff_snapshot_treats_zero_placeholder_as_partial_provider(monkeypa
         "pff/plays?side=off&format=text",
         "pff/plays?side=def&format=text",
     ]
+
+
+def test_situational_display_accepts_pff_percent_string() -> None:
+    assert situational._display_or_unavailable("20.4%") == "20.4%"
+    assert situational._display_or_unavailable("20.4%", "%") == "20.4%"
 
 
 def test_fetch_negative_play_stats_uses_supported_side_parameters(monkeypatch) -> None:
