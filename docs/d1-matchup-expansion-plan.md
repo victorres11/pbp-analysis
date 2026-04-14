@@ -102,6 +102,27 @@ A client-ready matchup brief must satisfy these checks:
 - markdown/html render successfully
 - warnings are visible in the output and summary
 
+Use the selected-matchup preflight command before a client run:
+
+```bash
+python -m scripts.game_prep_brief.matchup_preflight Michigan Utah \
+  --season 2025 \
+  --bundle ../yr-data-api/data/pbp_stats_bundle.json \
+  --cfbstats-snapshot ../pbp-parser/data/cfbstats_snapshots/cfbstats_2025.json \
+  --cfbstats-verification-report ../pbp-parser/data/cfbstats_reports/cfbstats_verification_2025.json \
+  --enrichment-file outputs/game_prep_brief/michigan_vs_utah_2025_enrichment.json \
+  --expected-games Michigan=13 \
+  --expected-games Utah=13 \
+  --expected-conference Michigan="Big Ten" \
+  --expected-conference Utah="Big 12" \
+  --require-expected-games
+```
+
+The preflight is intentionally selected-matchup scoped. It blocks on missing
+teams, game-count mismatches, missing CFBStats ranking rows, missing verification
+entries, verification fail metrics, and required enrichment gaps. Warning-level
+verification findings remain visible without blocking.
+
 Core sections are:
 
 - overview
