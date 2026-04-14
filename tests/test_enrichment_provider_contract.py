@@ -46,7 +46,6 @@ def test_fetch_pff_snapshot_treats_zero_placeholder_as_partial_provider(monkeypa
         "pff/plays?side=def&format=text",
     ]
 
-
 def test_fetch_pff_snapshot_uses_json_payloads_and_games_played_fallback(monkeypatch) -> None:
     def _fake_fetch_text(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
         payloads = {
