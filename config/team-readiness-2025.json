@@ -118,8 +118,8 @@
       "display_name": "UConn",
       "canonical_name": "Connecticut",
       "conference": "Independents",
-      "status": "onboarding",
-      "deliverable_status": "core_ready_enrichment_blocked",
+      "status": "production_ready_2025",
+      "deliverable_status": "ready_with_warnings",
       "statbroadcast": {
         "status": "complete",
         "expected_games": 13,
@@ -133,11 +133,11 @@
         "canonical_key": "connecticut"
       },
       "pff": {
-        "status": "blocked",
+        "status": "partial",
         "slug": "connecticut-huskies",
         "notes": [
-          "Local yr-data-api requires PFF_COOKIE before enrichment can be refreshed.",
-          "Deployed PFF endpoints timed out during UConn proof testing on 2026-04-14."
+          "Fly PFF endpoints returned 200 for UConn/Connecticut play-clock and plays after the UConn alias deploy.",
+          "Notre Dame vs UConn enrichment artifact validates with UConn PFF provider partial because advanced missed-tackle/FMT charting is unavailable."
         ]
       },
       "verification": {
@@ -147,14 +147,14 @@
         "notes": [
           "Full 21-team verifier report has zero fail metrics.",
           "UConn warnings are bounded source/parity special cases.",
-          "Preflight for Notre Dame vs UConn exits 0 when enrichment is not required."
+          "Preflight for Notre Dame vs UConn exits 0 with enrichment required."
         ]
       },
       "notes": [
         "Use this as the second non-current-scope proof after Michigan vs Utah.",
         "UConn bundle slug resolves to CFBStats Connecticut for independent conference rankings.",
-        "Core markdown/html smoke run exits 0 with populated penalties, rankings, and situational XML fields.",
-        "Do not mark fully production-ready until PFF enrichment can be refreshed or an explicit no-PFF delivery policy is approved."
+        "Markdown/html smoke run exits 0 with populated penalties, rankings, situational XML fields, play-clock, and hurry-up.",
+        "Missed tackles/FMT remains XML-only/unavailable from advanced charting."
       ]
     }
   }
