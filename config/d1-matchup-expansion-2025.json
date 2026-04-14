@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "season": 2025,
+  "goal": "Expand selected-matchup brief confidence from the current Big Ten-centered scope toward any D1 client request.",
+  "delivery_policy": {
+    "client_delivery_requires": [
+      "Both teams have production_ready* entries in the season readiness registry.",
+      "Expected completed games are confirmed by schedule check or operator input.",
+      "CFBStats conference scope is confirmed for each team.",
+      "StatBroadcast artifacts cover every expected completed game.",
+      "Verification has zero unexplained fail metrics.",
+      "PFF enrichment supplies average play clock, hurry-up rate, offensive plays per game, and defensive plays per game when enrichment is required.",
+      "Any partial enrichment or source fallback is visible in readiness notes and the brief."
+    ],
+    "do_not_assume": [
+      "Week number equals completed game count.",
+      "CollegePressBox links are always correct.",
+      "Independent teams have an obvious conference-comparison policy.",
+      "A PFF slug that works for one endpoint supplies all advanced charting fields."
+    ]
+  },
+  "waves": [
+    {
+      "id": "wave0-current-proofs",
+      "label": "Current completed proofs",
+      "objective": "Keep the already-approved cross-scope examples visible and machine-checkable.",
+      "matchups": [
+        {
+          "id": "michigan-utah",
+          "status": "complete",
+          "team1": "Michigan",
+          "team2": "Utah",
+          "coverage": [
+            "Big Ten",
+            "Big 12",
+            "cross-conference",
+            "non-Big-Ten team",
+            "PFF partial acceptable with notes"
+          ],
+          "expected_games": {
+            "Michigan": 13,
+            "Utah": 13
+          },
+          "expected_conference": {
+            "Michigan": "Big Ten",
+            "Utah": "Big 12"
+          },
+          "pff_enrichment": "required",
+          "evidence": [
+            "Operator-approved Michigan vs Utah deliverable passed quality review.",
+            "Readiness registry marks both teams production_ready_2025.",
+            "CFBStats maps Utah to Big 12 for conference-relative rankings."
+          ]
+        },
+        {
+          "id": "notre-dame-uconn",
+          "status": "complete",
+          "team1": "Notre Dame",
+          "team2": "UConn",
+          "coverage": [
+            "Independents",
+            "alias handling",
+            "PFF partial acceptable with notes",
+            "non-Big-Ten matchup"
+          ],
+          "expected_games": {
+            "Notre Dame": 12,
+            "UConn": 13
+          },
+          "expected_conference": {
+            "Notre Dame": "Independents",
+            "UConn": "Independents"
+          },
+          "pff_enrichment": "required",
+          "evidence": [
+            "Selected-matchup operator run exits 0 with enrichment required.",
+            "UConn resolves to CFBStats Connecticut.",
+            "Notre Dame PFF provider validates ok in the enrichment artifact."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wave1-next-onboarding",
+      "label": "Next representative onboarding targets",
+      "objective": "Prove the next conference/source shapes one at a time before claiming any-D1 confidence.",
+      "matchups": [
+        {
+          "id": "michigan-texas",
+          "status": "next",
+          "team1": "Michigan",
+          "team2": "Texas",
+          "coverage": [
+            "Big Ten",
+            "SEC",
+            "high-profile cross-conference",
+            "new PFF slug",
+            "full-season backfill from missing registry team"
+          ],
+          "expected_conference": {
+            "Michigan": "Big Ten",
+            "Texas": "SEC"
+          },
+          "pff_enrichment": "required",
+          "operator_questions": [
+            "Confirm Texas expected completed games for the selected 2025 cutoff.",
+            "Confirm whether Texas should be the first SEC readiness promotion."
+          ]
+        },
+        {
+          "id": "notre-dame-miami-fl",
+          "status": "next",
+          "team1": "Notre Dame",
+          "team2": "Miami (FL)",
+          "coverage": [
+            "Independents",
+            "ACC",
+            "ambiguous team name",
+            "independent comparison policy"
+          ],
+          "expected_conference": {
+            "Notre Dame": "Independents",
+            "Miami (FL)": "ACC"
+          },
+          "pff_enrichment": "required",
+          "tracking_issue": "https://github.com/victorres11/pbp-analysis/issues/250",
+          "operator_questions": [
+            "Confirm whether the brief should use Independents ranking context for Notre Dame or a matchup-relative comparison.",
+            "Confirm the Miami (FL) display name expected by the client."
+          ]
+        },
+        {
+          "id": "utah-byu",
+          "status": "planned",
+          "team1": "Utah",
+          "team2": "BYU",
+          "coverage": [
+            "Big 12",
+            "no Big Ten team",
+            "rivalry naming",
+            "conference-only matchup"
+          ],
+          "expected_conference": {
+            "Utah": "Big 12",
+            "BYU": "Big 12"
+          },
+          "pff_enrichment": "required",
+          "operator_questions": [
+            "Confirm BYU expected completed games for the selected 2025 cutoff.",
+            "Use this after Texas or Miami proves the new-team onboarding loop still holds."
+          ]
+        },
+        {
+          "id": "michigan-boise-state",
+          "status": "planned",
+          "team1": "Michigan",
+          "team2": "Boise State",
+          "coverage": [
+            "Big Ten",
+            "Mountain West",
+            "Group of Five",
+            "new PFF slug"
+          ],
+          "expected_conference": {
+            "Michigan": "Big Ten",
+            "Boise State": "Mountain West"
+          },
+          "pff_enrichment": "required",
+          "operator_questions": [
+            "Confirm whether Group of Five CFBStats ranking context renders acceptably in the brief.",
+            "Record any StatBroadcast discovery differences for non-Power teams."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wave2-any-request-drills",
+      "label": "Any-request production drills",
+      "objective": "After wave1, simulate client requests with two teams that were both missing before the request.",
+      "matchups": [
+        {
+          "id": "two-new-power-teams",
+          "status": "deferred",
+          "teams": [
+            "TBD Power Team A",
+            "TBD Power Team B"
+          ],
+          "coverage": [
+            "two missing teams",
+            "same-conference or cross-conference",
+            "24-hour turnaround drill"
+          ],
+          "pff_enrichment": "required",
+          "operator_questions": [
+            "Choose this from an actual client-like request after at least two wave1 teams are production-ready."
+          ]
+        },
+        {
+          "id": "two-new-g5-or-fcs-edge-teams",
+          "status": "deferred",
+          "teams": [
+            "TBD G5 Team A",
+            "TBD G5 Team B"
+          ],
+          "coverage": [
+            "two missing teams",
+            "Group of Five",
+            "source-discovery stress test"
+          ],
+          "pff_enrichment": "required",
+          "operator_questions": [
+            "Use only after the Mountain West or another Group of Five sample has exposed the likely discovery issues."
+          ]
+        }
+      ]
+    }
+  ]
+}

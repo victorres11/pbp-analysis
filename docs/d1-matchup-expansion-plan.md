@@ -248,6 +248,52 @@ Recommended sequence:
 5. Broader FBS.
 6. FCS only after source coverage and validation behavior are understood.
 
+## Expansion Control
+
+The machine-readable plan lives in:
+
+```text
+config/d1-matchup-expansion-2025.json
+```
+
+It separates completed proofs from future onboarding targets. The current waves
+are:
+
+- Wave 0: completed proofs, currently Michigan vs Utah and Notre Dame vs UConn.
+- Wave 1: next onboarding targets, currently Michigan vs Texas, Notre Dame vs
+  Miami (FL), Utah vs BYU, and Michigan vs Boise State.
+- Wave 2: deferred any-request drills with two teams that were both missing
+  before the request.
+
+Run the plan validator from `pbp-analysis`:
+
+```bash
+python -m scripts.game_prep_brief.d1_expansion_plan \
+  --plan config/d1-matchup-expansion-2025.json \
+  --readiness-registry config/team-readiness-2025.json \
+  --markdown-out docs/d1-matchup-expansion-report.md
+```
+
+The report should have zero fail checks. Warning findings are expected for
+planned teams that are intentionally not yet in the readiness registry.
+
+For each Wave 1 target:
+
+1. Confirm expected completed games and CFBStats conference scope.
+2. Backfill StatBroadcast artifacts if the team is missing from the bundle.
+3. Generate or refresh CFBStats snapshot and verification artifacts.
+4. Refresh PFF enrichment and classify any partial provider fields.
+5. Run selected-matchup preflight and render.
+6. Quality-review the brief.
+7. Promote the team in `config/team-readiness-2025.json` only after evidence is
+   production-ready.
+8. Move the matchup status in `config/d1-matchup-expansion-2025.json` from
+   `next` or `planned` to `complete`.
+
+Keep one or two teams actively onboarding at a time. The goal is to expose and
+document failure modes, not to make the registry look bigger before the evidence
+is there.
+
 ## Issue Log Template
 
 When a reroute is needed, record it in the delivery checklist or readiness
