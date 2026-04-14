@@ -43,11 +43,20 @@ SLUG_ALIASES = {
     "utsa": "utsa",
     "byu": "byu",
     "arizona state": "asu",
+    "connecticut": "uconn",
+    "uconn": "uconn",
+    "u-conn": "uconn",
+}
+
+TEAM_NAME_ALIASES = {
+    "connecticut": {"connecticut", "uconn", "u conn", "u-conn"},
+    "uconn": {"connecticut", "uconn", "u conn", "u-conn"},
 }
 
 TEAM_API_ALIASES = {
     "ohio-state": ["ohio-state"],
     "washington": ["washington", "wash"],
+    "uconn": ["uconn", "connecticut", "connecticut-huskies"],
 }
 
 ENRICHMENT_KEYS = (
@@ -169,6 +178,8 @@ def _team_name_variants(team_name: str, team_slug: str) -> set[str]:
         variants.add(base.replace(" state", " st"))
     if " st" in base:
         variants.add(base.replace(" st", " state"))
+    for key in list(variants):
+        variants.update(_norm_team_name(alias) for alias in TEAM_NAME_ALIASES.get(key, set()))
     return {v for v in variants if v}
 
 def _is_url_source(value: str | Path | None) -> bool:

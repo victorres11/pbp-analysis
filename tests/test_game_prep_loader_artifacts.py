@@ -284,6 +284,35 @@ def test_gather_team_data_uses_offline_cfbstats_artifacts(
     assert "Turnover-on-downs definition gap" in turnover_metric["note"]
 
 
+def test_artifact_team_entry_matches_uconn_connecticut_aliases() -> None:
+    snapshot = {
+        "teams": {
+            "connecticut": {
+                "team_name": "Connecticut",
+                "team_slug": "connecticut",
+                "rankings": {"all": {"scoring_offense": {"rank": 2}}},
+            }
+        }
+    }
+    bundle = {
+        "teams": {
+            "uconn": {
+                "team_name": "uconn",
+                "games_parsed": 13,
+            }
+        }
+    }
+
+    assert loaders.slugify("Connecticut") == "uconn"
+    assert loaders._artifact_team_entry(snapshot, "uconn", "UConn")["team_name"] == "Connecticut"
+    assert loaders._artifact_team_entry(bundle, "uconn", "Connecticut")["games_parsed"] == 13
+    assert loaders._candidate_team_ids("uconn", "UConn") == [
+        "uconn",
+        "connecticut",
+        "connecticut-huskies",
+    ]
+
+
 def test_turnovers_section_prefers_source_pot_totals_over_parser_game_sums() -> None:
     team = {
         "display_name": "Washington",
