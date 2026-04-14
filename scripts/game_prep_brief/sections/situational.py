@@ -366,7 +366,7 @@ def _team_html(team: dict) -> str:
       <div class="block">
         <h4>Tempo</h4>
         <ul>
-          <li>Avg Time to Snap: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')}{SRC_PFF}</li>
+          <li>Avg Play Clock Remaining: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')}{SRC_PFF}</li>
           <li>Hurry-Up Rate (≤10s): {_display_or_unavailable(stats.get('pff_hurry_up_pct'))}{SRC_PFF}</li>
           <li>Plays/Game Offense (Season / L3): {_num_display(off_plays_pg)} / {_num_display(off_plays_l3)}{SRC_PBP}</li>
           <li>Plays/Game Defense Allowed (Season / L3): {_num_display(def_plays_pg)} / {_num_display(def_plays_l3)}{SRC_PBP}</li>
@@ -470,7 +470,7 @@ def _team_md(team: dict) -> str:
         f"- 3rd Down: {third_down} · {third_conv}/{third_att} ({f'{third_pct_derived}%' if isinstance(third_pct_derived, (int, float)) else 'N/A'}){third_down_l3_suffix}",
         f"- Blitz %: {_display_or_unavailable(blitz_pct, '%')} (L3: {_display_or_unavailable(blitz_pct_last3, '%')})",
         f"- Negative Plays O/D: {neg_off}/{neg_def} (L3: {neg_off_l3}/{neg_def_l3})",
-        f"- Avg Time to Snap: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')} | Hurry-Up: {_display_or_unavailable(stats.get('pff_hurry_up_pct'))}",
+        f"- Avg Play Clock Remaining: {_display_or_unavailable(stats.get('pff_avg_play_clock'), 's')} | Hurry-Up: {_display_or_unavailable(stats.get('pff_hurry_up_pct'))}",
         f"- Plays/G O/D: {off_plays_pg}/{def_plays_pg} (L3: {off_plays_l3}/{def_plays_l3})",
         trenches_line,
         miss_fmt_line,
