@@ -183,22 +183,18 @@ Current status:
    warning-level source/parity special cases.
 7. Done: preflighted Notre Dame vs UConn with expected games
    `Notre Dame=12`, `UConn=13`, and expected conference `Independents` for both
-   teams. The run exits 0 when enrichment is not required.
-8. Done: rendered markdown and HTML with `--no-enrichment`; penalties,
-   rankings, schedule, explosives, zones, turnovers, middle 8, situational,
-   and special teams sections populate.
-9. Blocked: PFF enrichment has not been validated for this matchup. Local
-   `yr-data-api` needs `PFF_COOKIE`, and deployed PFF endpoints timed out during
-   proof testing on April 14, 2026.
+   teams. The run exits 0 with enrichment required.
+8. Done: refreshed the Notre Dame vs UConn enrichment artifact from the Fly API.
+   UConn play-clock, hurry-up, blitz, and PBP negative-play fields populate.
+9. Done: rendered markdown and HTML; penalties, rankings, schedule, explosives,
+   zones, turnovers, middle 8, situational, and special teams sections populate.
 
-Definition of done before UConn is fully production-ready:
+Remaining warning:
 
-- PFF enrichment refresh succeeds for Notre Dame and UConn, or an explicit
-  delivery policy allows a no-PFF brief with visible API-unavailable notices.
-- The final deliverable preflight passes with the policy selected for that
-  client request.
-- Any remaining warning-level verification findings are documented in the
-  readiness registry.
+- UConn advanced missed-tackle/FMT charting remains unavailable, so the brief
+  uses the XML-only coverage notice for that row. The selected-matchup preflight
+  still passes because the enrichment artifact is present and the PFF provider
+  is partial rather than missing.
 
 ## 2026 In-Season Model
 
