@@ -123,6 +123,9 @@ teams, game-count mismatches, missing CFBStats ranking rows, missing verificatio
 entries, verification fail metrics, and required enrichment gaps. Warning-level
 verification findings remain visible without blocking.
 
+For the practical client-delivery flow, use the selected matchup operator
+runbook: `docs/selected-matchup-operator-runbook.md`.
+
 Core sections are:
 
 - overview
