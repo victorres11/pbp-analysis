@@ -96,7 +96,10 @@
       },
       "pff": {
         "status": "partial",
-        "slug": "utah"
+        "slug": "utah",
+        "notes": [
+          "Enrichment validated, but PFF FMT and Utah negative-play last-3 fields are partial."
+        ]
       },
       "verification": {
         "status": "passed_with_warnings",
