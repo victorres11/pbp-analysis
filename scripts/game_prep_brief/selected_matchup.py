@@ -25,6 +25,7 @@ from .matchup_preflight import (
     _expected_games_for,
     _load_json,
     _parse_keyed_values,
+    _slug_variants,
     build_preflight_report,
     render_markdown as render_preflight_markdown,
 )
@@ -40,6 +41,7 @@ class OperatorPaths:
     bundle: Path
     cfbstats_snapshot: Path
     cfbstats_verification_report: Path
+    readiness_registry: Path
     enrichment_file: Path
     preflight_json: Path
     preflight_md: Path
@@ -60,6 +62,10 @@ def _default_verification_path(season: int) -> Path:
         / "cfbstats_reports"
         / f"cfbstats_verification_{season}.json"
     )
+
+
+def _default_readiness_registry_path(season: int) -> Path:
+    return ROOT / "config" / f"team-readiness-{season}.json"
 
 
 def _brief_base_name(team1_slug: str, team2_slug: str, season: int, week: int | None) -> str:
@@ -84,6 +90,7 @@ def resolve_paths(args: argparse.Namespace) -> OperatorPaths:
         cfbstats_verification_report=(
             args.cfbstats_verification_report or _default_verification_path(args.season)
         ).resolve(),
+        readiness_registry=(args.readiness_registry or _default_readiness_registry_path(args.season)).resolve(),
         enrichment_file=(args.enrichment_file or output_dir / f"{matchup_stem}_enrichment.json").resolve(),
         preflight_json=(args.preflight_json or output_dir / f"{matchup_stem}_preflight.json").resolve(),
         preflight_md=(args.preflight_md or output_dir / f"{matchup_stem}_preflight.md").resolve(),
@@ -101,6 +108,178 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _readiness_candidates(key: str, payload: Any) -> set[str]:
+    candidates = {key, slugify(key)}
+    if isinstance(payload, dict):
+        for field in ("slug", "display_name", "canonical_name", "name"):
+            value = payload.get(field)
+            if isinstance(value, str):
+                candidates.update(_slug_variants(value))
+    return {candidate for candidate in candidates if candidate}
+
+
+def find_readiness_entry(
+    registry: dict[str, Any] | None,
+    team_name: str,
+) -> tuple[str, dict[str, Any]] | None:
+    teams = registry.get("teams") if isinstance(registry, dict) else None
+    if not isinstance(teams, dict):
+        return None
+    variants = _slug_variants(team_name)
+    for key, payload in teams.items():
+        if not isinstance(key, str) or not isinstance(payload, dict):
+            continue
+        if variants & _readiness_candidates(key, payload):
+            return key, payload
+    return None
+
+
+def _readiness_status_check(team: TeamRequest, entry_key: str, entry: dict[str, Any]) -> dict[str, Any]:
+    raw_status = str(entry.get("status") or "").strip()
+    status_key = raw_status.lower()
+    deliverable_status = str(entry.get("deliverable_status") or "").strip()
+    deliverable_key = deliverable_status.lower()
+
+    if status_key.startswith("production_ready"):
+        check_status = "pass"
+        message = f"Readiness status is {raw_status}."
+    elif status_key == "existing_supported":
+        check_status = "warning"
+        message = "Team is existing-supported, but registry evidence is not fully production-ready."
+    elif status_key in {"blocked", "unknown", "onboarding", ""}:
+        check_status = "fail"
+        message = f"Readiness status is {raw_status or 'missing'}."
+    else:
+        check_status = "warning"
+        message = f"Readiness status is unrecognized: {raw_status}."
+
+    if "blocked" in deliverable_key:
+        check_status = "fail"
+        message = f"Deliverable status is {deliverable_status}."
+
+    return {
+        "status": check_status,
+        "check": "readiness_status",
+        "team_slug": team.slug,
+        "message": message,
+        "details": {
+            "registry_key": entry_key,
+            "registry_status": raw_status,
+            "deliverable_status": deliverable_status,
+        },
+    }
+
+
+def _registry_expected_games_check(team: TeamRequest, entry: dict[str, Any]) -> dict[str, Any] | None:
+    if team.expected_games is None:
+        return None
+    statbroadcast = entry.get("statbroadcast")
+    if not isinstance(statbroadcast, dict):
+        return None
+    registry_expected = statbroadcast.get("expected_games")
+    if registry_expected is None:
+        return None
+    try:
+        registry_expected_int = int(registry_expected)
+    except (TypeError, ValueError):
+        return {
+            "status": "warning",
+            "check": "readiness_expected_games",
+            "team_slug": team.slug,
+            "message": f"Registry expected games is not numeric: {registry_expected}.",
+            "details": {"registry_expected_games": registry_expected, "operator_expected_games": team.expected_games},
+        }
+    status = "pass" if registry_expected_int == team.expected_games else "warning"
+    return {
+        "status": status,
+        "check": "readiness_expected_games",
+        "team_slug": team.slug,
+        "message": (
+            f"Registry expected games matches operator input ({team.expected_games})."
+            if status == "pass"
+            else f"Registry expected {registry_expected_int} game(s); operator expected {team.expected_games}."
+        ),
+        "details": {
+            "registry_expected_games": registry_expected_int,
+            "operator_expected_games": team.expected_games,
+        },
+    }
+
+
+def build_readiness_report(
+    *,
+    season: int,
+    teams: list[TeamRequest],
+    registry: dict[str, Any] | None,
+    registry_path: Path,
+    gate_enabled: bool,
+) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    if registry is None:
+        checks.append(
+            {
+                "status": "fail" if gate_enabled else "warning",
+                "check": "readiness_registry",
+                "team_slug": None,
+                "message": f"Readiness registry is missing: {registry_path}",
+                "details": {"registry_path": str(registry_path)},
+            }
+        )
+    else:
+        for team in teams:
+            match = find_readiness_entry(registry, team.name)
+            if match is None:
+                checks.append(
+                    {
+                        "status": "fail" if gate_enabled else "warning",
+                        "check": "readiness_entry",
+                        "team_slug": team.slug,
+                        "message": "Team is missing from readiness registry.",
+                        "details": {"registry_path": str(registry_path)},
+                    }
+                )
+                continue
+            entry_key, entry = match
+            checks.append(
+                {
+                    "status": "pass",
+                    "check": "readiness_entry",
+                    "team_slug": team.slug,
+                    "message": f"Team has readiness registry entry {entry_key}.",
+                    "details": {
+                        "registry_key": entry_key,
+                        "display_name": entry.get("display_name"),
+                        "canonical_name": entry.get("canonical_name"),
+                    },
+                }
+            )
+            checks.append(_readiness_status_check(team, entry_key, entry))
+            expected_games_check = _registry_expected_games_check(team, entry)
+            if expected_games_check:
+                checks.append(expected_games_check)
+
+    status_counts = {
+        "pass": sum(1 for check in checks if check["status"] == "pass"),
+        "warning": sum(1 for check in checks if check["status"] == "warning"),
+        "fail": sum(1 for check in checks if check["status"] == "fail"),
+    }
+    return {
+        "meta": {
+            "artifact": "selected_matchup_readiness_report",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "season": season,
+            "registry_path": str(registry_path),
+            "gate_enabled": gate_enabled,
+        },
+        "summary": {
+            "ready": status_counts["fail"] == 0,
+            "status": "ready" if status_counts["fail"] == 0 else "blocked",
+            "status_counts": status_counts,
+        },
+        "checks": checks,
+    }
 
 
 def refresh_enrichment(args: argparse.Namespace, paths: OperatorPaths) -> dict[str, Any] | None:
@@ -172,6 +351,7 @@ def _build_summary(
     *,
     args: argparse.Namespace,
     paths: OperatorPaths,
+    readiness: dict[str, Any],
     preflight: dict[str, Any],
     render_result: subprocess.CompletedProcess[str] | None,
     render_command: list[str] | None,
@@ -180,12 +360,16 @@ def _build_summary(
     if render_result is not None:
         render_status = "passed" if render_result.returncode == 0 else "failed"
 
-    ready = bool(preflight.get("summary", {}).get("ready")) and render_status in {"passed", "skipped"}
-    if args.skip_render and preflight.get("summary", {}).get("ready"):
+    readiness_ready = bool(readiness.get("summary", {}).get("ready")) or args.no_readiness_gate
+    preflight_ready = bool(preflight.get("summary", {}).get("ready"))
+    ready = readiness_ready and preflight_ready and render_status in {"passed", "skipped"}
+    if not readiness_ready:
+        status = "readiness_blocked"
+    elif args.skip_render and preflight_ready:
         status = "preflight_ready"
     elif ready:
         status = "ready"
-    elif not preflight.get("summary", {}).get("ready"):
+    elif not preflight_ready:
         status = "blocked"
     else:
         status = "render_failed"
@@ -203,6 +387,8 @@ def _build_summary(
             "team2_slug": slugify(args.team2),
         },
         "status": status,
+        "readiness": readiness.get("summary", {}),
+        "readiness_checks": readiness.get("checks", []),
         "preflight": preflight.get("summary", {}),
         "render": {
             "status": render_status,
@@ -213,12 +399,14 @@ def _build_summary(
         "policy": {
             "require_expected_games": args.require_expected_games,
             "require_enrichment": not args.no_enrichment,
+            "readiness_gate": not args.no_readiness_gate,
             "allow_blocked": args.allow_blocked,
         },
         "paths": {
             "bundle": str(paths.bundle),
             "cfbstats_snapshot": str(paths.cfbstats_snapshot),
             "cfbstats_verification_report": str(paths.cfbstats_verification_report),
+            "readiness_registry": None if args.no_readiness_gate else str(paths.readiness_registry),
             "enrichment_file": None if args.no_enrichment else str(paths.enrichment_file),
             "preflight_json": str(paths.preflight_json),
             "preflight_md": str(paths.preflight_md),
@@ -248,7 +436,22 @@ def run(args: argparse.Namespace) -> int:
         expected_conference=_expected_conference_for(args.team2, expected_conferences),
     )
 
-    enrichment = refresh_enrichment(args, paths)
+    readiness = build_readiness_report(
+        season=args.season,
+        teams=[team1, team2],
+        registry=None if args.no_readiness_gate else _load_json(paths.readiness_registry),
+        registry_path=paths.readiness_registry,
+        gate_enabled=not args.no_readiness_gate,
+    )
+    readiness_ready = bool(readiness["summary"]["ready"]) or args.no_readiness_gate
+    if not readiness_ready:
+        print("[block] Readiness gate failed; enrichment refresh disabled.", file=sys.stderr)
+
+    if readiness_ready or args.allow_blocked:
+        enrichment = refresh_enrichment(args, paths)
+    else:
+        enrichment = None if args.no_enrichment else _load_json(paths.enrichment_file)
+
     preflight = build_preflight_report(
         season=args.season,
         team1=team1,
@@ -276,19 +479,22 @@ def run(args: argparse.Namespace) -> int:
     preflight_ready = bool(preflight["summary"]["ready"])
     if args.skip_render:
         print("[skip] Brief render disabled by --skip-render", file=sys.stderr)
-    elif preflight_ready or args.allow_blocked:
+    elif (readiness_ready and preflight_ready) or args.allow_blocked:
         render_command = build_render_command(args, paths)
         render_result = run_render_command(render_command)
         if render_result.stdout:
             print(render_result.stdout, end="")
         if render_result.stderr:
             print(render_result.stderr, end="", file=sys.stderr)
+    elif not readiness_ready:
+        print("[block] Readiness gate failed; render skipped. Use --allow-blocked to force render.", file=sys.stderr)
     else:
         print("[block] Preflight failed; render skipped. Use --allow-blocked to force render.", file=sys.stderr)
 
     summary = _build_summary(
         args=args,
         paths=paths,
+        readiness=readiness,
         preflight=preflight,
         render_result=render_result,
         render_command=render_command,
@@ -296,6 +502,8 @@ def run(args: argparse.Namespace) -> int:
     _write_json(paths.summary_json, summary)
     print(f"[ok] Operator summary -> {paths.summary_json}", file=sys.stderr)
 
+    if not readiness_ready and not args.allow_blocked:
+        return 1
     if not preflight_ready and not args.allow_blocked:
         return 1
     if render_result is not None and render_result.returncode != 0:
@@ -317,6 +525,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE)
     parser.add_argument("--cfbstats-snapshot", type=Path, default=None)
     parser.add_argument("--cfbstats-verification-report", type=Path, default=None)
+    parser.add_argument("--readiness-registry", type=Path, default=None)
     parser.add_argument("--enrichment-file", type=Path, default=None)
     parser.add_argument("--preflight-json", type=Path, default=None)
     parser.add_argument("--preflight-md", type=Path, default=None)
@@ -348,6 +557,7 @@ def parse_args() -> argparse.Namespace:
         help="Refresh the matchup enrichment artifact from yr-data-api before preflight.",
     )
     parser.add_argument("--no-enrichment", action="store_true", help="Disable enrichment checks and rendering input.")
+    parser.add_argument("--no-readiness-gate", action="store_true", help="Do not block on team readiness registry status.")
     parser.add_argument("--skip-render", action="store_true", help="Run preflight and summary only.")
     parser.add_argument("--allow-blocked", action="store_true", help="Render even when preflight has fail checks.")
     parser.add_argument("--legacy-page-breaks", action="store_true")

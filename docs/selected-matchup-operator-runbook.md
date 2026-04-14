@@ -8,6 +8,7 @@ unrelated team issues to block delivery.
 
 The current command assumes the selected teams already have season artifacts:
 
+- team readiness registry entry
 - PBP bundle
 - CFBStats snapshot
 - CFBStats verification report
@@ -54,6 +55,25 @@ Outputs are written to `outputs/game_prep_brief/`:
 - `<team1>_vs_<team2>_<season>_v2.md`
 - `<team1>_vs_<team2>_<season>_v2.html`
 
+By default, the command reads:
+
+```text
+config/team-readiness-<season>.json
+```
+
+Override it only when testing a draft registry:
+
+```bash
+python -m scripts.game_prep_brief.selected_matchup Michigan Utah \
+  --season 2025 \
+  --readiness-registry /path/to/team-readiness-2025.json \
+  --expected-games Michigan=13 \
+  --expected-games Utah=13
+```
+
+Use `--no-readiness-gate` only for local diagnosis. Client-delivery runs should
+keep the readiness gate enabled.
+
 ## Offline Or No-PFF Modes
 
 Reuse an existing enrichment artifact:
@@ -82,12 +102,21 @@ python -m scripts.game_prep_brief.selected_matchup Michigan Utah \
 Start with the operator summary JSON. It answers:
 
 - overall status
+- readiness registry pass/warning/fail counts
 - preflight pass/warning/fail counts
 - whether render passed
 - which artifact paths were used
 - whether enrichment was required
 
-Then open the preflight markdown. A client-ready run should have:
+Then open the readiness checks in the operator summary. A client-ready run
+should have:
+
+- registry entries for both selected teams
+- no readiness fail checks
+- `production_ready*` status, or `existing_supported` with understood warnings
+- no blocked deliverable status
+
+Then open the preflight markdown. A client-ready run should also have:
 
 - zero fail checks
 - expected games matching found games
