@@ -126,6 +126,9 @@ verification findings remain visible without blocking.
 For the practical client-delivery flow, use the selected matchup operator
 runbook: `docs/selected-matchup-operator-runbook.md`.
 
+When a selected team is missing, stale, or source-blocked, use the team
+onboarding runbook: `docs/team-onboarding-troubleshooting-runbook.md`.
+
 Core sections are:
 
 - overview

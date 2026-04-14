@@ -14,7 +14,8 @@ The current command assumes the selected teams already have season artifacts:
 - enrichment artifact, unless explicitly disabled
 
 If a team is missing from those artifacts, switch to onboarding/troubleshooting
-mode before promising a delivery time.
+mode before promising a delivery time. Use
+`docs/team-onboarding-troubleshooting-runbook.md` for that path.
 
 ## Inputs To Confirm
 
@@ -114,6 +115,10 @@ If a field is unavailable, make sure the brief says why. Do not silently deliver
 `N/A` in a core section without a visible reason.
 
 ## Troubleshooting Flow
+
+For full team-season onboarding, use
+`docs/team-onboarding-troubleshooting-runbook.md`. The quick triage below is
+for deciding which path is blocked.
 
 If the bundle is missing a team:
 
