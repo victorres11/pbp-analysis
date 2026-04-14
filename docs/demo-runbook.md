@@ -64,7 +64,7 @@ The official operator workflow is [`.github/workflows/brief-live-refresh.yml`](.
 
 ### Operator Dashboard
 
-There is also a static operator dashboard at [operator/index.html](../operator/index.html). It is intentionally a thin control plane over the same GitHub-backed workflow and release contract.
+There is also an operator dashboard at [operator/index.html](../operator/index.html). It runs behind a small local relay so the browser never needs a GitHub token, but it still stays a thin control plane over the same GitHub-backed workflow and release contract.
 
 Current production-ready scope in that surface:
 
@@ -83,10 +83,10 @@ What it does:
 
 Auth model:
 
-- dispatch always requires a GitHub token
-- private workflow/release reads also require a GitHub token
-- the page never proxies the token through a new service
-- `Save token locally` stores it in browser local storage only for that browser profile
+- the browser talks only to the local operator relay
+- the relay holds the GitHub token on the host machine
+- private workflow/release reads and workflow dispatch all happen through that relay
+- the intended remote access path is Tailscale, so the dashboard stays private without exposing the token in the browser
 
 This keeps the dashboard aligned with the current operating model instead of inventing a second pipeline backend.
 

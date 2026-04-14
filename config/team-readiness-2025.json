@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "season": 2025,
+  "generated_by": "manual planning draft",
+  "notes": [
+    "Operator-facing readiness registry draft. Evidence should be updated as teams are onboarded.",
+    "Deliverable runs use selected-matchup artifacts; this registry tracks whether a team-season is safe to use."
+  ],
+  "statuses": {
+    "production_ready": "Team-season is approved for client deliverables.",
+    "existing_supported": "Team is in the current supported scope, but this registry entry still needs full production-ready evidence.",
+    "onboarding": "Team is being added or validated.",
+    "blocked": "Team cannot be used for a client deliverable without additional work.",
+    "unknown": "Team has not been evaluated."
+  },
+  "teams": {
+    "michigan": {
+      "display_name": "Michigan",
+      "conference": "Big Ten",
+      "status": "existing_supported",
+      "deliverable_status": "ready_with_warnings",
+      "statbroadcast": {
+        "status": "ready",
+        "expected_games": 13,
+        "found_games": 13,
+        "source": "current local bundle"
+      },
+      "cfbstats": {
+        "status": "ready",
+        "conference_scope": "Big Ten",
+        "snapshot_present": true
+      },
+      "pff": {
+        "status": "ready",
+        "slug": "michigan-wolverines"
+      },
+      "verification": {
+        "status": "warning",
+        "failures": 0,
+        "warnings": null,
+        "notes": [
+          "Current local verification report includes warning-level metrics."
+        ]
+      },
+      "notes": [
+        "Current local bundle has 13 Michigan games."
+      ]
+    },
+    "notre-dame": {
+      "display_name": "Notre Dame",
+      "conference": "Independents",
+      "status": "existing_supported",
+      "deliverable_status": "ready_with_warnings",
+      "statbroadcast": {
+        "status": "ready",
+        "expected_games": 12,
+        "found_games": 12,
+        "source": "current local bundle"
+      },
+      "cfbstats": {
+        "status": "ready",
+        "conference_scope": "Independents",
+        "snapshot_present": true
+      },
+      "pff": {
+        "status": "ready",
+        "slug": "notre-dame-fighting-irish"
+      },
+      "verification": {
+        "status": "warning",
+        "failures": 0,
+        "warnings": null,
+        "notes": [
+          "Current local verification report includes warning-level metrics."
+        ]
+      },
+      "notes": [
+        "Current local bundle has 12 Notre Dame games."
+      ]
+    },
+    "utah": {
+      "display_name": "Utah",
+      "conference": "Big 12",
+      "status": "onboarding",
+      "deliverable_status": "blocked",
+      "statbroadcast": {
+        "status": "missing",
+        "expected_games": null,
+        "found_games": 0,
+        "source": "needs CollegePressBox/StatBroadcast backfill"
+      },
+      "cfbstats": {
+        "status": "mapping_verified",
+        "conference_scope": "Big 12",
+        "snapshot_present": false
+      },
+      "pff": {
+        "status": "unknown",
+        "slug": null
+      },
+      "verification": {
+        "status": "not_run",
+        "failures": null,
+        "warnings": null,
+        "notes": []
+      },
+      "notes": [
+        "CFBStats mapping resolved Utah to Big 12 during planning.",
+        "Current local bundle, snapshot, and verification report do not include Utah."
+      ]
+    },
+    "uconn": {
+      "display_name": "UConn",
+      "canonical_name": "Connecticut",
+      "conference": "Independents",
+      "status": "unknown",
+      "deliverable_status": "blocked",
+      "statbroadcast": {
+        "status": "missing",
+        "expected_games": null,
+        "found_games": 0,
+        "source": "needs CollegePressBox/StatBroadcast backfill"
+      },
+      "cfbstats": {
+        "status": "needs_verification",
+        "conference_scope": "Independents",
+        "snapshot_present": false
+      },
+      "pff": {
+        "status": "unknown",
+        "slug": null
+      },
+      "verification": {
+        "status": "not_run",
+        "failures": null,
+        "warnings": null,
+        "notes": []
+      },
+      "notes": [
+        "Use this as the second non-current-scope proof after Michigan vs Utah.",
+        "Confirm UConn vs Connecticut naming before marking ready."
+      ]
+    }
+  }
+}

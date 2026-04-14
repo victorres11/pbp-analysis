@@ -9,6 +9,7 @@ import urllib.request
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 from .published_artifacts import (
@@ -771,6 +772,30 @@ def _drive_top_seconds(drive_segments: list[tuple[int | None, list[dict]]]) -> i
     return last_elapsed - first_elapsed
 
 
+def _first_drive_segment_elapsed(drive_segments: list[tuple[int | None, list[dict]]]) -> int | None:
+    for quarter, plays in drive_segments:
+        valid_plays = [play for play in plays if not play.get("is_no_play") and play.get("clock")]
+        if not valid_plays:
+            continue
+        first_play = valid_plays[0]
+        return _clock_elapsed_seconds(
+            first_play.get("quarter") if isinstance(first_play.get("quarter"), int) else quarter,
+            first_play.get("clock"),
+        )
+    return None
+
+
+def _is_reasonable_post_turnover_match(entry: dict, drive_segments: list[tuple[int | None, list[dict]]]) -> bool:
+    if not drive_segments:
+        return False
+    turnover_elapsed = _clock_elapsed_seconds(entry.get("quarter"), entry.get("clock"))
+    first_segment_elapsed = _first_drive_segment_elapsed(drive_segments)
+    if turnover_elapsed is None or first_segment_elapsed is None:
+        return True
+    gap = first_segment_elapsed - turnover_elapsed
+    return 0 <= gap <= 75
+
+
 def _enrich_post_turnover_drives(
     raw_game: dict,
     entries: list[dict],
@@ -794,10 +819,13 @@ def _enrich_post_turnover_drives(
         if not isinstance(entry, dict):
             continue
         out = dict(entry)
-        segments = _matched_post_turnover_drive_segments(flat_drives, out, resolver)
-        top_seconds = _drive_top_seconds(segments)
-        if top_seconds is None and str(out.get("drive_result") or "").upper() == "DEF TD":
+        if str(out.get("drive_result") or "").upper() == "DEF TD":
             top_seconds = 0
+        else:
+            segments = _matched_post_turnover_drive_segments(flat_drives, out, resolver)
+            if not _is_reasonable_post_turnover_match(out, segments):
+                segments = []
+            top_seconds = _drive_top_seconds(segments)
         if top_seconds is not None:
             out["drive_top_seconds"] = top_seconds
             out["drive_top"] = _format_drive_top(top_seconds)
@@ -1212,6 +1240,22 @@ def _abbr_set(value: object) -> set[str]:
                 out.add(cleaned)
         return out
     return set()
+
+
+def _extract_penalty_team_token(desc: str) -> str:
+    upper = desc.upper()
+    patterns = (
+        r"\bPENALTY\s+BEFORE\s+THE\s+SNAP,\s*([A-Z0-9]{2,8})\b",
+        r"\bPENALTY\s+ON\s+([A-Z0-9]{2,8})\b",
+        r"\bPENALTY\s+([A-Z0-9]{2,8})\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, upper)
+        if match:
+            token = re.sub(r"[^A-Z0-9]", "", match.group(1))
+            if token != "BEFORE":
+                return token
+    return ""
 
 
 def _team_aliases_from_bundle(home_abbr: str | None, stats: object, games: object) -> set[str]:
@@ -1783,6 +1827,206 @@ def _apply_special_teams_play_tree_derivations(team_name: str, pbp_entry: dict |
     return warnings
 
 
+def _apply_turnover_xml_game_overrides(pbp_entry: dict | None) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+
+    xml_stats = pbp_entry.get("xml_stats") if isinstance(pbp_entry.get("xml_stats"), dict) else {}
+    tov_cat = xml_stats.get("turnovers") if isinstance(xml_stats.get("turnovers"), dict) else {}
+    pot_cat = (
+        xml_stats.get("points_off_turnovers")
+        if isinstance(xml_stats.get("points_off_turnovers"), dict)
+        else {}
+    )
+
+    def _set_if_numeric(game: dict, key: str, value: object) -> None:
+        if isinstance(value, (int, float)):
+            game[key] = int(value)
+
+    for game in games:
+        opp = str(game.get("opponent_abbr") or "").upper().strip()
+        if not opp:
+            continue
+        tov_row = tov_cat.get(opp) if isinstance(tov_cat.get(opp), dict) else {}
+        pot_row = pot_cat.get(opp) if isinstance(pot_cat.get(opp), dict) else {}
+        if tov_row:
+            _set_if_numeric(game, "turnovers_gained", tov_row.get("turnovers"))
+            _set_if_numeric(game, "turnovers_lost", tov_row.get("turnovers_forced"))
+            _set_if_numeric(game, "interceptions_gained", tov_row.get("interceptions"))
+            _set_if_numeric(game, "interceptions_lost", tov_row.get("interceptions_forced"))
+            _set_if_numeric(game, "fumbles_gained", tov_row.get("fumbles_lost"))
+            _set_if_numeric(game, "fumbles_lost", tov_row.get("fumbles_recovered"))
+        if pot_row:
+            _set_if_numeric(game, "points_off_turnovers_for", pot_row.get("points_off_turnovers_allowed"))
+            _set_if_numeric(game, "points_off_turnovers_against", pot_row.get("points_off_turnovers"))
+
+
+def _normalize_team_name_key(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+def _normalize_game_date_key(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return text
+
+
+def _raw_game_briefs_root() -> Path | None:
+    candidates = [
+        ROOT_DIR.parent / "pbp-parser" / "data" / "statbroadcast_game_briefs",
+        ROOT_DIR / "data" / "statbroadcast_game_briefs",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+@lru_cache(maxsize=None)
+def _load_raw_game_fourth_down_totals(team_slug: str, team_name: str) -> dict[str, dict]:
+    root = _raw_game_briefs_root()
+    if root is None:
+        return {}
+    team_dir = root / team_slug
+    if not team_dir.exists():
+        return {}
+
+    team_name_key = _normalize_team_name_key(team_name)
+    totals_by_date: dict[str, dict] = {}
+    for path in sorted(team_dir.glob("game_*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+        team_names = payload.get("team_names") or []
+        teams = payload.get("teams") or []
+        if not isinstance(team_names, list) or not isinstance(teams, list) or len(team_names) != len(teams):
+            continue
+        team_idx = next(
+            (
+                idx
+                for idx, candidate_name in enumerate(team_names)
+                if _normalize_team_name_key(candidate_name) == team_name_key
+            ),
+            None,
+        )
+        if team_idx is None:
+            continue
+        team_token = str(teams[team_idx] or "").upper().strip()
+        team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
+        if not team_stats:
+            continue
+        date_key = _normalize_game_date_key((payload.get("meta") or {}).get("game_date"))
+        if not date_key:
+            continue
+        totals_by_date[date_key] = {
+            "attempts": int(team_stats.get("fourth_down_attempts") or 0),
+            "conversions": int(team_stats.get("fourth_down_conversions") or 0),
+            "source_path": str(path),
+        }
+    return totals_by_date
+
+
+@lru_cache(maxsize=None)
+def _load_raw_game_third_down_totals(team_slug: str, team_name: str) -> dict[str, dict]:
+    root = _raw_game_briefs_root()
+    if root is None:
+        return {}
+    team_dir = root / team_slug
+    if not team_dir.exists():
+        return {}
+
+    team_name_key = _normalize_team_name_key(team_name)
+    totals_by_date: dict[str, dict] = {}
+    for path in sorted(team_dir.glob("game_*.json")):
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+        team_names = payload.get("team_names") or []
+        teams = payload.get("teams") or []
+        if not isinstance(team_names, list) or not isinstance(teams, list) or len(team_names) != len(teams):
+            continue
+        team_idx = next(
+            (
+                idx
+                for idx, candidate_name in enumerate(team_names)
+                if _normalize_team_name_key(candidate_name) == team_name_key
+            ),
+            None,
+        )
+        if team_idx is None:
+            continue
+        team_token = str(teams[team_idx] or "").upper().strip()
+        team_stats = (payload.get("team_stats") or {}).get(team_token) or {}
+        if not team_stats:
+            continue
+        date_key = _normalize_game_date_key((payload.get("meta") or {}).get("game_date"))
+        if not date_key:
+            continue
+        totals_by_date[date_key] = {
+            "attempts": int(team_stats.get("third_down_attempts") or 0),
+            "conversions": int(team_stats.get("third_down_conversions") or 0),
+            "source_path": str(path),
+        }
+    return totals_by_date
+
+
+def _apply_raw_game_fourth_down_overrides(
+    pbp_entry: dict | None,
+    *,
+    team_slug: str,
+    team_name: str,
+) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+    totals_by_date = _load_raw_game_fourth_down_totals(team_slug, team_name)
+    if not totals_by_date:
+        return
+    for game in games:
+        date_key = _normalize_game_date_key(game.get("date") or game.get("game_date"))
+        row = totals_by_date.get(date_key)
+        if not isinstance(row, dict):
+            continue
+        game["4th_down_attempts"] = int(row.get("attempts") or 0)
+        game["4th_down_conversions"] = int(row.get("conversions") or 0)
+
+
+def _apply_raw_game_third_down_overrides(
+    pbp_entry: dict | None,
+    *,
+    team_slug: str,
+    team_name: str,
+) -> None:
+    if not isinstance(pbp_entry, dict):
+        return
+    games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
+    if not games:
+        return
+    totals_by_date = _load_raw_game_third_down_totals(team_slug, team_name)
+    if not totals_by_date:
+        return
+    for game in games:
+        date_key = _normalize_game_date_key(game.get("date") or game.get("game_date"))
+        row = totals_by_date.get(date_key)
+        if not isinstance(row, dict):
+            continue
+        game["third_down_attempts"] = int(row.get("attempts") or 0)
+        game["third_down_conversions"] = int(row.get("conversions") or 0)
+
+
 def _collect_parity_gaps(team_name: str, pbp_entry: dict | None) -> list[str]:
     if not pbp_entry:
         return [f"{team_name}: missing team payload in XML bundle"]
@@ -1992,18 +2236,27 @@ def _verification_from_artifact(
     }
 
 
-def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 1.0) -> str | None:
+def _down_rate_parity_gap(
+    team_name: str,
+    pbp_entry: dict | None,
+    *,
+    attempts_key: str,
+    conversions_key: str,
+    ranking_key: str,
+    label: str,
+    threshold: float,
+) -> str | None:
     if not isinstance(pbp_entry, dict):
         return None
     games = [g for g in (pbp_entry.get("games") or []) if isinstance(g, dict)]
-    attempts = sum(int(g.get("4th_down_attempts") or 0) for g in games)
-    conversions = sum(int(g.get("4th_down_conversions") or 0) for g in games)
+    attempts = sum(int(g.get(attempts_key) or 0) for g in games)
+    conversions = sum(int(g.get(conversions_key) or 0) for g in games)
     if attempts <= 0:
         return None
     pbp_pct = round((conversions / attempts) * 100.0, 1)
 
     rankings = ((pbp_entry.get("cfbstats") or {}).get("rankings") or {}).get("all") or {}
-    cfb_row = rankings.get("fourth_down") if isinstance(rankings, dict) else {}
+    cfb_row = rankings.get(ranking_key) if isinstance(rankings, dict) else {}
     cfb_value = _to_float_number((cfb_row or {}).get("value"))
     if cfb_value is None:
         return None
@@ -2012,8 +2265,32 @@ def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: f
     if abs(delta) < threshold:
         return None
     return (
-        f"{team_name}: 4th-down parity delta {delta:+.1f} pts "
+        f"{team_name}: {label} parity delta {delta:+.1f} pts "
         f"(PBP {conversions}/{attempts}={pbp_pct}% vs CFBStats {cfb_pct}%)"
+    )
+
+
+def _third_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 0.25) -> str | None:
+    return _down_rate_parity_gap(
+        team_name,
+        pbp_entry,
+        attempts_key="third_down_attempts",
+        conversions_key="third_down_conversions",
+        ranking_key="third_down",
+        label="3rd-down",
+        threshold=threshold,
+    )
+
+
+def _fourth_down_parity_gap(team_name: str, pbp_entry: dict | None, threshold: float = 1.0) -> str | None:
+    return _down_rate_parity_gap(
+        team_name,
+        pbp_entry,
+        attempts_key="4th_down_attempts",
+        conversions_key="4th_down_conversions",
+        ranking_key="fourth_down",
+        label="4th-down",
+        threshold=threshold,
     )
 
 
@@ -2567,6 +2844,15 @@ def compute_last_n_stats(games: list[dict], n: int = 3, team_aliases: object = N
         for p in g.get("penalty_details") or []:
             if not p.get("accepted"):
                 continue
+            token = re.sub(
+                r"[^A-Z0-9]",
+                "",
+                str(p.get("team") or p.get("penalized_team") or "").upper(),
+            )
+            if not token:
+                token = _extract_penalty_team_token(str(p.get("description") or ""))
+            if token and resolved_team_aliases and token not in resolved_team_aliases:
+                continue
             penalties_total += 1
             side = (p.get("offense_or_defense") or "").lower()
             if side == "offense":
@@ -2727,7 +3013,9 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
             "gained": 0,
             "lost": 0,
             "int_gained": 0,
+            "int_lost": 0,
             "fum_gained": 0,
+            "fum_lost": 0,
             "pot_for": 0,
             "pot_against": 0,
         }
@@ -2741,6 +3029,8 @@ def _turnover_reconciliation(pbp_entry: dict, game_recon: list[dict] | None = No
                 cfb_from_games[key] += int(cfb.get(key) or 0)
         cfb_totals["gained"] = int(cfb_from_games["gained"])
         cfb_totals["lost"] = int(cfb_from_games["lost"])
+        cfb_totals["int_lost"] = int(cfb_from_games["int_lost"])
+        cfb_totals["fum_lost"] = int(cfb_from_games["fum_lost"])
         cfb_totals["pot_for"] = int(cfb_from_games["pot_for"])
         cfb_totals["pot_against"] = int(cfb_from_games["pot_against"])
 
@@ -2787,7 +3077,9 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             "gained": int(game.get("turnovers_gained") or 0),
             "lost": int(game.get("turnovers_lost") or 0),
             "int_gained": int(game.get("interceptions_gained") or 0),
+            "int_lost": int(game.get("interceptions_lost") or 0),
             "fum_gained": int(game.get("fumbles_gained") or 0),
+            "fum_lost": int(game.get("fumbles_lost") or 0),
             "pot_for": int(game.get("points_off_turnovers_for") or 0),
             "pot_against": int(game.get("points_off_turnovers_against") or 0),
         }
@@ -2797,12 +3089,14 @@ def _turnover_game_reconciliation(pbp_entry: dict) -> list[dict]:
             "gained": int(tov_row.get("turnovers") or 0),
             "lost": int(tov_row.get("turnovers_forced") or 0),
             "int_gained": int(tov_row.get("interceptions") or 0),
+            "int_lost": int(tov_row.get("interceptions_forced") or 0),
             "fum_gained": int(tov_row.get("fumbles_lost") or 0),
+            "fum_lost": int(tov_row.get("fumbles_recovered") or 0),
             "pot_for": int(pot_row.get("points_off_turnovers_allowed") or 0),
             "pot_against": int(pot_row.get("points_off_turnovers") or 0),
         }
         delta = {k: pbp[k] - cfb[k] for k in pbp.keys()}
-        count_keys = {"gained", "lost", "int_gained", "fum_gained"}
+        count_keys = {"gained", "lost", "int_gained", "int_lost", "fum_gained", "fum_lost"}
         in_sync = all(delta[k] == 0 for k in count_keys)
         report.append(
             {
@@ -2931,11 +3225,25 @@ def gather_team_data(
     if pbp_entry:
         _attach_cfbstats_snapshot(team_name, school_slug, pbp_entry, cfbstats_snapshot)
         parity_gaps = _apply_special_teams_play_tree_derivations(team_name, pbp_entry)
+        _apply_turnover_xml_game_overrides(pbp_entry)
+        _apply_raw_game_third_down_overrides(
+            pbp_entry,
+            team_slug=school_slug,
+            team_name=team_name,
+        )
+        _apply_raw_game_fourth_down_overrides(
+            pbp_entry,
+            team_slug=school_slug,
+            team_name=team_name,
+        )
     else:
         parity_gaps = []
     parity_gaps.extend(_collect_parity_gaps(team_name, pbp_entry))
     alias_warnings = _collect_play_tree_alias_warnings(team_name, pbp_entry)
     parity_gaps.extend(alias_warnings)
+    third_down_gap = _third_down_parity_gap(team_name, pbp_entry)
+    if third_down_gap:
+        parity_gaps.append(third_down_gap)
     fourth_down_gap = _fourth_down_parity_gap(team_name, pbp_entry)
     if fourth_down_gap:
         parity_gaps.append(fourth_down_gap)
@@ -2982,6 +3290,8 @@ def gather_team_data(
             debug_flag = str(os.getenv("GAME_PREP_TURNOVER_DEBUG") or "").strip().lower()
             if debug_flag in {"1", "true", "yes", "on"}:
                 _print_turnover_debug(team_name, pbp_entry, mismatch_games, limit=3)
+        if third_down_gap:
+            print(f"[warn] {third_down_gap}", file=sys.stderr)
         if fourth_down_gap:
             print(f"[warn] {fourth_down_gap}", file=sys.stderr)
         for warning in alias_warnings:

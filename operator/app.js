@@ -12,7 +12,6 @@ const DEFAULTS = {
 };
 
 const STORAGE_KEYS = {
-    token: "brief-operator-token",
     dispatch: "brief-operator-dispatch",
 };
 
@@ -71,7 +70,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function cacheElements() {
     for (const id of [
-        "tokenInput",
         "team1Input",
         "team2Input",
         "seasonInput",
@@ -79,8 +77,6 @@ function cacheElements() {
         "runTestsInput",
         "strictVerificationInput",
         "includeEnrichmentInput",
-        "saveTokenButton",
-        "clearTokenButton",
         "refreshButton",
         "dispatchButton",
         "settingsMessage",
@@ -91,7 +87,6 @@ function cacheElements() {
         "warningReviewPanel",
         "reviewMessage",
         "workflowLink",
-        "settingsForm",
         "dispatchForm",
     ]) {
         elements[id] = document.getElementById(id);
@@ -120,17 +115,8 @@ function setSelectValue(select, value, fallback) {
 }
 
 function hydrateSettings() {
-    const savedToken = localStorage.getItem(STORAGE_KEYS.token);
     const savedDispatch = loadJsonStorage(STORAGE_KEYS.dispatch);
 
-    if (savedToken) {
-        elements.tokenInput.value = savedToken;
-        setInlineMessage(
-            elements.settingsMessage,
-            "Using a token saved in this browser. You can still overwrite it for the current session.",
-            "success",
-        );
-    }
     if (savedDispatch) {
         setSelectValue(elements.team1Input, savedDispatch.team1 || DEFAULTS.team1, DEFAULTS.team1);
         setSelectValue(elements.team2Input, savedDispatch.team2 || DEFAULTS.team2, DEFAULTS.team2);
@@ -147,14 +133,10 @@ function hydrateSettings() {
 
 function bindEvents() {
     elements.refreshButton.addEventListener("click", () => refreshDashboard());
-    elements.saveTokenButton.addEventListener("click", saveTokenLocally);
-    elements.clearTokenButton.addEventListener("click", clearSavedToken);
-    elements.settingsForm.addEventListener("submit", (event) => event.preventDefault());
     elements.dispatchForm.addEventListener("submit", handleDispatch);
     document.addEventListener("click", handleDocumentClick);
 
     elements.seasonInput.addEventListener("change", handleDispatchSettingsChanged);
-    elements.tokenInput.addEventListener("input", syncActionButtons);
 
     for (const field of [
         elements.team1Input,
@@ -228,36 +210,8 @@ function validateDispatchInputs(inputs) {
     return "";
 }
 
-function saveTokenLocally() {
-    const token = elements.tokenInput.value.trim();
-    if (!token) {
-        setInlineMessage(elements.settingsMessage, "Paste a token before saving it locally.", "warning");
-        return;
-    }
-    localStorage.setItem(STORAGE_KEYS.token, token);
-    syncActionButtons();
-    setInlineMessage(elements.settingsMessage, "Saved token in this browser for future dashboard sessions.", "success");
-}
-
-function clearSavedToken() {
-    localStorage.removeItem(STORAGE_KEYS.token);
-    elements.tokenInput.value = "";
-    syncActionButtons();
-    setInlineMessage(elements.settingsMessage, "Cleared the saved token. The dashboard is back in read-only/session mode.", "warning");
-}
-
 async function handleDispatch(event) {
     event.preventDefault();
-
-    const token = elements.tokenInput.value.trim();
-    if (!token) {
-        setInlineMessage(
-            elements.dispatchMessage,
-            "Dispatch needs a GitHub token. Add one above, then try again.",
-            "warning",
-        );
-        return;
-    }
 
     const repo = normalizedRepo();
     const inputs = normalizedDispatchInputs();
@@ -280,7 +234,6 @@ async function handleDispatch(event) {
             `/repos/${encodeRepo(repo)}/actions/workflows/${encodeURIComponent(DEFAULTS.workflowFile)}/dispatches`,
             {
                 method: "POST",
-                token,
                 body: {
                     ref: "main",
                     inputs,
@@ -326,7 +279,6 @@ function startDispatchRefreshLoop() {
 async function refreshDashboard({ quiet = false } = {}) {
     const repo = normalizedRepo();
     const season = normalizedSeason();
-    const token = elements.tokenInput.value.trim();
 
     persistDispatchSettings();
 
@@ -334,12 +286,12 @@ async function refreshDashboard({ quiet = false } = {}) {
     setLoadingState(true);
 
     const [runsResult, publishedResult] = await Promise.allSettled([
-        fetchWorkflowRuns(repo, token),
-        fetchPublishedSeason(repo, season, token),
+        fetchWorkflowRuns(repo),
+        fetchPublishedSeason(repo, season),
     ]);
     const latestRun = runsResult.status === "fulfilled" ? runsResult.value.runs[0] : null;
     const latestRunArtifactsResult = latestRun
-        ? await Promise.allSettled([fetchRunArtifacts(repo, latestRun.id, token)]).then((results) => results[0])
+        ? await Promise.allSettled([fetchRunArtifacts(repo, latestRun.id)]).then((results) => results[0])
         : null;
 
     renderLatestRunBlock(runsResult, repo);
@@ -354,8 +306,8 @@ async function refreshDashboard({ quiet = false } = {}) {
         const successCount = resultSet.filter((result) => result.status === "fulfilled").length;
         const message =
             successCount === resultSet.length
-                ? "Dashboard refreshed from GitHub."
-                : "Dashboard refreshed with partial data. Add a token if you need private workflow or release access.";
+                ? "Dashboard refreshed through the Mac mini relay."
+                : "Dashboard refreshed with partial data. Check the Mac mini relay or GitHub token if data is missing.";
         const tone = successCount === resultSet.length ? "success" : "warning";
         setInlineMessage(elements.settingsMessage, message, tone);
     }
@@ -363,10 +315,9 @@ async function refreshDashboard({ quiet = false } = {}) {
     setLoadingState(false);
 }
 
-async function fetchWorkflowRuns(repo, token) {
+async function fetchWorkflowRuns(repo) {
     const payload = await githubRequest(
         `/repos/${encodeRepo(repo)}/actions/workflows/${encodeURIComponent(DEFAULTS.workflowFile)}/runs?per_page=8`,
-        { token },
     );
     return {
         workflowUrl: WORKFLOW_PAGE(repo),
@@ -374,11 +325,9 @@ async function fetchWorkflowRuns(repo, token) {
     };
 }
 
-async function fetchPublishedSeason(repo, season, token) {
+async function fetchPublishedSeason(repo, season) {
     const tag = `brief-artifacts-${season}`;
-    const release = await githubRequest(`/repos/${encodeRepo(repo)}/releases/tags/${encodeURIComponent(tag)}`, {
-        token,
-    });
+    const release = await githubRequest(`/repos/${encodeRepo(repo)}/releases/tags/${encodeURIComponent(tag)}`);
     const summaryFilename = `game_prep_pipeline_summary_${season}.json`;
     const summaryAsset = Array.isArray(release.assets)
         ? release.assets.find((asset) => asset && asset.name === summaryFilename)
@@ -387,7 +336,6 @@ async function fetchPublishedSeason(repo, season, token) {
     let summary = null;
     if (summaryAsset && typeof summaryAsset.url === "string") {
         summary = await githubRequest(summaryAsset.url, {
-            token,
             accept: "application/octet-stream",
         });
     }
@@ -400,10 +348,9 @@ async function fetchPublishedSeason(repo, season, token) {
     };
 }
 
-async function fetchRunArtifacts(repo, runId, token) {
+async function fetchRunArtifacts(repo, runId) {
     const payload = await githubRequest(
         `/repos/${encodeRepo(repo)}/actions/runs/${encodeURIComponent(String(runId))}/artifacts?per_page=20`,
-        { token },
     );
     return Array.isArray(payload.artifacts) ? payload.artifacts : [];
 }
@@ -435,23 +382,18 @@ function renderStatusStrip(runsResult, publishedResult) {
     elements.statusStrip.innerHTML = badges.join("");
 }
 
-async function githubRequest(pathOrUrl, { method = "GET", token = "", accept = "application/vnd.github+json", body } = {}) {
-    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `https://api.github.com${pathOrUrl}`;
-    const headers = {
-        Accept: accept,
-        "X-GitHub-Api-Version": "2022-11-28",
-    };
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
-    if (body !== undefined) {
-        headers["Content-Type"] = "application/json";
-    }
-
-    const response = await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+async function githubRequest(pathOrUrl, { method = "GET", accept = "application/vnd.github+json", body } = {}) {
+    const response = await fetch("/api/operator/github", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            pathOrUrl,
+            method,
+            accept,
+            body,
+        }),
     });
 
     if (response.status === 204) {
@@ -459,23 +401,30 @@ async function githubRequest(pathOrUrl, { method = "GET", token = "", accept = "
     }
 
     if (!response.ok) {
-        const message = await extractErrorMessage(response);
+        const message = await extractProxyErrorMessage(response);
         throw new Error(message);
     }
 
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.includes("application/json") || contentType.includes("application/octet-stream")) {
-        return response.json();
+    const text = await response.text();
+    if (!text) {
+        return null;
     }
-    return response.text();
+    try {
+        return JSON.parse(text);
+    } catch (_jsonError) {
+        return text;
+    }
 }
 
-async function extractErrorMessage(response) {
-    const fallback = `GitHub API request failed (${response.status} ${response.statusText})`;
+async function extractProxyErrorMessage(response) {
+    const fallback = `Operator relay request failed (${response.status} ${response.statusText})`;
     try {
         const text = await response.text();
         if (!text) {
             return fallback;
+        }
+        if (looksLikeStaticServerRelayFailure(response, text)) {
+            return `Operator relay unavailable. Open this dashboard through ./operator/start-operator.sh or python3 operator/server.py, not python3 -m http.server. (${response.status})`;
         }
         try {
             const payload = JSON.parse(text);
@@ -491,26 +440,28 @@ async function extractErrorMessage(response) {
     return fallback;
 }
 
-async function downloadArtifactArchive(button, downloadUrl, filename) {
-    const token = elements.tokenInput.value.trim();
-    const headers = {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    };
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+function looksLikeStaticServerRelayFailure(response, text) {
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("text/html")) {
+        return false;
     }
+    const normalized = text.toLowerCase();
+    return (
+        normalized.includes("unsupported method ('post')") ||
+        normalized.includes("httpstatus.not_implemented") ||
+        normalized.includes("<title>error response</title>") ||
+        normalized.includes("<h1>error response</h1>")
+    );
+}
 
+async function downloadArtifactArchive(button, downloadUrl, filename) {
     button.disabled = true;
     setInlineMessage(elements.reviewMessage, `Downloading ${filename}…`, "warning");
 
     try {
-        const response = await fetch(downloadUrl, {
-            method: "GET",
-            headers,
-        });
+        const response = await fetch(downloadProxyUrl(downloadUrl, filename));
         if (!response.ok) {
-            throw new Error(await extractErrorMessage(response));
+            throw new Error(await extractProxyErrorMessage(response));
         }
 
         const blob = await response.blob();
@@ -735,13 +686,13 @@ function renderWarningReviewPanel(runsResult, publishedResult, repo, season) {
             <div class="asset-actions">
                 <a class="button secondary" href="${escapeAttribute(release.html_url || `https://github.com/${repo}/releases/tag/brief-artifacts-${season}`)}" target="_blank" rel="noreferrer">Open rolling release</a>
                 ${
-                    summaryAsset?.browser_download_url
-                        ? `<a class="button ghost" href="${escapeAttribute(summaryAsset.browser_download_url)}" target="_blank" rel="noreferrer">Open summary JSON</a>`
+                    summaryAsset?.url
+                        ? `<a class="button ghost" href="${escapeAttribute(downloadProxyUrl(summaryAsset.url, summaryAsset.name || "summary.json", "application/octet-stream"))}">Open summary JSON</a>`
                         : ""
                 }
                 ${
-                    verificationAsset?.browser_download_url
-                        ? `<a class="button ghost" href="${escapeAttribute(verificationAsset.browser_download_url)}" target="_blank" rel="noreferrer">Open verification report</a>`
+                    verificationAsset?.url
+                        ? `<a class="button ghost" href="${escapeAttribute(downloadProxyUrl(verificationAsset.url, verificationAsset.name || "verification.json", "application/octet-stream"))}">Open verification report</a>`
                         : ""
                 }
                 ${
@@ -1119,7 +1070,7 @@ function renderOperatorNote(runsResult, publishedResult, repo, season) {
             noteParts.push("The published summary has no recorded warnings.");
         }
     } else {
-        noteParts.push("The published summary could not be loaded. A token may be required if the repo or release is private.");
+        noteParts.push("The published summary could not be loaded through the Mac mini relay.");
     }
 
     noteParts.push("Current production-ready support scope is Big Ten teams plus Notre Dame. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
@@ -1327,7 +1278,16 @@ function setLoadingState(isLoading) {
 
 function syncActionButtons() {
     elements.refreshButton.disabled = loading;
-    elements.dispatchButton.disabled = loading || !elements.tokenInput.value.trim();
+    elements.dispatchButton.disabled = loading;
+}
+
+function downloadProxyUrl(pathOrUrl, filename, accept = "application/octet-stream") {
+    const params = new URLSearchParams({
+        pathOrUrl,
+        filename,
+        accept,
+    });
+    return `/api/operator/download?${params.toString()}`;
 }
 
 function setInlineMessage(target, message, tone = "neutral") {

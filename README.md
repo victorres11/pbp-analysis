@@ -78,17 +78,17 @@ Notes:
 The refresh pipeline now has a thin operator UI at [operator/index.html](./operator/index.html).
 
 - Deployed route: `/operator/`
-- Purpose: launch `Brief Live Refresh`, inspect the newest workflow run, and verify the rolling `brief-artifacts-<season>` release without introducing a new backend
+- Purpose: launch `Brief Live Refresh`, inspect the newest workflow run, and verify the rolling `brief-artifacts-<season>` release through a small server-side GitHub relay
 - Current supported production scope: Big Ten teams plus Notre Dame
   - The dashboard is the operator surface for that supported set first; broader FBS use is not yet promised as equally production-ready
 - Source of truth stays the same:
   - GitHub Actions for live runs
   - GitHub Releases for published artifacts
   - `game_prep_pipeline_summary_<season>.json` for machine-readable run state
-- GitHub auth:
-  - dispatch requires a token
-  - private workflow/release reads also require a token
-  - the page stores a token in browser local storage only when you explicitly click `Save token locally`
+- Auth model:
+  - the browser talks only to the local operator relay
+  - the relay holds the GitHub token on the host machine
+  - mobile access is intended to go through Tailscale so the page stays private without exposing the token
 
 For workflow details, publication rules, freshness, rollback, launcher scope, and warning handling, use [docs/demo-runbook.md](./docs/demo-runbook.md), [docs/operator-launch-policy.md](./docs/operator-launch-policy.md), and [docs/operator-warning-review.md](./docs/operator-warning-review.md).
 
@@ -104,12 +104,11 @@ This will:
 3. Output `app/data.json`
 
 ### View the App
-Simply open `app/index.html` in a web browser:
+Run the operator relay instead of a static file server:
 ```bash
-open app/index.html
-# or
-python3 -m http.server 8000 --directory app
-# Then visit http://localhost:8000
+export PBP_OPERATOR_GITHUB_TOKEN=...
+python3 operator/server.py --host 127.0.0.1 --port 8787
+# Then visit http://127.0.0.1:8787/operator/
 ```
 
 ### Export/Print Status

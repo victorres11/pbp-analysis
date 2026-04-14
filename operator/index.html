@@ -101,23 +101,21 @@
                 <div class="section-heading">
                     <div>
                         <div class="eyebrow">Access</div>
-                        <h2>GitHub Token</h2>
+                        <h2>Private Relay</h2>
                     </div>
                 </div>
-                <form id="settingsForm" class="stack">
-                    <label class="field">
-                        <span>GitHub token</span>
-                        <input id="tokenInput" name="token" type="password" placeholder="Required for dispatch and private run data" autocomplete="off">
-                    </label>
+                <div class="stack">
+                    <div class="message-block">
+                        <p>This operator uses server-side GitHub auth on your Mac mini.</p>
+                        <p class="muted">Open it through Tailscale, launch from your phone, and keep the token off the browser entirely.</p>
+                    </div>
                     <div class="button-row">
-                        <button id="saveTokenButton" class="button secondary" type="button">Save token</button>
-                        <button id="clearTokenButton" class="button ghost" type="button">Clear</button>
                         <button id="refreshButton" class="button ghost" type="button">Refresh data</button>
                     </div>
                     <p class="field-help">
-                        The token stays in your browser unless used for direct GitHub API calls from this page.
+                        If refresh and dispatch stop working, the Mac mini service or its GitHub token needs attention.
                     </p>
-                </form>
+                </div>
                 <div id="settingsMessage" class="inline-message"></div>
             </section>
         </section>
