@@ -81,32 +81,37 @@
     "utah": {
       "display_name": "Utah",
       "conference": "Big 12",
-      "status": "onboarding",
-      "deliverable_status": "blocked",
+      "status": "production_ready_2025",
+      "deliverable_status": "ready_with_warnings",
       "statbroadcast": {
-        "status": "missing",
-        "expected_games": null,
-        "found_games": 0,
-        "source": "needs CollegePressBox/StatBroadcast backfill"
+        "status": "complete",
+        "expected_games": 13,
+        "found_games": 13,
+        "source": "StatBroadcast archive XML discovery/backfill"
       },
       "cfbstats": {
-        "status": "mapping_verified",
+        "status": "verified",
         "conference_scope": "Big 12",
-        "snapshot_present": false
+        "snapshot_present": true
       },
       "pff": {
-        "status": "unknown",
-        "slug": null
+        "status": "partial",
+        "slug": "utah"
       },
       "verification": {
-        "status": "not_run",
-        "failures": null,
-        "warnings": null,
-        "notes": []
+        "status": "passed_with_warnings",
+        "failures": 0,
+        "warnings": 9,
+        "notes": [
+          "Full 19-team verifier report has zero fail metrics.",
+          "Utah warnings are bounded source/parity special cases."
+        ]
       },
       "notes": [
         "CFBStats mapping resolved Utah to Big 12 during planning.",
-        "Current local bundle, snapshot, and verification report do not include Utah."
+        "Generated 13 Utah normalized game briefs from StatBroadcast archive XML.",
+        "Operator smoke run for Michigan vs Utah exited 0 with selected-team verification pass=27 warning=13 fail=0.",
+        "Enrichment validated, but PFF FMT and Utah negative-play last-3 fields are partial."
       ]
     },
     "uconn": {

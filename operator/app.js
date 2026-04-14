@@ -43,6 +43,10 @@ const SUPPORTED_TEAM_GROUPS = [
         label: "Independent",
         teams: ["Notre Dame"],
     },
+    {
+        label: "Big 12",
+        teams: ["Utah"],
+    },
 ];
 
 const WORKFLOW_PAGE = (repo) => `https://github.com/${repo}/actions/workflows/${DEFAULTS.workflowFile}`;
@@ -1073,7 +1077,7 @@ function renderOperatorNote(runsResult, publishedResult, repo, season) {
         noteParts.push("The published summary could not be loaded through the Mac mini relay.");
     }
 
-    noteParts.push("Current production-ready support scope is Big Ten teams plus Notre Dame. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
+    noteParts.push("Current production-ready support scope is Big Ten teams, Notre Dame, and Utah. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
 
     return `
         <div class="metric-title">Operator note</div>

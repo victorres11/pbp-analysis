@@ -118,16 +118,16 @@ Core sections are:
 
 ## Immediate Milestone: Michigan vs Utah 2025
 
-1. Backfill Utah 2025 StatBroadcast game briefs.
-2. Confirm Utah expected game count for the deliverable scope.
-3. Add Utah aliases, metadata, and PFF mapping.
-4. Generate selected-team bundle for Michigan and Utah.
-5. Generate selected-team CFBStats snapshot for Michigan and Utah.
-6. Generate selected-team verification report for Michigan and Utah.
-7. Refresh selected-team PFF/enrichment.
-8. Render markdown and HTML.
-9. Review warnings and final content quality.
-10. Mark Utah 2025 readiness based on evidence.
+1. Done: backfilled Utah 2025 StatBroadcast game briefs from archive XML.
+2. Done: confirmed Utah expected game count for the deliverable scope is 13.
+3. Done: added Utah aliases/metadata needed for bundle aggregation.
+4. Done: generated a bundle containing Michigan and Utah.
+5. Done: generated a CFBStats snapshot including Utah.
+6. Done: generated a verification report including Utah.
+7. Done: refreshed selected-team PFF/enrichment, with partial-provider warnings documented.
+8. Done: rendered markdown and HTML.
+9. Done: reviewed warnings and final content quality.
+10. Done: marked Utah 2025 ready with documented warnings.
 
 Definition of done:
 
