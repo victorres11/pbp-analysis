@@ -168,6 +168,38 @@ different risk profile:
 - PFF mapping outside current Big Ten-heavy path
 - non-Big-Ten deliverable after Utah
 
+Current status:
+
+1. Done: backfilled 13 UConn games for 2025.
+2. Done: used StatBroadcast archive XML for 12 games and SIDEARM boxscore data
+   for the Buffalo game that was missing from the archive links.
+3. Done: added UConn/Connecticut aliases in parser, API, and analysis lookup
+   paths.
+4. Done: generated a 21-team 2025 bundle including UConn, Utah, Notre Dame,
+   and the current supported Big Ten set.
+5. Done: generated a CFBStats snapshot where UConn resolves as Connecticut in
+   the Independents scope.
+6. Done: generated a verifier report with zero fail metrics; UConn carries 12
+   warning-level source/parity special cases.
+7. Done: preflighted Notre Dame vs UConn with expected games
+   `Notre Dame=12`, `UConn=13`, and expected conference `Independents` for both
+   teams. The run exits 0 when enrichment is not required.
+8. Done: rendered markdown and HTML with `--no-enrichment`; penalties,
+   rankings, schedule, explosives, zones, turnovers, middle 8, situational,
+   and special teams sections populate.
+9. Blocked: PFF enrichment has not been validated for this matchup. Local
+   `yr-data-api` needs `PFF_COOKIE`, and deployed PFF endpoints timed out during
+   proof testing on April 14, 2026.
+
+Definition of done before UConn is fully production-ready:
+
+- PFF enrichment refresh succeeds for Notre Dame and UConn, or an explicit
+  delivery policy allows a no-PFF brief with visible API-unavailable notices.
+- The final deliverable preflight passes with the policy selected for that
+  client request.
+- Any remaining warning-level verification findings are documented in the
+  readiness registry.
+
 ## 2026 In-Season Model
 
 Before the 2026 season starts, teams can be integration-ready but not weekly

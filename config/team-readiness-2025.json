@@ -118,32 +118,43 @@
       "display_name": "UConn",
       "canonical_name": "Connecticut",
       "conference": "Independents",
-      "status": "unknown",
-      "deliverable_status": "blocked",
+      "status": "onboarding",
+      "deliverable_status": "core_ready_enrichment_blocked",
       "statbroadcast": {
-        "status": "missing",
-        "expected_games": null,
-        "found_games": 0,
-        "source": "needs CollegePressBox/StatBroadcast backfill"
+        "status": "complete",
+        "expected_games": 13,
+        "found_games": 13,
+        "source": "StatBroadcast archive XML plus SIDEARM Buffalo fallback"
       },
       "cfbstats": {
-        "status": "needs_verification",
+        "status": "verified",
         "conference_scope": "Independents",
-        "snapshot_present": false
+        "snapshot_present": true,
+        "canonical_key": "connecticut"
       },
       "pff": {
-        "status": "unknown",
-        "slug": null
+        "status": "blocked",
+        "slug": "connecticut-huskies",
+        "notes": [
+          "Local yr-data-api requires PFF_COOKIE before enrichment can be refreshed.",
+          "Deployed PFF endpoints timed out during UConn proof testing on 2026-04-14."
+        ]
       },
       "verification": {
-        "status": "not_run",
-        "failures": null,
-        "warnings": null,
-        "notes": []
+        "status": "passed_with_warnings",
+        "failures": 0,
+        "warnings": 12,
+        "notes": [
+          "Full 21-team verifier report has zero fail metrics.",
+          "UConn warnings are bounded source/parity special cases.",
+          "Preflight for Notre Dame vs UConn exits 0 when enrichment is not required."
+        ]
       },
       "notes": [
         "Use this as the second non-current-scope proof after Michigan vs Utah.",
-        "Confirm UConn vs Connecticut naming before marking ready."
+        "UConn bundle slug resolves to CFBStats Connecticut for independent conference rankings.",
+        "Core markdown/html smoke run exits 0 with populated penalties, rankings, and situational XML fields.",
+        "Do not mark fully production-ready until PFF enrichment can be refreshed or an explicit no-PFF delivery policy is approved."
       ]
     }
   }
