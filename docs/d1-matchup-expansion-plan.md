@@ -130,6 +130,8 @@ The selected-matchup operator command reads the readiness registry before
 rendering. Teams marked `blocked`, `unknown`, or `onboarding` block by default;
 teams marked `existing_supported` are allowed with warning-level visibility;
 teams marked `production_ready*` are approved by the registry gate.
+Use `python -m scripts.game_prep_brief.readiness_registry` to audit registry
+evidence before a slate of client requests.
 
 When a selected team is missing, stale, or source-blocked, use the team
 onboarding runbook: `docs/team-onboarding-troubleshooting-runbook.md`.

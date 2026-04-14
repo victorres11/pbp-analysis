@@ -74,6 +74,16 @@ python -m scripts.game_prep_brief.selected_matchup Michigan Utah \
 Use `--no-readiness-gate` only for local diagnosis. Client-delivery runs should
 keep the readiness gate enabled.
 
+Audit the registry directly when preparing for a slate of possible requests:
+
+```bash
+python -m scripts.game_prep_brief.readiness_registry \
+  --registry config/team-readiness-2025.json
+```
+
+The report flags incomplete evidence, blocked statuses, game-count mismatches,
+missing PFF slugs, and partial-provider statuses that need notes.
+
 ## Offline Or No-PFF Modes
 
 Reuse an existing enrichment artifact:
