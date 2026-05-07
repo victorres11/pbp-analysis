@@ -1936,6 +1936,10 @@ def _normalize_team_name_key(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
 
 
+def _raw_team_name_keys(team_slug: str, team_name: str) -> set[str]:
+    return {_normalize_team_name_key(variant) for variant in _team_name_variants(team_name, team_slug)}
+
+
 def _normalize_game_date_key(value: object) -> str:
     text = str(value or "").strip()
     if not text:
@@ -1968,7 +1972,7 @@ def _load_raw_game_fourth_down_totals(team_slug: str, team_name: str) -> dict[st
     if not team_dir.exists():
         return {}
 
-    team_name_key = _normalize_team_name_key(team_name)
+    team_name_keys = _raw_team_name_keys(team_slug, team_name)
     totals_by_date: dict[str, dict] = {}
     for path in sorted(team_dir.glob("game_*.json")):
         try:
@@ -1983,7 +1987,7 @@ def _load_raw_game_fourth_down_totals(team_slug: str, team_name: str) -> dict[st
             (
                 idx
                 for idx, candidate_name in enumerate(team_names)
-                if _normalize_team_name_key(candidate_name) == team_name_key
+                if _normalize_team_name_key(candidate_name) in team_name_keys
             ),
             None,
         )
@@ -2013,7 +2017,7 @@ def _load_raw_game_third_down_totals(team_slug: str, team_name: str) -> dict[str
     if not team_dir.exists():
         return {}
 
-    team_name_key = _normalize_team_name_key(team_name)
+    team_name_keys = _raw_team_name_keys(team_slug, team_name)
     totals_by_date: dict[str, dict] = {}
     for path in sorted(team_dir.glob("game_*.json")):
         try:
@@ -2028,7 +2032,7 @@ def _load_raw_game_third_down_totals(team_slug: str, team_name: str) -> dict[str
             (
                 idx
                 for idx, candidate_name in enumerate(team_names)
-                if _normalize_team_name_key(candidate_name) == team_name_key
+                if _normalize_team_name_key(candidate_name) in team_name_keys
             ),
             None,
         )
@@ -2370,10 +2374,17 @@ def get_team_pbp(pbp_teams: dict, team_name: str, school_slug: str) -> dict | No
     if slug in pbp_teams:
         return pbp_teams[slug]
 
-    name_lower = team_name.lower()
-    for _, val in pbp_teams.items():
-        stored = (val.get("name") or "").lower()
-        if name_lower in stored or stored in name_lower:
+    name_variants = _team_name_variants(team_name, school_slug)
+    for entry_slug, val in pbp_teams.items():
+        if not isinstance(val, dict):
+            continue
+        stored_names = {
+            _norm_team_name(entry_slug),
+            _norm_team_name(val.get("team_slug")),
+            _norm_team_name(val.get("team_name")),
+            _norm_team_name(val.get("name")),
+        }
+        if name_variants & stored_names:
             return val
 
     return None

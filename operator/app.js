@@ -48,6 +48,10 @@ const SUPPORTED_TEAM_GROUPS = [
         label: "Big 12",
         teams: ["Utah"],
     },
+    {
+        label: "Pac-12",
+        teams: ["Washington State"],
+    },
 ];
 
 const WORKFLOW_PAGE = (repo) => `https://github.com/${repo}/actions/workflows/${DEFAULTS.workflowFile}`;
@@ -1226,7 +1230,7 @@ function renderOperatorNote(runsResult, publishedResult, repo, season) {
         noteParts.push("The published summary could not be loaded. A token may be required if the repo or release is private.");
     }
 
-    noteParts.push("Current production-ready support scope is Big Ten teams, Notre Dame, and Utah. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
+    noteParts.push("Current production-ready support scope is Big Ten teams, Notre Dame, Utah, and Washington State. Other teams may still run, but should be treated as exploratory until broader readiness work lands.");
 
     return `
         <div class="metric-title">Operator note</div>

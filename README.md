@@ -65,7 +65,7 @@ Notes:
 - Optionally overlays matchup-specific data from `matchups/<slug>/data.json`.
 - Coach/play-caller fields are currently placeholder `N/A` in this repo.
 - `run-game-prep-brief.sh` automatically prefers a Python 3.10+ venv so upstream parser helpers are available.
-- Current production-ready support scope is Big Ten teams plus Notre Dame.
+- Current production-ready support scope is Big Ten teams plus Notre Dame, Utah, and Washington State.
   - Other teams may still render successfully, but should be treated as exploratory or partial until the broader coverage work lands.
 - Play-tree team/opp attribution uses a shared offense-token resolver:
   - direct team/opponent abbreviation match first
@@ -79,7 +79,7 @@ The refresh pipeline now has a thin operator UI at [operator/index.html](./opera
 
 - Deployed route: `/operator/`
 - Purpose: launch `Brief Live Refresh`, inspect the newest workflow run, and verify the rolling `brief-artifacts-<season>` release without introducing a new backend
-- Current supported production scope: Big Ten teams plus Notre Dame
+- Current supported production scope: Big Ten teams plus Notre Dame, Utah, and Washington State
   - The dashboard is the operator surface for that supported set first; broader FBS use is not yet promised as equally production-ready
 - Source of truth stays the same:
   - GitHub Actions for live runs

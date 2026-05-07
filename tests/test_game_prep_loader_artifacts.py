@@ -109,6 +109,22 @@ def test_convert_xml_bundle_team_backfills_game_rows_from_bundle_stats() -> None
     assert game["opp_two_pt_attempts"] == 2
 
 
+def test_get_team_pbp_requires_exact_normalized_team_match() -> None:
+    pbp_teams = {
+        "washington": {"name": "Washington", "team_slug": "washington"},
+    }
+
+    assert loaders.get_team_pbp(pbp_teams, "Washington State", "washington-state") is None
+
+
+def test_get_team_pbp_matches_state_abbreviation_variant() -> None:
+    pbp_teams = {
+        "wsu": {"name": "Washington St.", "team_slug": "wsu"},
+    }
+
+    assert loaders.get_team_pbp(pbp_teams, "Washington State", "washington-state") == pbp_teams["wsu"]
+
+
 def test_gather_team_data_uses_offline_cfbstats_artifacts(
     monkeypatch,
 ) -> None:
