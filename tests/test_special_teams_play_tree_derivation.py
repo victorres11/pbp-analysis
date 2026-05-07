@@ -106,6 +106,63 @@ def test_apply_special_teams_derivations_parses_impact_metrics_and_two_point_eve
     assert any("derived two-point totals differ from XML" in warning for warning in warnings)
 
 
+def test_apply_special_teams_derivations_treats_scoring_context_failed_tries_as_failed() -> None:
+    pbp_entry = {
+        "abbr": "WSU",
+        "abbr_aliases": ["WSU"],
+        "games": [
+            {
+                "game_number": 1,
+                "opponent_abbr": "SDS",
+                "opponent": "San Diego State",
+                "play_tree": [
+                    {
+                        "quarter": 2,
+                        "drives": [
+                            {
+                                "plays": [
+                                    _play(
+                                        "WSU - Harris,Ryan rush attempt failed.",
+                                        offense="WSU",
+                                        is_scoring=True,
+                                    ),
+                                    _play(
+                                        "SDS - Crum,Kyle rush attempt failed.",
+                                        offense="SDS",
+                                        is_scoring=True,
+                                    ),
+                                ]
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "xml_stats": {
+            "two_point": {
+                "WSU": {
+                    "games": 1,
+                    "two_point_attempts": 1,
+                    "two_point_conversions": 0,
+                    "two_point_allowed_attempts": 1,
+                    "two_point_allowed_conversions": 0,
+                }
+            }
+        },
+    }
+
+    warnings = loaders._apply_special_teams_play_tree_derivations("Washington State", pbp_entry)
+
+    game = pbp_entry["games"][0]
+    assert game["two_pt_attempts"] == 1
+    assert game["two_pt_conversions"] == 0
+    assert game["two_pt_rush_attempts"] == 1
+    assert game["two_pt_rush_conversions"] == 0
+    assert game["opp_two_pt_attempts"] == 1
+    assert game["opp_two_pt_conversions"] == 0
+    assert not any("derived two-point totals differ from XML" in warning for warning in warnings)
+
+
 def test_special_teams_markdown_uses_na_for_last3_two_point_when_no_game_level_signal() -> None:
     team = {
         "display_name": "Washington",

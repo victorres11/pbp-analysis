@@ -1031,7 +1031,10 @@ def _derive_two_point_stats_from_play_tree(
         has_two_pt_keyword = any(keyword in desc_up for keyword in two_pt_keywords)
         has_attempt_phrase = (
             ("PASS ATTEMPT" in desc_up or "RUSH ATTEMPT" in desc_up)
-            and any(keyword in desc_up for keyword in ("SUCCESSFUL", "FAILED"))
+            and (
+                any(keyword in desc_up for keyword in success_keywords)
+                or any(keyword in desc_up for keyword in failure_keywords)
+            )
         )
         if not has_two_pt_keyword and not has_attempt_phrase:
             continue
@@ -1045,10 +1048,10 @@ def _derive_two_point_stats_from_play_tree(
             continue
 
         has_failure = any(keyword in desc_up for keyword in failure_keywords)
-        if bool(play.get("is_scoring")):
-            successful = True
-        elif has_failure:
+        if has_failure:
             successful = False
+        elif bool(play.get("is_scoring")):
+            successful = True
         else:
             successful = any(keyword in desc_up for keyword in success_keywords)
 
