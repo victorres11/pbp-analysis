@@ -11,6 +11,7 @@ from typing import Any
 
 from .loaders import (
     build_enrichment_payload,
+    get_team_pbp,
     load_enrichment_file,
     merge_enrichment_payload,
     slugify,
@@ -282,14 +283,39 @@ def build_readiness_report(
     }
 
 
+def _team_spec_for_enrichment(
+    team_name: str,
+    expected_games: dict[str, str],
+    bundle: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    slug = slugify(team_name)
+    spec: dict[str, Any] = {"slug": slug, "display_name": team_name}
+
+    expected = _expected_games_for(team_name, expected_games)
+    if isinstance(expected, int) and expected > 0:
+        spec["games_played_hint"] = expected
+        return spec
+
+    teams = bundle.get("teams") if isinstance(bundle, dict) else None
+    if isinstance(teams, dict):
+        team_row = get_team_pbp(teams, team_name, slug)
+        games = team_row.get("games_parsed") if isinstance(team_row, dict) else None
+        if isinstance(games, int) and games > 0:
+            spec["games_played_hint"] = games
+
+    return spec
+
+
 def refresh_enrichment(args: argparse.Namespace, paths: OperatorPaths) -> dict[str, Any] | None:
     if args.no_enrichment:
         return None
 
     if args.refresh_enrichment:
+        expected_games = _parse_keyed_values(args.expected_games)
+        bundle = _load_json(paths.bundle) if paths.bundle.exists() else {}
         team_specs = [
-            {"slug": slugify(args.team1), "display_name": args.team1},
-            {"slug": slugify(args.team2), "display_name": args.team2},
+            _team_spec_for_enrichment(args.team1, expected_games, bundle),
+            _team_spec_for_enrichment(args.team2, expected_games, bundle),
         ]
         existing = load_enrichment_file(paths.enrichment_file)
         refreshed = build_enrichment_payload(team_specs)

@@ -21,6 +21,7 @@ from .loaders import (
     validate_enrichment_payload,
     write_enrichment_file,
     gather_team_data,
+    get_team_pbp,
     load_pbp_data,
     fetch_ncaa_scoreboard,
     find_ncaa_game,
@@ -139,6 +140,16 @@ def _resolve_enrichment_artifact(args, team_specs: list[dict]) -> tuple[Path, di
     return enrichment_file, enrichment_by_slug
 
 
+def _team_spec_from_bundle(pbp_teams: dict, team_name: str) -> dict:
+    slug = slugify(team_name)
+    spec = {"slug": slug, "display_name": team_name}
+    team_row = get_team_pbp(pbp_teams, team_name, slug)
+    games = team_row.get("games_parsed") if isinstance(team_row, dict) else None
+    if isinstance(games, int) and games > 0:
+        spec["games_played_hint"] = games
+    return spec
+
+
 def main():
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -150,8 +161,8 @@ def main():
     )
     bundle_meta = pbp_teams.pop("_meta", None) or {}
     team_specs = [
-        {"slug": slugify(args.team1), "display_name": args.team1},
-        {"slug": slugify(args.team2), "display_name": args.team2},
+        _team_spec_from_bundle(pbp_teams, args.team1),
+        _team_spec_from_bundle(pbp_teams, args.team2),
     ]
     enrichment_file, enrichment_by_slug = _resolve_enrichment_artifact(args, team_specs)
 

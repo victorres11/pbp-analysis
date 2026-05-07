@@ -2638,7 +2638,12 @@ def _fetch_negative_play_stats(team_slug: str, team_name: str | None = None) -> 
     return out, _build_provider_entry("negative_plays", out, reasons=reasons)
 
 
-def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
+def _fetch_pff_snapshot(
+    team_slug: str,
+    team_name: str | None = None,
+    *,
+    games_played_hint: int | None = None,
+) -> tuple[dict, dict]:
     """Fetch compact PFF metrics used in callout blocks."""
     if not team_slug and not team_name:
         out = {
@@ -2693,8 +2698,18 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
         except (TypeError, ValueError, AttributeError):
             if games_result.get("reason"):
                 reasons.append(f"pff_games_played:{games_result.get('reason')}")
-            return None
-        return games if games > 0 else None
+            return (
+                games_played_hint
+                if isinstance(games_played_hint, int) and games_played_hint > 0
+                else None
+            )
+        if games > 0:
+            return games
+        return (
+            games_played_hint
+            if isinstance(games_played_hint, int) and games_played_hint > 0
+            else None
+        )
 
     def _per_game_value(
         total_value: object,
@@ -2851,7 +2866,12 @@ def _fetch_pff_snapshot(team_slug: str, team_name: str | None = None) -> tuple[d
     return out, _build_provider_entry("pff", out, reasons=reasons)
 
 
-def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> tuple[dict, dict]:
+def _fetch_live_enrichment(
+    team_slug: str,
+    team_name: str | None = None,
+    *,
+    games_played_hint: int | None = None,
+) -> tuple[dict, dict]:
     payload: dict = {}
     providers: dict = {}
 
@@ -2863,7 +2883,11 @@ def _fetch_live_enrichment(team_slug: str, team_name: str | None = None) -> tupl
     payload.update(negative_values)
     providers["negative_plays"] = negative_provider
 
-    pff_values, pff_provider = _fetch_pff_snapshot(team_slug, team_name=team_name)
+    pff_values, pff_provider = _fetch_pff_snapshot(
+        team_slug,
+        team_name=team_name,
+        games_played_hint=games_played_hint,
+    )
     payload.update(pff_values)
     providers["pff"] = pff_provider
 
@@ -2901,8 +2925,17 @@ def validate_enrichment_payload(payload: dict, required_team_slugs: list[str]) -
     return normalized
 
 
-def build_team_enrichment(team_slug: str, team_name: str | None = None) -> dict:
-    data, providers = _fetch_live_enrichment(team_slug, team_name=team_name)
+def build_team_enrichment(
+    team_slug: str,
+    team_name: str | None = None,
+    *,
+    games_played_hint: int | None = None,
+) -> dict:
+    data, providers = _fetch_live_enrichment(
+        team_slug,
+        team_name=team_name,
+        games_played_hint=games_played_hint,
+    )
     return {
         **data,
         "_providers": providers,
@@ -2918,7 +2951,11 @@ def build_enrichment_payload(team_specs: list[dict]) -> dict:
         slug = (spec.get("slug") or "").strip().lower()
         if not slug:
             continue
-        payload[slug] = build_team_enrichment(slug, team_name=spec.get("display_name"))
+        payload[slug] = build_team_enrichment(
+            slug,
+            team_name=spec.get("display_name"),
+            games_played_hint=spec.get("games_played_hint"),
+        )
     return payload
 
 

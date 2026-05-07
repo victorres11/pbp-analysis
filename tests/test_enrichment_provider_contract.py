@@ -104,6 +104,74 @@ def test_fetch_pff_snapshot_uses_json_payloads_and_games_played_fallback(monkeyp
     assert provider["reasons"] == []
 
 
+def test_fetch_pff_snapshot_uses_games_hint_when_games_endpoint_is_missing(monkeypatch) -> None:
+    def _fake_fetch_text(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        payloads = {
+            "pff/plays?side=off&format=text": "68.4",
+            "pff/plays?side=def&format=text": "62.6",
+            "pff/play-clock?format=text": "10.1554\t0.5523\t0.198\t0.1125",
+        }
+        text = payloads.get(suffix)
+        if text:
+            return {"text": text, "status": "ok", "reason": None, "url": suffix}
+        return {
+            "text": None,
+            "status": "unavailable",
+            "reason": "HTTPError: HTTP Error 404: Not Found",
+            "url": suffix,
+        }
+
+    def _fake_fetch_json(_candidates: list[str], suffix: str, **_kwargs) -> dict[str, object]:
+        payloads = {
+            "pff/tackling-per-game": {
+                "data": {
+                    "games": 0,
+                    "missed_tackles": 223,
+                    "missed_tackles_per_game": 0,
+                    "tfl": 75,
+                    "tfl_per_game": 0,
+                    "sacks": 40,
+                    "sacks_per_game": 0,
+                }
+            },
+            "pff/fmt": {
+                "data": {
+                    "games": 0,
+                    "fmt": 117,
+                    "fmt_per_game": 0,
+                }
+            },
+            "pff/sacks-allowed": {
+                "data": {
+                    "games": 0,
+                    "sacks_allowed": 15,
+                    "sacks_allowed_per_game": 0,
+                }
+            },
+        }
+        payload = payloads.get(suffix)
+        return {"json": payload, "status": "ok" if payload else "unavailable", "reason": None, "url": suffix}
+
+    monkeypatch.setattr(loaders, "_fetch_text_result_from_candidates", _fake_fetch_text)
+    monkeypatch.setattr(loaders, "_fetch_json_result_from_candidates", _fake_fetch_json)
+
+    values, provider = loaders._fetch_pff_snapshot(
+        "washington-state",
+        team_name="Washington State",
+        games_played_hint=13,
+    )
+
+    assert values["pff_missed_tackles_pg"] == "17.2"
+    assert values["pff_tfl_pg"] == "5.8"
+    assert values["pff_sacks_pg"] == "3.1"
+    assert values["pff_sacks_allowed_pg"] == "1.2"
+    assert values["pff_fmt_total"] == "117"
+    assert values["pff_fmt_pg"] == "9.0"
+    assert values["pff_hurry_up_pct"] == "55.2%"
+    assert provider["status"] == "ok"
+    assert provider["reasons"] == ["pff_games_played:HTTPError: HTTP Error 404: Not Found"]
+
+
 def test_fetch_negative_play_stats_uses_supported_side_parameters(monkeypatch) -> None:
     seen_suffixes: list[str] = []
 

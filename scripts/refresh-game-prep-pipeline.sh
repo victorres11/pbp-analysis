@@ -543,12 +543,14 @@ run_stage_allow() {
 }
 
 refresh_enrichment() {
-  PYTHONPATH="${ANALYSIS_ROOT}" "${PYTHON_BIN}" - "${ENRICHMENT_FILE}" "${TEAM1}" "${TEAM2}" <<'PY'
+  PYTHONPATH="${ANALYSIS_ROOT}" "${PYTHON_BIN}" - "${ENRICHMENT_FILE}" "${BUNDLE_PATH}" "${TEAM1}" "${TEAM2}" <<'PY'
+import json
 from pathlib import Path
 import sys
 
 from scripts.game_prep_brief.loaders import (
     build_enrichment_payload,
+    get_team_pbp,
     load_enrichment_file,
     merge_enrichment_payload,
     slugify,
@@ -557,8 +559,25 @@ from scripts.game_prep_brief.loaders import (
 )
 
 enrichment_path = Path(sys.argv[1]).expanduser()
-team_names = sys.argv[2:]
-team_specs = [{"slug": slugify(name), "display_name": name} for name in team_names]
+bundle_path = Path(sys.argv[2]).expanduser()
+team_names = sys.argv[3:]
+
+try:
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    bundle = {}
+teams = bundle.get("teams") if isinstance(bundle, dict) else {}
+
+def team_spec(name: str) -> dict:
+    slug = slugify(name)
+    spec = {"slug": slug, "display_name": name}
+    team_row = get_team_pbp(teams, name, slug) if isinstance(teams, dict) else None
+    games = team_row.get("games_parsed") if isinstance(team_row, dict) else None
+    if isinstance(games, int) and games > 0:
+        spec["games_played_hint"] = games
+    return spec
+
+team_specs = [team_spec(name) for name in team_names]
 refreshed = build_enrichment_payload(team_specs)
 if not refreshed:
     raise SystemExit(f"Enrichment refresh returned no data for {enrichment_path}")
